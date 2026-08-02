@@ -46,10 +46,12 @@ class LocalMarketStore:
                 direction VARCHAR NOT NULL,
                 parameters JSON NOT NULL,
                 provider VARCHAR NOT NULL,
+                strategy_yaml VARCHAR,
                 created_at TIMESTAMP NOT NULL,
                 updated_at TIMESTAMP NOT NULL
             )
         """)
+        self.connection.execute("ALTER TABLE strategy_catalogue ADD COLUMN IF NOT EXISTS strategy_yaml VARCHAR")
         self.connection.execute("""
             CREATE TABLE IF NOT EXISTS backtest_runs (
                 run_id VARCHAR PRIMARY KEY,
@@ -120,8 +122,8 @@ class LocalMarketStore:
             [symbol, datetime.now(timezone.utc).replace(tzinfo=None), json.dumps(payload)],
         )
 
-    def save_strategy(self, instruction: str, definition: dict, provider: str) -> dict:
-        fingerprint = json.dumps({"instruction": instruction.strip().lower(), "definition": definition}, sort_keys=True)
+    def save_strategy(self, instruction: str, definition: dict, provider: str, strategy_yaml: str) -> dict:
+        fingerprint = json.dumps({"instruction": instruction.strip().lower(), "yaml": strategy_yaml}, sort_keys=True)
         row = self.connection.execute(
             "SELECT strategy_id, created_at FROM strategy_catalogue WHERE fingerprint = ?", [fingerprint]
         ).fetchone()
@@ -129,21 +131,26 @@ class LocalMarketStore:
         strategy_id, created_at = (row[0], row[1]) if row else (str(uuid4()), now)
         self.connection.execute("DELETE FROM strategy_catalogue WHERE fingerprint = ?", [fingerprint])
         self.connection.execute(
-            """INSERT INTO strategy_catalogue VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            [strategy_id, fingerprint, instruction, definition["name"], definition["description"], definition["strategy_type"], definition["direction"], json.dumps(definition["parameters"]), provider, created_at, now],
+            """INSERT INTO strategy_catalogue
+               (strategy_id, fingerprint, instruction, name, description, strategy_type, direction, parameters, provider, strategy_yaml, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            [strategy_id, fingerprint, instruction, definition["name"], definition["description"], definition["strategy_type"], definition["direction"], json.dumps(definition["parameters"]), provider, strategy_yaml, created_at, now],
         )
-        return {"id": strategy_id, "createdAt": created_at.isoformat(), "updatedAt": now.isoformat(), **definition, "provider": provider, "instruction": instruction}
+        return {"id": strategy_id, "createdAt": created_at.isoformat(), "updatedAt": now.isoformat(), **definition, "provider": provider, "instruction": instruction, "strategyYaml": strategy_yaml}
 
     def list_strategies(self) -> list[dict]:
         rows = self.connection.execute(
-            """SELECT strategy_id, instruction, name, description, strategy_type, direction, parameters, provider, created_at, updated_at
+            """SELECT strategy_id, instruction, name, description, strategy_type, direction, parameters, provider, strategy_yaml, created_at, updated_at
                FROM strategy_catalogue ORDER BY updated_at DESC"""
         ).fetchall()
         return [{
             "id": row[0], "instruction": row[1], "name": row[2], "description": row[3],
             "strategy_type": row[4], "direction": row[5], "parameters": json.loads(row[6]),
-            "provider": row[7], "createdAt": row[8].isoformat(), "updatedAt": row[9].isoformat(),
+            "provider": row[7], "strategyYaml": row[8], "createdAt": row[9].isoformat(), "updatedAt": row[10].isoformat(),
         } for row in rows]
+
+    def get_strategy(self, strategy_id: str) -> dict | None:
+        return next((strategy for strategy in self.list_strategies() if strategy["id"] == strategy_id), None)
 
     def save_backtest(self, strategy_id: str, ticker: str, window: str, metrics: dict, trades: list[dict]) -> str:
         run_id, now = str(uuid4()), datetime.now(timezone.utc).replace(tzinfo=None)

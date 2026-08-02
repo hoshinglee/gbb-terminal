@@ -3,6 +3,8 @@ const setStatus = (value) => { $("#status").textContent = `● ${value}`; };
 const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
 const notify = (message) => { const toast = $("#toast"); toast.textContent = message; toast.style.display = "block"; window.clearTimeout(notify.timeout); notify.timeout = window.setTimeout(() => { toast.style.display = "none"; }, 6000); };
 const signed = (number, suffix = "%") => `<span class="${number >= 0 ? "positive" : "negative"}">${number >= 0 ? "+" : ""}${number}${suffix}</span>`;
+let selectedStrategyId = null;
+let catalogueStrategies = [];
 const api = async (url, options = {}) => {
   setStatus("LOADING");
   try {
@@ -49,20 +51,31 @@ function renderTrades(trades) {
   $("#trade-ledger").innerHTML = `<div class="trade-row trade-head"><span>SIDE</span><span>ENTRY</span><span>PRICE</span><span>EXIT</span><span>PRICE</span><span>P&amp;L</span><span>RETURN</span></div>${trades.map(row).join("")}`;
 }
 function renderCatalogue(strategies) {
+  catalogueStrategies = strategies;
   $("#catalogue-count").textContent = `${strategies.length} saved strateg${strategies.length === 1 ? "y" : "ies"}`;
-  $("#strategy-catalogue").innerHTML = strategies.length ? strategies.map(strategy => `<div class="catalogue-item"><strong>${escapeHtml(strategy.name)}</strong><p>${escapeHtml(strategy.description)}</p><span>${escapeHtml(strategy.provider)} · ${escapeHtml(strategy.strategy_type)} · ${escapeHtml(strategy.updatedAt.slice(0, 10))}</span></div>`).join("") : "<p class=\"eyebrow\">Saved strategy definitions appear here.</p>";
+  $("#strategy-catalogue").innerHTML = strategies.length ? strategies.map(strategy => `<div class="catalogue-item"><div><strong>${escapeHtml(strategy.name)}</strong><p>${escapeHtml(strategy.description)}</p><span>${escapeHtml(strategy.provider)} · ${escapeHtml(strategy.strategy_type)} · ${escapeHtml(strategy.updatedAt.slice(0, 10))}</span></div><button class="outline load-strategy" data-strategy-id="${escapeHtml(strategy.id)}">Load</button><details><summary>Preview YAML</summary><pre>${escapeHtml(strategy.strategyYaml || "Legacy strategy: YAML will be generated after its next translation.")}</pre></details></div>`).join("") : "<p class=\"eyebrow\">Saved strategy definitions appear here.</p>";
+  document.querySelectorAll(".load-strategy").forEach(button => button.addEventListener("click", () => loadStrategyFromCatalogue(button.dataset.strategyId)));
 }
 async function loadCatalogue() { const response = await api("/api/strategies"); renderCatalogue(response.strategies); }
+function loadStrategyFromCatalogue(strategyId) {
+  const strategy = catalogueStrategies.find(item => item.id === strategyId);
+  if (!strategy) return;
+  selectedStrategyId = strategy.id;
+  $("#strategy-input").value = strategy.instruction;
+  $("#strategy-source").textContent = `Loaded from catalogue: ${strategy.name}.`;
+  $("#strategy-catalogue-modal").close();
+}
 
 async function runBacktest() {
   const ticker = $("#strategy-ticker").value.trim().toUpperCase();
   if (!ticker) throw new Error("Enter a US ticker before running the backtest.");
   const windowValue = $("#backtest-window").value;
-  const data = await api("/api/backtest", { method: "POST", body: JSON.stringify({ ticker, instruction: $("#strategy-input").value, window: windowValue }) });
+  const data = await api("/api/backtest", { method: "POST", body: JSON.stringify({ ticker, instruction: $("#strategy-input").value, strategy_id: selectedStrategyId, window: windowValue }) });
   const metrics = data.metrics;
   metricCards("#backtest-metrics", [{ label: "TOTAL RETURN", value: metrics.totalReturn, display: `${metrics.totalReturn}%` }, { label: "BUY & HOLD", value: metrics.benchmarkReturn, display: `${metrics.benchmarkReturn}%` }, { label: "SPY", value: metrics.spyReturn, display: `${metrics.spyReturn}%` }, { label: "MAX DRAWDOWN", value: metrics.maxDrawdown, display: `${metrics.maxDrawdown}%` }, { label: "SHARPE RATIO", value: metrics.sharpeRatio, display: metrics.sharpeRatio }]);
   $("#parsed-strategy").textContent = data.strategy.description;
   $("#strategy-source").textContent = `Translation source: ${data.catalogueStrategy.provider.replaceAll("_", " ")}. Saved to catalogue.`;
+  selectedStrategyId = data.catalogueStrategy.id;
   $("#chart-window").textContent = `${windowValue.toUpperCase()} · NORMALIZED TO 1.00`;
   drawChart($("#backtest-chart"), data.chart, [{ key: "strategy", color: "#b6f559" }, { key: "buyHold", color: "#64d5c7" }, { key: "spy", color: "#f8bd5e" }], "date");
   renderTrades(data.trades); await loadCatalogue();
@@ -72,4 +85,7 @@ async function loadStock() { const ticker = $("#stock-ticker").value.trim().toUp
 async function loadMarket() { const data = await api("/api/market-overview"); $("#sectors").innerHTML = table(data.sectors, [{label:"SECTOR",key:"name"},{label:"LAST",key:"price",format:value=>`$${value}`},{label:"DAY",key:"changePercent",format:signed},{label:"RS VS SPY",key:"relativeStrength",format:signed}]); $("#macro").innerHTML = table(data.macro, [{label:"ASSET",key:"name"},{label:"LAST",key:"price",format:value=>`$${value}`},{label:"DAY",key:"changePercent",format:signed},{label:"SYMBOL",key:"symbol"}]); }
 document.querySelectorAll(".nav-item").forEach(button => button.addEventListener("click", () => { document.querySelectorAll(".nav-item,.panel").forEach(element => element.classList.remove("active")); button.classList.add("active"); $(`#${button.dataset.panel}`).classList.add("active"); $("#page-title").textContent = button.textContent.replace(/^\s*\d+\s*/, "").trim(); }));
 $("#run-backtest").addEventListener("click", withLoading("#run-backtest", runBacktest)); $("#run-simulation").addEventListener("click", withLoading("#run-simulation", runSimulation)); $("#load-stock").addEventListener("click", withLoading("#load-stock", loadStock)); $("#load-market").addEventListener("click", withLoading("#load-market", loadMarket));
+$("#open-catalogue").addEventListener("click", async () => { try { await loadCatalogue(); $("#strategy-catalogue-modal").showModal(); } catch (error) { notify(error.message); } });
+$("#close-catalogue").addEventListener("click", () => $("#strategy-catalogue-modal").close());
+$("#strategy-input").addEventListener("input", () => { selectedStrategyId = null; $("#strategy-source").textContent = "Instruction edited; it will be translated into a new YAML strategy."; });
 withLoading("#run-backtest", runBacktest)(); loadCatalogue().catch(error => notify(error.message));
