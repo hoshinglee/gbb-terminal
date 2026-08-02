@@ -27,7 +27,8 @@ Without a key, the application uses its deterministic moving-average parser. Wit
 
 - Data is sourced from Yahoo Finance and may be delayed, incomplete, or unavailable. It is for research only, not trading advice.
 - Requested price history and option chains are stored locally in `data/gbb_terminal.duckdb`. The database is ignored by Git and is refreshed every 15 minutes while the application is running.
-- Saved strategy definitions, backtest runs, and closed trades are also stored in that local DuckDB database.
+- Saved strategy definitions use semantic keys to prevent duplicates. Backtest runs and closed trades are also stored in that local DuckDB database.
+- Runtime events are written to the ignored, rotating `log/gbb_terminal.log` file.
 - The data provider is isolated in `app/market_data.py` so a production provider can replace it later.
 - The deterministic fallback supports: `long when MA5 crosses above MA10 and exit when MA5 crosses below MA10`.
 - Google AI Studio can compose registered price, SMA, EMA, RSI, and volume-average indicators into declarative strategies.

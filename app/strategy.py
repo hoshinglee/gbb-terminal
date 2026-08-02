@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
+from copy import deepcopy
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -54,7 +57,7 @@ class DeclarativeStrategy(Strategy):
     """A safe Strategy subclass interpreted from validated YAML data."""
 
     def __init__(self, configuration: dict[str, Any]) -> None:
-        self.configuration = StrategyFactory.validate(configuration)
+        self.configuration = StrategyFactory.validate(deepcopy(configuration))
 
     @property
     def entry_criteria(self) -> str:
@@ -73,12 +76,17 @@ class DeclarativeStrategy(Strategy):
         entry_signal = _evaluate_criteria(self.configuration["entry"], frame)
         exit_signal = _evaluate_criteria(self.configuration["exit"], frame)
         active_value = 1 if self.configuration["direction"] == "long" else -1
-        position, current = [], 0
-        for enter, exit_trade in zip(entry_signal.fillna(False), exit_signal.fillna(False)):
+        risk = self.configuration.get("risk", {})
+        position, current, entry_price = [], 0, None
+        for close, enter, exit_trade in zip(frame["close"], entry_signal.fillna(False), exit_signal.fillna(False)):
             if current == 0 and bool(enter):
-                current = active_value
-            elif current != 0 and bool(exit_trade):
-                current = 0
+                current, entry_price = active_value, float(close)
+            elif current != 0:
+                return_percent = (float(close) / float(entry_price) - 1) * 100 * active_value
+                stop_hit = risk.get("stop_loss_percent") is not None and return_percent <= -float(risk["stop_loss_percent"])
+                target_hit = risk.get("take_profit_percent") is not None and return_percent >= float(risk["take_profit_percent"])
+                if bool(exit_trade) or stop_hit or target_hit:
+                    current, entry_price = 0, None
             position.append(current)
         frame["position"] = position
         return frame
@@ -93,6 +101,7 @@ class DeclarativeStrategy(Strategy):
                 "indicators": self.configuration["indicators"],
                 "entry": self.configuration["entry"],
                 "exit": self.configuration["exit"],
+                "risk": self.configuration.get("risk", {}),
             },
         )
 
@@ -136,6 +145,8 @@ class StrategyFactory:
             raise ValueError("Only strategy YAML version 1 is supported.")
         if configuration["direction"] not in {"long", "short"}:
             raise ValueError("Strategy direction must be long or short.")
+        configuration["name"] = title_case(str(configuration["name"]))
+        configuration["description"] = sentence_case(str(configuration["description"]))
         if not isinstance(configuration["indicators"], dict) or not configuration["indicators"]:
             raise ValueError("A strategy must define at least one indicator.")
         for name, indicator in configuration["indicators"].items():
@@ -145,7 +156,44 @@ class StrategyFactory:
                 raise ValueError(f"Indicator '{name}' uses an unsupported type.")
         for section in ("entry", "exit"):
             _validate_criteria(configuration[section], set(configuration["indicators"]), cls.OPERATORS)
+        risk = configuration.get("risk", {})
+        if not isinstance(risk, dict):
+            raise ValueError("Strategy risk settings must be a mapping.")
+        for key in risk:
+            if key not in {"stop_loss_percent", "take_profit_percent"}:
+                raise ValueError(f"Unsupported risk setting '{key}'.")
+            value = float(risk[key])
+            if value <= 0 or value > 100:
+                raise ValueError("Risk percentages must be greater than 0 and at most 100.")
+            risk[key] = value
+        configuration["risk"] = risk
         return configuration
+
+    @staticmethod
+    def strategy_key(strategy: Strategy) -> str:
+        configuration = strategy.configuration if isinstance(strategy, DeclarativeStrategy) else yaml.safe_load(strategy.to_yaml())
+        aliases = sorted(configuration["indicators"], key=lambda alias: (json.dumps(configuration["indicators"][alias], sort_keys=True), alias))
+        alias_map = {alias: f"indicator_{index + 1}" for index, alias in enumerate(aliases)}
+
+        def canonical_criteria(criteria: dict[str, Any]) -> dict[str, Any]:
+            group, rules = next(iter(criteria.items()))
+            normalized = [{
+                "left": alias_map[rule["left"]],
+                "operator": rule["operator"],
+                "right": alias_map.get(rule["right"], rule["right"]) if isinstance(rule["right"], str) else rule["right"],
+                "right_multiplier": rule.get("right_multiplier", 1.0),
+            } for rule in rules]
+            return {group: sorted(normalized, key=lambda rule: json.dumps(rule, sort_keys=True))}
+
+        canonical = {
+            "version": 1,
+            "direction": configuration["direction"],
+            "indicators": [configuration["indicators"][alias] for alias in aliases],
+            "entry": canonical_criteria(configuration["entry"]),
+            "exit": canonical_criteria(configuration["exit"]),
+            "risk": configuration.get("risk", {}),
+        }
+        return hashlib.sha256(json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 def moving_average_configuration(fast_window: int, slow_window: int, direction: str = "long") -> dict[str, Any]:
@@ -166,7 +214,23 @@ def moving_average_configuration(fast_window: int, slow_window: int, direction: 
         },
         "entry": {"all": [{"left": "fast_ma", "operator": entry_operator, "right": "slow_ma"}]},
         "exit": {"any": [{"left": "fast_ma", "operator": exit_operator, "right": "slow_ma"}]},
+        "risk": {},
     }
+
+
+def title_case(value: str) -> str:
+    formatted = re.sub(r"[_-]+", " ", " ".join(value.strip().split())).title()
+    formatted = re.sub(r"\b(Ma|Sma|Ema|Rsi|Spy)(\d*)\b", lambda match: match.group(1).upper() + match.group(2), formatted)
+    return re.sub(r"\bP&L\b", "P&L", formatted)
+
+
+def sentence_case(value: str) -> str:
+    cleaned = " ".join(value.strip().split())
+    if not cleaned:
+        return "Strategy description."
+    cleaned = cleaned[:1].upper() + cleaned[1:]
+    cleaned = re.sub(r"\b(ma|sma|ema|rsi|spy)(\d*)\b", lambda match: match.group(1).upper() + match.group(2), cleaned, flags=re.IGNORECASE)
+    return cleaned if cleaned.endswith((".", "!", "?")) else f"{cleaned}."
 
 
 def parse_strategy(instruction: str) -> Strategy:
@@ -193,6 +257,11 @@ def _validate_criteria(criteria: dict[str, Any], indicators: set[str], operators
         right = rule.get("right")
         if not isinstance(right, (int, float)) and right not in indicators:
             raise ValueError("Rule right-hand side must be a defined indicator or number.")
+        multiplier = float(rule.get("right_multiplier", 1.0))
+        if multiplier <= 0 or multiplier > 100:
+            raise ValueError("Rule right_multiplier must be greater than 0 and at most 100.")
+        if "right_multiplier" in rule:
+            rule["right_multiplier"] = multiplier
 
 
 def _evaluate_criteria(criteria: dict[str, Any], frame: pd.DataFrame) -> pd.Series:
@@ -207,6 +276,7 @@ def _evaluate_criteria(criteria: dict[str, Any], frame: pd.DataFrame) -> pd.Seri
 def _evaluate_rule(rule: dict[str, Any], frame: pd.DataFrame) -> pd.Series:
     left = frame[rule["left"]]
     right = frame[rule["right"]] if isinstance(rule["right"], str) else float(rule["right"])
+    right = right * float(rule.get("right_multiplier", 1.0))
     operator = rule["operator"]
     if operator == "crosses_above":
         return (left > right) & (left.shift(1) <= (right.shift(1) if isinstance(right, pd.Series) else right))
@@ -218,7 +288,7 @@ def _evaluate_rule(rule: dict[str, Any], frame: pd.DataFrame) -> pd.Series:
 def _criteria_text(criteria: dict[str, Any]) -> str:
     group, rules = next(iter(criteria.items()))
     joiner = " AND " if group == "all" else " OR "
-    return joiner.join(f"{rule['left']} {rule['operator'].replace('_', ' ')} {rule['right']}" for rule in rules)
+    return joiner.join(f"{rule['left']} {rule['operator'].replace('_', ' ')} {rule.get('right_multiplier', 1):g} × {rule['right']}" if rule.get("right_multiplier", 1) != 1 else f"{rule['left']} {rule['operator'].replace('_', ' ')} {rule['right']}" for rule in rules)
 
 
 def _trades(frame: pd.DataFrame) -> list[dict[str, Any]]:
@@ -228,11 +298,16 @@ def _trades(frame: pd.DataFrame) -> list[dict[str, Any]]:
         if previous_position and position != previous_position and open_trade:
             multiplier, exit_price = (1 if previous_position == 1 else -1), float(row.close)
             pnl = (exit_price - open_trade["entryPrice"]) * multiplier
-            trades.append({**open_trade, "exitDate": index.strftime("%Y-%m-%d"), "exitPrice": round(exit_price, 2), "pnl": round(pnl, 2), "pnlPercent": round(pnl / open_trade["entryPrice"] * 100, 2)})
+            trades.append({**open_trade, "status": "Closed", "exitDate": index.strftime("%Y-%m-%d"), "exitPrice": round(exit_price, 2), "pnl": round(pnl, 2), "pnlPercent": round(pnl / open_trade["entryPrice"] * 100, 2)})
             open_trade = None
         if position and position != previous_position:
             open_trade = {"entryDate": index.strftime("%Y-%m-%d"), "entryPrice": round(float(row.close), 2), "side": "LONG" if position == 1 else "SHORT"}
         previous_position = position
+    if open_trade:
+        final_index, final_price = frame.index[-1], float(frame.iloc[-1].close)
+        multiplier = 1 if previous_position == 1 else -1
+        pnl = (final_price - open_trade["entryPrice"]) * multiplier
+        trades.append({**open_trade, "status": "Open", "exitDate": None, "exitPrice": round(final_price, 2), "asOfDate": final_index.strftime("%Y-%m-%d"), "pnl": round(pnl, 2), "pnlPercent": round(pnl / open_trade["entryPrice"] * 100, 2)})
     return trades
 
 
@@ -255,10 +330,11 @@ def run_backtest(history: pd.DataFrame, spy_history: pd.DataFrame, strategy: Str
     annualized_volatility = active["strategy_return"].std() * np.sqrt(252)
     sharpe = 0.0 if annualized_volatility == 0 else active["strategy_return"].mean() * 252 / annualized_volatility
     trades = _trades(active)
+    closed_trades = [trade for trade in trades if trade["status"] == "Closed"]
     chart = [{"date": index.strftime("%Y-%m-%d"), "strategy": round(float(row.equity), 4), "buyHold": round(float(row.benchmark_equity), 4), "spy": round(float(row.spy_equity), 4), "volume": round(float(row.volume), 0)} for index, row in active.iterrows()]
     return {
         "strategy": strategy.spec().to_dict(), "strategyYaml": strategy.to_yaml(),
-        "metrics": {"totalReturn": round((active.equity.iloc[-1] - 1) * 100, 2), "benchmarkReturn": round((active.benchmark_equity.iloc[-1] - 1) * 100, 2), "spyReturn": round((active.spy_equity.iloc[-1] - 1) * 100, 2), "maxDrawdown": round(drawdown.min() * 100, 2), "sharpeRatio": round(float(sharpe), 2), "trades": len(trades), "winRate": round(float(sum(trade["pnl"] > 0 for trade in trades) / len(trades) * 100), 1) if trades else 0.0},
+        "metrics": {"totalReturn": round((active.equity.iloc[-1] - 1) * 100, 2), "benchmarkReturn": round((active.benchmark_equity.iloc[-1] - 1) * 100, 2), "spyReturn": round((active.spy_equity.iloc[-1] - 1) * 100, 2), "maxDrawdown": round(drawdown.min() * 100, 2), "sharpeRatio": round(float(sharpe), 2), "trades": len(closed_trades), "openTrades": len(trades) - len(closed_trades), "winRate": round(float(sum(trade["pnl"] > 0 for trade in closed_trades) / len(closed_trades) * 100), 1) if closed_trades else 0.0},
         "chart": chart, "trades": trades,
     }
 
