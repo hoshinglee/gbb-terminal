@@ -1,0 +1,1 @@
+"""GBB Terminal application package."""
