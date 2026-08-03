@@ -38,6 +38,7 @@ class LocalMarketStore:
         self.connection.execute("""
             CREATE TABLE IF NOT EXISTS strategy_catalogue (
                 strategy_id VARCHAR PRIMARY KEY,
+                strategy_key VARCHAR,
                 fingerprint VARCHAR UNIQUE NOT NULL,
                 instruction VARCHAR NOT NULL,
                 name VARCHAR NOT NULL,
@@ -46,10 +47,13 @@ class LocalMarketStore:
                 direction VARCHAR NOT NULL,
                 parameters JSON NOT NULL,
                 provider VARCHAR NOT NULL,
+                strategy_yaml VARCHAR,
                 created_at TIMESTAMP NOT NULL,
                 updated_at TIMESTAMP NOT NULL
             )
         """)
+        self.connection.execute("ALTER TABLE strategy_catalogue ADD COLUMN IF NOT EXISTS strategy_key VARCHAR")
+        self.connection.execute("ALTER TABLE strategy_catalogue ADD COLUMN IF NOT EXISTS strategy_yaml VARCHAR")
         self.connection.execute("""
             CREATE TABLE IF NOT EXISTS backtest_runs (
                 run_id VARCHAR PRIMARY KEY,
@@ -120,30 +124,70 @@ class LocalMarketStore:
             [symbol, datetime.now(timezone.utc).replace(tzinfo=None), json.dumps(payload)],
         )
 
-    def save_strategy(self, instruction: str, definition: dict, provider: str) -> dict:
-        fingerprint = json.dumps({"instruction": instruction.strip().lower(), "definition": definition}, sort_keys=True)
+    def save_strategy(self, instruction: str, definition: dict, provider: str, strategy_yaml: str, strategy_key: str) -> dict:
+        fingerprint = strategy_key
         row = self.connection.execute(
-            "SELECT strategy_id, created_at FROM strategy_catalogue WHERE fingerprint = ?", [fingerprint]
+            "SELECT strategy_id, created_at FROM strategy_catalogue WHERE strategy_key = ?", [strategy_key]
         ).fetchone()
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         strategy_id, created_at = (row[0], row[1]) if row else (str(uuid4()), now)
-        self.connection.execute("DELETE FROM strategy_catalogue WHERE fingerprint = ?", [fingerprint])
-        self.connection.execute(
-            """INSERT INTO strategy_catalogue VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            [strategy_id, fingerprint, instruction, definition["name"], definition["description"], definition["strategy_type"], definition["direction"], json.dumps(definition["parameters"]), provider, created_at, now],
-        )
-        return {"id": strategy_id, "createdAt": created_at.isoformat(), "updatedAt": now.isoformat(), **definition, "provider": provider, "instruction": instruction}
+        values = [strategy_key, fingerprint, instruction, definition["name"], definition["description"], definition["strategy_type"], definition["direction"], json.dumps(definition["parameters"]), provider, strategy_yaml, now]
+        if row:
+            self.connection.execute(
+                """UPDATE strategy_catalogue SET strategy_key = ?, fingerprint = ?, instruction = ?, name = ?,
+                          description = ?, strategy_type = ?, direction = ?, parameters = ?, provider = ?,
+                          strategy_yaml = ?, updated_at = ? WHERE strategy_id = ?""",
+                [*values, strategy_id],
+            )
+        else:
+            self.connection.execute(
+                """INSERT INTO strategy_catalogue
+                   (strategy_id, strategy_key, fingerprint, instruction, name, description, strategy_type, direction, parameters, provider, strategy_yaml, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                [strategy_id, *values[:-1], created_at, now],
+            )
+        return {"id": strategy_id, "key": strategy_key, "createdAt": created_at.isoformat(), "updatedAt": now.isoformat(), **definition, "provider": provider, "instruction": instruction, "strategyYaml": strategy_yaml}
 
     def list_strategies(self) -> list[dict]:
         rows = self.connection.execute(
-            """SELECT strategy_id, instruction, name, description, strategy_type, direction, parameters, provider, created_at, updated_at
+            """SELECT strategy_id, strategy_key, instruction, name, description, strategy_type, direction, parameters, provider, strategy_yaml, created_at, updated_at
                FROM strategy_catalogue ORDER BY updated_at DESC"""
         ).fetchall()
         return [{
-            "id": row[0], "instruction": row[1], "name": row[2], "description": row[3],
-            "strategy_type": row[4], "direction": row[5], "parameters": json.loads(row[6]),
-            "provider": row[7], "createdAt": row[8].isoformat(), "updatedAt": row[9].isoformat(),
+            "id": row[0], "key": row[1], "instruction": row[2], "name": row[3], "description": row[4],
+            "strategy_type": row[5], "direction": row[6], "parameters": json.loads(row[7]),
+            "provider": row[8], "strategyYaml": row[9], "createdAt": row[10].isoformat(), "updatedAt": row[11].isoformat(),
         } for row in rows]
+
+    def get_strategy(self, strategy_id: str) -> dict | None:
+        return next((strategy for strategy in self.list_strategies() if strategy["id"] == strategy_id), None)
+
+    def deduplicate_strategies(self, strategy_resolver) -> int:
+        groups: dict[str, list[tuple[dict, dict]]] = {}
+        for item in self.list_strategies():
+            resolved = strategy_resolver(item)
+            groups.setdefault(resolved["key"], []).append((item, resolved))
+        removed = 0
+        self.connection.execute("BEGIN TRANSACTION")
+        try:
+            for strategy_key, records in groups.items():
+                keeper, normalized = records[0]
+                for duplicate, _ in records[1:]:
+                    self.connection.execute("UPDATE backtest_runs SET strategy_id = ? WHERE strategy_id = ?", [keeper["id"], duplicate["id"]])
+                    self.connection.execute("DELETE FROM strategy_catalogue WHERE strategy_id = ?", [duplicate["id"]])
+                    removed += 1
+                definition = normalized["definition"]
+                self.connection.execute(
+                    """UPDATE strategy_catalogue SET strategy_key = ?, fingerprint = ?, name = ?, description = ?,
+                              strategy_type = ?, direction = ?, parameters = ?, strategy_yaml = ? WHERE strategy_id = ?""",
+                    [strategy_key, strategy_key, definition["name"], definition["description"], definition["strategy_type"], definition["direction"], json.dumps(definition["parameters"]), normalized["strategy_yaml"], keeper["id"]],
+                )
+            self.connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS strategy_catalogue_key_index ON strategy_catalogue(strategy_key)")
+            self.connection.execute("COMMIT")
+        except Exception:
+            self.connection.execute("ROLLBACK")
+            raise
+        return removed
 
     def save_backtest(self, strategy_id: str, ticker: str, window: str, metrics: dict, trades: list[dict]) -> str:
         run_id, now = str(uuid4()), datetime.now(timezone.utc).replace(tzinfo=None)
@@ -151,7 +195,8 @@ class LocalMarketStore:
             "INSERT INTO backtest_runs VALUES (?, ?, ?, ?, ?, ?)",
             [run_id, strategy_id, ticker, window, json.dumps(metrics), now],
         )
-        if trades:
-            rows = [[run_id, number + 1, trade["entryDate"], trade["entryPrice"], trade["exitDate"], trade["exitPrice"], trade["side"], trade["pnl"], trade["pnlPercent"]] for number, trade in enumerate(trades)]
+        closed_trades = [trade for trade in trades if trade.get("status") == "Closed"]
+        if closed_trades:
+            rows = [[run_id, number + 1, trade["entryDate"], trade["entryPrice"], trade["exitDate"], trade["exitPrice"], trade["side"], trade["pnl"], trade["pnlPercent"]] for number, trade in enumerate(closed_trades)]
             self.connection.executemany("INSERT INTO backtest_trades VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
         return run_id

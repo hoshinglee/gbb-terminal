@@ -3,6 +3,9 @@ const setStatus = (value) => { $("#status").textContent = `● ${value}`; };
 const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
 const notify = (message) => { const toast = $("#toast"); toast.textContent = message; toast.style.display = "block"; window.clearTimeout(notify.timeout); notify.timeout = window.setTimeout(() => { toast.style.display = "none"; }, 6000); };
 const signed = (number, suffix = "%") => `<span class="${number >= 0 ? "positive" : "negative"}">${number >= 0 ? "+" : ""}${number}${suffix}</span>`;
+let selectedStrategyId = null;
+let catalogueStrategies = [];
+let pendingProposal = null;
 const api = async (url, options = {}) => {
   setStatus("LOADING");
   try {
@@ -43,33 +46,84 @@ function animateMonteCarlo(paths) {
   requestAnimationFrame(render);
 }
 function renderTrades(trades) {
-  $("#trade-count").textContent = `${trades.length} closed trade${trades.length === 1 ? "" : "s"}`;
-  if (!trades.length) { $("#trade-ledger").innerHTML = "<p class=\"eyebrow\">No closed trades in this backtest window.</p>"; return; }
-  const row = trade => `<div class="trade-row"><span>${trade.side}</span><span>${trade.entryDate}</span><span>$${trade.entryPrice.toFixed(2)}</span><span>${trade.exitDate}</span><span>$${trade.exitPrice.toFixed(2)}</span><span class="${trade.pnl >= 0 ? "positive" : "negative"}">$${trade.pnl.toFixed(2)}</span><span class="${trade.pnlPercent >= 0 ? "positive" : "negative"}">${trade.pnlPercent.toFixed(2)}%</span></div>`;
-  $("#trade-ledger").innerHTML = `<div class="trade-row trade-head"><span>SIDE</span><span>ENTRY</span><span>PRICE</span><span>EXIT</span><span>PRICE</span><span>P&amp;L</span><span>RETURN</span></div>${trades.map(row).join("")}`;
+  const safeTrades = Array.isArray(trades) ? trades : [];
+  const closed = safeTrades.filter(trade => trade.status === "Closed").length;
+  const open = safeTrades.length - closed;
+  $("#trade-count").textContent = `${closed} Closed · ${open} Open`;
+  if (!safeTrades.length) { $("#trade-ledger").innerHTML = "<p class=\"eyebrow\">No entries were triggered in this backtest window.</p>"; return; }
+  const row = trade => `<div class="trade-row"><span>${escapeHtml(trade.status)}</span><span>${escapeHtml(trade.side)}</span><span>${escapeHtml(trade.entryDate)}</span><span>$${Number(trade.entryPrice).toFixed(2)}</span><span>${escapeHtml(trade.exitDate || `Open · ${trade.asOfDate}`)}</span><span>$${Number(trade.exitPrice).toFixed(2)}</span><span class="${trade.pnl >= 0 ? "positive" : "negative"}">$${Number(trade.pnl).toFixed(2)}</span><span class="${trade.pnlPercent >= 0 ? "positive" : "negative"}">${Number(trade.pnlPercent).toFixed(2)}%</span></div>`;
+  $("#trade-ledger").innerHTML = `<div class="trade-row trade-head"><span>STATUS</span><span>SIDE</span><span>ENTRY</span><span>PRICE</span><span>EXIT / AS OF</span><span>PRICE</span><span>P&amp;L</span><span>RETURN</span></div>${safeTrades.map(row).join("")}`;
+  $("#trade-ledger").hidden = false;
+  $("#toggle-trades").setAttribute("aria-expanded", "true");
 }
 function renderCatalogue(strategies) {
+  catalogueStrategies = strategies;
   $("#catalogue-count").textContent = `${strategies.length} saved strateg${strategies.length === 1 ? "y" : "ies"}`;
-  $("#strategy-catalogue").innerHTML = strategies.length ? strategies.map(strategy => `<div class="catalogue-item"><strong>${escapeHtml(strategy.name)}</strong><p>${escapeHtml(strategy.description)}</p><span>${escapeHtml(strategy.provider)} · ${escapeHtml(strategy.strategy_type)} · ${escapeHtml(strategy.updatedAt.slice(0, 10))}</span></div>`).join("") : "<p class=\"eyebrow\">Saved strategy definitions appear here.</p>";
+  $("#strategy-catalogue").innerHTML = strategies.length ? strategies.map(strategy => `<div class="catalogue-item"><div><strong>${escapeHtml(strategy.name)}</strong><p>${escapeHtml(strategy.description)}</p><span>${escapeHtml(strategy.provider)} · KEY ${escapeHtml((strategy.key || "legacy").slice(0, 12))} · ${escapeHtml(strategy.updatedAt.slice(0, 10))}</span></div><button class="outline load-strategy" data-strategy-id="${escapeHtml(strategy.id)}">Load</button><details><summary>Preview YAML</summary><pre>${escapeHtml(strategy.strategyYaml || "Legacy strategy: YAML will be generated after its next translation.")}</pre></details></div>`).join("") : "<p class=\"eyebrow\">Saved strategy definitions appear here.</p>";
+  document.querySelectorAll(".load-strategy").forEach(button => button.addEventListener("click", () => loadStrategyFromCatalogue(button.dataset.strategyId)));
 }
 async function loadCatalogue() { const response = await api("/api/strategies"); renderCatalogue(response.strategies); }
+function loadStrategyFromCatalogue(strategyId) {
+  const strategy = catalogueStrategies.find(item => item.id === strategyId);
+  if (!strategy) return;
+  selectedStrategyId = strategy.id;
+  $("#strategy-input").value = "";
+  $("#strategy-input").placeholder = strategy.description;
+  $("#strategy-source").textContent = `Loaded from catalogue: ${strategy.name}.`;
+  $("#strategy-catalogue-modal").close();
+}
 
 async function runBacktest() {
   const ticker = $("#strategy-ticker").value.trim().toUpperCase();
   if (!ticker) throw new Error("Enter a US ticker before running the backtest.");
+  if (selectedStrategyId) { await executeBacktest({ ticker, instruction: "", strategy_id: selectedStrategyId, window: $("#backtest-window").value }); return; }
+  const instruction = $("#strategy-input").value.trim();
+  if (instruction.length < 8) throw new Error("Describe a strategy or load one from the catalogue.");
+  pendingProposal = await api("/api/strategy/propose", { method: "POST", body: JSON.stringify({ instruction }) });
+  showProposal(pendingProposal);
+}
+function showProposal(proposal) {
+  $("#proposal-name").textContent = proposal.strategy.name;
+  $("#proposal-description").textContent = proposal.normalizedInstruction;
+  $("#proposal-key").textContent = proposal.strategyKey;
+  $("#proposal-yaml").textContent = proposal.strategyYaml;
+  const existing = $("#proposal-existing");
+  existing.hidden = !proposal.existingStrategy;
+  existing.textContent = proposal.existingStrategy ? `This logic already exists as “${proposal.existingStrategy.name}”. Confirming will reuse its key instead of adding a duplicate.` : "";
+  $("#proposal-clarifications").innerHTML = proposal.clarifications.length ? `<strong>REVIEW THESE ASSUMPTIONS</strong><ul>${proposal.clarifications.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : "";
+  $("#strategy-confirmation-modal").showModal();
+}
+async function executeBacktest(payload) {
   const windowValue = $("#backtest-window").value;
-  const data = await api("/api/backtest", { method: "POST", body: JSON.stringify({ ticker, instruction: $("#strategy-input").value, window: windowValue }) });
+  const data = await api("/api/backtest", { method: "POST", body: JSON.stringify(payload) });
   const metrics = data.metrics;
   metricCards("#backtest-metrics", [{ label: "TOTAL RETURN", value: metrics.totalReturn, display: `${metrics.totalReturn}%` }, { label: "BUY & HOLD", value: metrics.benchmarkReturn, display: `${metrics.benchmarkReturn}%` }, { label: "SPY", value: metrics.spyReturn, display: `${metrics.spyReturn}%` }, { label: "MAX DRAWDOWN", value: metrics.maxDrawdown, display: `${metrics.maxDrawdown}%` }, { label: "SHARPE RATIO", value: metrics.sharpeRatio, display: metrics.sharpeRatio }]);
   $("#parsed-strategy").textContent = data.strategy.description;
   $("#strategy-source").textContent = `Translation source: ${data.catalogueStrategy.provider.replaceAll("_", " ")}. Saved to catalogue.`;
+  selectedStrategyId = data.catalogueStrategy.id;
+  $("#strategy-input").value = "";
+  $("#strategy-input").placeholder = data.strategy.description;
   $("#chart-window").textContent = `${windowValue.toUpperCase()} · NORMALIZED TO 1.00`;
   drawChart($("#backtest-chart"), data.chart, [{ key: "strategy", color: "#b6f559" }, { key: "buyHold", color: "#64d5c7" }, { key: "spy", color: "#f8bd5e" }], "date");
   renderTrades(data.trades); await loadCatalogue();
+}
+async function confirmProposal() {
+  if (!pendingProposal) return;
+  const instruction = $("#strategy-input").value.trim();
+  $("#strategy-confirmation-modal").close();
+  await executeBacktest({ ticker: $("#strategy-ticker").value.trim().toUpperCase(), instruction, strategy_yaml: pendingProposal.strategyYaml, window: $("#backtest-window").value });
+  pendingProposal = null;
 }
 async function runSimulation() { const data = await api("/api/simulate", { method: "POST", body: JSON.stringify({ ticker: $("#strategy-ticker").value.trim().toUpperCase(), days: Number($("#simulation-days").value) }) }); const metrics = data.metrics; metricCards("#simulation-metrics", [{ label: "MEDIAN RETURN", value: metrics.medianReturn, display: `${metrics.medianReturn}%` }, { label: "10TH PERCENTILE", value: metrics.downsideReturn, display: `${metrics.downsideReturn}%` }, { label: "90TH PERCENTILE", value: metrics.upsideReturn, display: `${metrics.upsideReturn}%` }, { label: "PROFIT PROBABILITY", value: metrics.profitProbability, display: `${metrics.profitProbability}%` }]); animateMonteCarlo(data.paths); }
 async function loadStock() { const ticker = $("#stock-ticker").value.trim().toUpperCase(); if (!ticker) throw new Error("Enter a US ticker before loading the observatory."); const stock = await api(`/api/stock/${ticker}`); const quote = stock.quote; metricCards("#quote-metrics", [{label:"LAST PRICE",value:0,display:`$${quote.price.toFixed(2)}`},{label:"DAY CHANGE",value:quote.changePercent,display:`${quote.changePercent}%`},{label:"DATA STATUS",value:0,display:"YAHOO / CACHED"}]); $("#stock-symbol").textContent = quote.symbol; drawChart($("#stock-chart"), stock.chart, [{key:"close",color:"#b6f559"}], "date"); try { const options = await api(`/api/options/${ticker}`); $("#option-expiry").textContent = options.expiration ? `Nearest expiry · ${options.expiration}` : "Options unavailable"; $("#calls").innerHTML = chain(options.calls); $("#puts").innerHTML = chain(options.puts); } catch (error) { $("#option-expiry").textContent = "Options temporarily unavailable"; $("#calls").innerHTML = $("#puts").innerHTML = "<p class=\"eyebrow\">Option data could not be loaded.</p>"; notify(error.message); } }
 async function loadMarket() { const data = await api("/api/market-overview"); $("#sectors").innerHTML = table(data.sectors, [{label:"SECTOR",key:"name"},{label:"LAST",key:"price",format:value=>`$${value}`},{label:"DAY",key:"changePercent",format:signed},{label:"RS VS SPY",key:"relativeStrength",format:signed}]); $("#macro").innerHTML = table(data.macro, [{label:"ASSET",key:"name"},{label:"LAST",key:"price",format:value=>`$${value}`},{label:"DAY",key:"changePercent",format:signed},{label:"SYMBOL",key:"symbol"}]); }
 document.querySelectorAll(".nav-item").forEach(button => button.addEventListener("click", () => { document.querySelectorAll(".nav-item,.panel").forEach(element => element.classList.remove("active")); button.classList.add("active"); $(`#${button.dataset.panel}`).classList.add("active"); $("#page-title").textContent = button.textContent.replace(/^\s*\d+\s*/, "").trim(); }));
 $("#run-backtest").addEventListener("click", withLoading("#run-backtest", runBacktest)); $("#run-simulation").addEventListener("click", withLoading("#run-simulation", runSimulation)); $("#load-stock").addEventListener("click", withLoading("#load-stock", loadStock)); $("#load-market").addEventListener("click", withLoading("#load-market", loadMarket));
-withLoading("#run-backtest", runBacktest)(); loadCatalogue().catch(error => notify(error.message));
+$("#open-catalogue").addEventListener("click", async () => { try { await loadCatalogue(); $("#strategy-catalogue-modal").showModal(); } catch (error) { notify(error.message); } });
+$("#close-catalogue").addEventListener("click", () => $("#strategy-catalogue-modal").close());
+$("#toggle-trades").addEventListener("click", () => { const expanded = $("#toggle-trades").getAttribute("aria-expanded") === "true"; $("#toggle-trades").setAttribute("aria-expanded", String(!expanded)); $("#trade-ledger").hidden = expanded; });
+$("#close-confirmation").addEventListener("click", () => $("#strategy-confirmation-modal").close());
+$("#cancel-proposal").addEventListener("click", () => $("#strategy-confirmation-modal").close());
+$("#confirm-proposal").addEventListener("click", withLoading("#confirm-proposal", confirmProposal));
+$("#strategy-input").addEventListener("input", () => { selectedStrategyId = null; $("#strategy-input").placeholder = "Describe entry, exit, risk, and volume conditions."; $("#strategy-source").textContent = "Instruction edited; LLM assistance will propose an exact YAML strategy for confirmation."; });
+loadCatalogue().catch(error => notify(error.message));
