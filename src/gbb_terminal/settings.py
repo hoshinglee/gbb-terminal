@@ -66,6 +66,14 @@ class Settings:
     data_contact: str
     llm: LLMSettings
 
+    @property
+    def frontend_static_directory(self) -> Path:
+        return self.frontend_directory / "static"
+
+    @property
+    def frontend_index(self) -> Path:
+        return self.frontend_directory / "index.html"
+
     @classmethod
     def from_sources(
         cls,
