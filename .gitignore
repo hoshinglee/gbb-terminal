@@ -2,6 +2,7 @@ __pycache__/
 .venv/
 .env
 *.pyc
+*.egg-info/
 data/
 *.duckdb
 *.duckdb.wal
