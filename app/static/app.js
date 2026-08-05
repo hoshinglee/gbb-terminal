@@ -195,9 +195,14 @@ function loadStrategyFromCatalogue(strategyId) {
       $("#configuration-description").textContent = strategy.description;
       $("#strategy-ticker").value = strategy.strategyJson.ticker || $("#strategy-ticker").value;
       $("#strategy-benchmark").value = strategy.strategyJson.benchmark || "SPY";
+      $("#strategy-sector").value = strategy.strategyJson.sector_benchmark || "";
       $("#backtest-window").value = strategy.strategyJson.timeframe || "1y";
       $("#universe-field").hidden = template.rule_graph.kind !== "ranked_portfolio";
-      if (strategy.strategyJson.universe?.length) $("#strategy-universe").value = strategy.strategyJson.universe.join(", ");
+      $("#peer-field").hidden = template.rule_graph.kind === "ranked_portfolio";
+      if (strategy.strategyJson.universe?.length) {
+        const target = template.rule_graph.kind === "ranked_portfolio" ? "#strategy-universe" : "#strategy-peers";
+        $(target).value = strategy.strategyJson.universe.join(", ");
+      }
     }
   } else {
     selectedStrategyId = strategy.id;
@@ -239,6 +244,7 @@ function selectedTemplateInstance() {
     values[card.dataset.key] = card.dataset.type === "integer" ? Number.parseInt(input.value, 10) : card.dataset.type === "boolean" ? input.checked : Number(input.value);
     modes[card.dataset.key] = card.querySelector(".parameter-mode").value;
   });
+  const isPortfolio = currentTemplate.rule_graph.kind === "ranked_portfolio";
   return {
     template_id: currentTemplate.template_id,
     template_version: currentTemplate.version,
@@ -247,8 +253,9 @@ function selectedTemplateInstance() {
     parameter_values: values,
     parameter_modes: modes,
     ticker: $("#strategy-ticker").value.trim().toUpperCase(),
-    universe: currentTemplate.rule_graph.kind === "ranked_portfolio" ? $("#strategy-universe").value.split(",").map((symbol) => symbol.trim().toUpperCase()).filter(Boolean) : [],
+    universe: $(isPortfolio ? "#strategy-universe" : "#strategy-peers").value.split(",").map((symbol) => symbol.trim().toUpperCase()).filter(Boolean),
     benchmark: $("#strategy-benchmark").value.trim().toUpperCase() || "SPY",
+    sector_benchmark: $("#strategy-sector").value.trim().toUpperCase() || null,
     timeframe: $("#backtest-window").value,
     risk: {},
     execution: { initial_capital: 100000, commission_bps: Number($("#commission-bps").value), slippage_bps: Number($("#slippage-bps").value), annual_cash_rate: 0 },
@@ -277,11 +284,11 @@ async function runBacktest() {
     await api("/api/v2/strategies", { method: "POST", body: JSON.stringify({ strategy, original_instruction: "" }) });
     if (Object.keys(ranges).length) {
       const search = await api("/api/v2/parameter-searches", { method: "POST", body: JSON.stringify({ strategy, ranges, max_trials: 60 }) });
-      renderBacktest(search.finalTest, `Guarded ${search.method}; final test began ${search.finalTestStart}.`);
+      renderBacktest(search.finalTest, `Guarded ${search.method}; final test began ${search.finalTestStart}.`, { search });
       notify(`Parameter search completed ${search.attempts.length} trials. Best: ${JSON.stringify(search.bestParameters)}.`);
     } else {
       const run = await api("/api/v2/research-runs", { method: "POST", body: JSON.stringify({ strategy }) });
-      renderBacktest(run.results, `Strategy Model V2 · Run ${run.run_id.slice(0, 8)}.`);
+      renderBacktest(run.results, `Strategy Model V2 · Run ${run.run_id.slice(0, 8)}.`, { run });
     }
     await loadCatalogue();
     return;
@@ -321,7 +328,7 @@ async function confirmProposal() {
   await loadCatalogue();
 }
 
-function renderBacktest(data, source) {
+function renderBacktest(data, source, researchContext = {}) {
   const metrics = data.metrics;
   metricCards("#backtest-metrics", [
     { label: "TOTAL RETURN", value: metrics.totalReturn, display: `${formatNumber(metrics.totalReturn)}%` },
@@ -339,9 +346,33 @@ function renderBacktest(data, source) {
   $("#evidence-verdict").className = `verdict ${verdict.label.includes("Robust") ? "positive-verdict" : verdict.label.includes("Complexity") ? "negative-verdict" : "neutral"}`;
   $("#evidence-verdict").title = verdict.reason;
   const assumptions = data.assumptions || {};
-  $("#assumption-list").innerHTML = `<li>Commission ${formatNumber(assumptions.commission_bps ?? 0, 1)} bps</li><li>Slippage ${formatNumber(assumptions.slippage_bps ?? 0, 1)} bps</li><li>Next-session signal execution</li>`;
+  $("#assumption-list").innerHTML = `<li>Initial capital $${formatNumber(assumptions.initial_capital ?? 0, 0)}</li><li>Commission ${formatNumber(assumptions.commission_bps ?? 0, 1)} bps · slippage ${formatNumber(assumptions.slippage_bps ?? 0, 1)} bps</li><li>${escapeHtml(data.executionModel || "Next-session signal execution")}</li>`;
   drawChart($("#backtest-chart"), data.chart, [{ key: "strategy", label: "Strategy", color: "#b6f559" }, { key: "buyHold", label: "Buy & Hold", color: "#64d5c7" }, { key: "spy", label: "SPY", color: "#f8bd5e" }], "date", researchTooltip);
+  renderCredibilityEvidence(data, researchContext);
   renderTrades(data.trades);
+}
+
+function renderCredibilityEvidence(data, researchContext) {
+  const benchmarkMetrics = data.metrics?.benchmarkMetrics || {};
+  $("#benchmark-evidence").innerHTML = Object.entries(benchmarkMetrics).length ? `<div class="evidence-table evidence-table-head"><span>Benchmark</span><span>Return</span><span>CAGR</span><span>Drawdown</span><span>Volatility</span></div>${Object.entries(benchmarkMetrics).map(([label, values]) => `<div class="evidence-table"><strong>${escapeHtml(label)}</strong><span>${formatNumber(values.totalReturn)}%</span><span>${formatNumber(values.cagr)}%</span><span class="${values.maxDrawdown < 0 ? "negative" : ""}">${formatNumber(values.maxDrawdown)}%</span><span>${formatNumber(values.annualizedVolatility)}%</span></div>`).join("")}` : `<p class="empty-state">Benchmark risk metrics are unavailable for this legacy run.</p>`;
+  const period = data.evaluationPeriod || {};
+  const search = researchContext.search;
+  if (!search) {
+    const snapshotCount = Object.keys(researchContext.run?.data_snapshot || {}).length;
+    $("#validation-evidence").innerHTML = `<div class="validation-summary"><div><span>EVALUATION</span><strong>${escapeHtml(period.start || "—")} → ${escapeHtml(period.end || "—")}</strong></div><div><span>SESSIONS</span><strong>${period.sessions ?? "—"}</strong></div><div><span>DATA SNAPSHOTS</span><strong>${snapshotCount || "Legacy"}</strong></div><div><span>STATUS</span><strong>Single Historical Window</strong></div></div><p class="research-warning">This run was not selected through walk-forward validation and cannot receive a Robust Candidate verdict.</p>`;
+    $("#parameter-heatmap").innerHTML = "";
+    return;
+  }
+  $("#validation-evidence").innerHTML = `<div class="validation-summary"><div><span>METHOD</span><strong>${escapeHtml(search.method)}</strong></div><div><span>TRAINING ENDS</span><strong>${escapeHtml(search.trainingEnd)}</strong></div><div><span>FINAL HOLDOUT</span><strong>${escapeHtml(search.finalTestStart)}</strong></div><div><span>DEFLATED SHARPE</span><strong>${formatNumber(search.deflatedSharpeProbability, 1)}%</strong></div><div><span>PARAMETER STABILITY</span><strong>${search.stableParameters ? "Stable Region" : "Weak Region"}</strong></div><div><span>PERFORMANCE DECAY</span><strong>${formatNumber(search.performanceDecay, 2)}</strong></div></div>${search.overfittingWarning ? `<p class="research-warning">${escapeHtml(search.overfittingWarning)}</p>` : `<p class="research-pass">Holdout and nearby-parameter evidence passed the configured stability checks.</p>`}`;
+  const heatmap = search.heatmap || { cells: [] };
+  if (!heatmap.cells.length) {
+    $("#parameter-heatmap").innerHTML = "";
+    return;
+  }
+  const scores = heatmap.cells.map((cell) => cell.medianScore);
+  const minimum = Math.min(...scores);
+  const span = Math.max(Math.max(...scores) - minimum, 0.0001);
+  $("#parameter-heatmap").innerHTML = `<div class="heatmap-title">PARAMETER STABILITY MAP · ${escapeHtml(heatmap.xParameter)}${heatmap.yParameter ? ` × ${escapeHtml(heatmap.yParameter)}` : ""}</div><div class="heatmap-grid">${heatmap.cells.map((cell) => { const strength = (cell.medianScore - minimum) / span; return `<div class="heatmap-cell" style="--heat:${strength.toFixed(3)}" title="Median Calmar ${formatNumber(cell.medianScore, 3)} across ${cell.trials} trial(s)"><span>${escapeHtml(cell.x)}${cell.y === null ? "" : ` · ${escapeHtml(cell.y)}`}</span><strong>${formatNumber(cell.medianScore, 2)}</strong></div>`; }).join("")}</div>`;
 }
 
 async function runSimulation() {
@@ -550,6 +581,7 @@ $("#strategy-template").addEventListener("change", () => {
   $("#configuration-name").textContent = currentTemplate.name;
   $("#configuration-description").textContent = currentTemplate.description;
   $("#universe-field").hidden = currentTemplate.rule_graph.kind !== "ranked_portfolio";
+  $("#peer-field").hidden = currentTemplate.rule_graph.kind === "ranked_portfolio";
   renderParameterControls(currentTemplate);
 });
 $("#strategy-input").addEventListener("input", () => {

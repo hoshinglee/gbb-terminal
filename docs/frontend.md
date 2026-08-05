@@ -9,10 +9,10 @@ The vanilla browser application intentionally remains framework-free during the 
 1. **Define:** enter natural language, choose a validated template, or load a catalogue item.
 2. **Configure:** edit typed values and choose fixed or guarded search modes.
 3. **Test Design:** select ticker/universe, benchmark, timeframe, commission, and slippage.
-4. **Evidence:** inspect metrics, verdict, hoverable OHLCV/indicator equity chart, assumptions, and trade ledger.
+4. **Evidence:** inspect metrics, verdict, hoverable OHLCV/indicator equity chart, assumptions, benchmark risk table, validation evidence, parameter stability map, and trade ledger.
 
 Catalogue items are grouped by family and display parameter chips. Internal hashes are hidden. Canonical JSON or legacy YAML appears only under an Advanced export control. A loaded strategy uses its normalized description as grey placeholder text rather than replaying ambiguous original wording.
 
-`drawChart` links date hover with line values and exact source observations. `animateMonteCarlo` reveals percentile paths progressively. `renderTrades` shows closed and marked-open entries with absolute and percentage P&L.
+`drawChart` links date hover with line values and exact source observations. `renderCredibilityEvidence` explains evaluation boundaries, benchmark risk, Optuna/walk-forward selection, holdout evidence, Deflated Sharpe, stability, and performance decay. `animateMonteCarlo` reveals percentile paths progressively. `renderTrades` shows closed and marked-open entries with absolute and percentage P&L.
 
 Option Lab builds core positions, loads current chain rows into leg inputs, displays payoff and Greeks, creates local paper positions, and appends lifecycle events without brokerage execution.

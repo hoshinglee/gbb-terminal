@@ -113,6 +113,20 @@ header, .toolbar, .section-heading, .evidence-heading { display: flex; align-ite
 .trade-row { display: grid; grid-template-columns: .7fr .8fr 1fr .8fr 1.1fr .8fr .8fr .8fr; gap: 8px; min-width: 760px; padding: 10px 0; border-top: 1px solid var(--line); color: #acbab4; font: 10px "DM Mono", monospace; }
 .trade-row span:nth-child(n+3) { text-align: right; }
 .trade-head { color: var(--mute); font-size: 8px; }
+.credibility-grid { margin-top: 16px; grid-template-columns: 1.2fr 1fr; }
+.credibility-card { overflow: hidden; }
+.evidence-table { display: grid; grid-template-columns: 1.5fr repeat(4, .75fr); gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); font: 10px "DM Mono", monospace; text-align: right; }
+.evidence-table strong, .evidence-table span:first-child { text-align: left; }
+.evidence-table-head { color: var(--mute); border-top: 0; font-size: 8px; text-transform: uppercase; }
+.validation-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.validation-summary div { padding: 10px; border: 1px solid var(--line); background: #07100d; }
+.validation-summary span, .heatmap-title { display: block; margin-bottom: 5px; color: var(--mute); font: 8px "DM Mono", monospace; letter-spacing: .08em; }
+.validation-summary strong { color: var(--ink); font: 10px "DM Mono", monospace; }
+.research-warning, .research-pass { margin: 14px 0 0; padding: 10px; border-left: 2px solid var(--amber); background: #d89a2b12; color: #d9c29a; font-size: 11px; }
+.research-pass { border-color: var(--green); background: #b6f5590d; color: #c5dcae; }
+.heatmap-title { margin-top: 16px; }
+.heatmap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 5px; }
+.heatmap-cell { display: flex; justify-content: space-between; gap: 8px; padding: 8px; border: 1px solid color-mix(in srgb, var(--green) calc(var(--heat) * 80%), var(--line)); background: color-mix(in srgb, var(--green) calc(var(--heat) * 22%), #07100d); font: 9px "DM Mono", monospace; }
 .simulation { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; }
 .simulation p { margin: 8px 0 0; color: var(--mute); }
 .sim-actions, .button-row { display: flex; gap: 10px; }

@@ -55,6 +55,8 @@
           <div class="test-fields">
             <label>Ticker<input id="strategy-ticker" value="AAPL" maxlength="12" /></label>
             <label>Benchmark<input id="strategy-benchmark" value="SPY" maxlength="12" /></label>
+            <label>Sector ETF (Optional)<input id="strategy-sector" placeholder="XLK" maxlength="12" /></label>
+            <label id="peer-field">Peer Basket (Optional)<input id="strategy-peers" placeholder="MSFT, NVDA, AMZN" /></label>
             <label id="universe-field" hidden>Universe<input id="strategy-universe" value="AAPL, MSFT, NVDA, AMZN, META" /></label>
             <label>Backtest Window<select id="backtest-window"><option value="1mo">1 Month</option><option value="3mo">3 Months</option><option value="6mo">6 Months</option><option value="1y" selected>1 Year</option><option value="2y">2 Years</option></select></label>
             <label>Commission (Bps)<input id="commission-bps" type="number" value="1" min="0" max="100" step="0.5" /></label>
@@ -68,6 +70,11 @@
         <div class="grid evidence-grid">
           <div class="card chart-card"><div class="card-title">EQUITY CURVE <span id="chart-window">NORMALIZED TO 1.00</span></div><div class="legend"><span><i class="strategy-dot"></i>Strategy</span><span><i class="hold-dot"></i>Buy &amp; Hold</span><span><i class="spy-dot"></i>SPY</span></div><div class="chart-shell"><canvas id="backtest-chart"></canvas><div class="chart-tooltip" hidden></div></div></div>
           <div class="card insight"><div class="card-title">RESEARCH INTERPRETATION</div><div id="parsed-strategy" class="logic">Run research to evaluate the selected rules.</div><p id="strategy-source" class="source">No strategy is loaded.</p><hr /><p id="outcome-explanation">Results remain visible even when passive investing wins.</p><ul id="assumption-list"><li>Next-session execution</li><li>Costs applied on position changes</li><li>No live brokerage execution</li></ul></div>
+        </div>
+
+        <div class="grid credibility-grid">
+          <div class="card credibility-card"><div class="card-title">BENCHMARK EVIDENCE <span>RETURN · RISK · DRAWDOWN</span></div><div id="benchmark-evidence"><p class="empty-state">Run research to compare passive and risk-matched alternatives.</p></div></div>
+          <div class="card credibility-card"><div class="card-title">VALIDATION EVIDENCE <span>SELECTION · HOLDOUT · STABILITY</span></div><div id="validation-evidence"><p class="empty-state">A single historical run cannot be labelled robust.</p></div><div id="parameter-heatmap"></div></div>
         </div>
 
         <div class="card expandable ledger-card"><button id="toggle-trades" class="expandable-toggle" aria-expanded="false" aria-controls="trade-ledger"><span>TRADE LEDGER</span><span id="trade-count">0 Closed · 0 Open</span></button><div id="trade-ledger" class="trade-table" hidden><p class="empty-state">Run research to inspect entries, exits, and P&amp;L.</p></div></div>
