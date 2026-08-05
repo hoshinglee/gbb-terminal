@@ -24,6 +24,19 @@ def test_parameter_change_changes_semantic_identity():
     assert first.semantic_key() != second.semantic_key()
 
 
+def test_cosmetic_text_and_explicit_fixed_modes_do_not_change_semantic_identity():
+    first = catalogue.create_instance("sma-crossover", ticker="AAPL")
+    second = first.model_copy(
+        update={
+            "name": "Renamed Research Idea",
+            "description": "Different explanatory text.",
+            "parameter_modes": {"fast_window": "fixed", "slow_window": "fixed"},
+        }
+    )
+
+    assert first.semantic_key() == second.semantic_key()
+
+
 def test_every_template_executes(price_history, benchmark_history):
     for template in catalogue.list_templates():
         instance = catalogue.create_instance(template.template_id, ticker="AAA", benchmark="SPY", universe=["AAA", "BBB", "CCC"])
@@ -46,4 +59,3 @@ def test_deterministic_levels_do_not_change_with_future_data(price_history):
         full = IndicatorRegistry.calculate(price_history, specification).iloc[:cutoff]
         prefix = IndicatorRegistry.calculate(price_history.iloc[:cutoff], specification)
         pd.testing.assert_series_equal(full, prefix)
-

@@ -18,6 +18,9 @@ def test_existing_database_migrates_without_losing_prices(tmp_path):
     assert store.connection.execute("SELECT close FROM price_history WHERE symbol = 'AAPL'").fetchone()[0] == 101
     tables = {row[0] for row in store.connection.execute("SHOW TABLES").fetchall()}
     assert {"research_runs", "option_positions", "option_position_events", "provider_cache", "schema_migrations"} <= tables
+    assert store.connection.execute("SELECT max(version) FROM schema_migrations").fetchone()[0] == 3
+    research_columns = {row[1] for row in store.connection.execute("PRAGMA table_info('research_runs')").fetchall()}
+    assert {"strategy_key", "reproducibility_key"} <= research_columns
 
 
 def test_strategy_deduplication_and_option_event_persistence(tmp_path):

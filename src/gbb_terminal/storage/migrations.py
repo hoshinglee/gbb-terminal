@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import duckdb
 
 
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 
 
 def record_schema_version(connection: duckdb.DuckDBPyConnection) -> None:
@@ -21,4 +21,3 @@ def record_schema_version(connection: duckdb.DuckDBPyConnection) -> None:
             "INSERT INTO schema_migrations VALUES (?, ?)",
             [CURRENT_SCHEMA_VERSION, datetime.now(timezone.utc).replace(tzinfo=None)],
         )
-

@@ -68,6 +68,9 @@ class DeclarativeStrategy(Strategy):
 
     def positions(self, history: pd.DataFrame) -> pd.DataFrame:
         frame = pd.DataFrame(index=history.index)
+        frame["open"] = history["Open"].astype(float)
+        frame["high"] = history["High"].astype(float)
+        frame["low"] = history["Low"].astype(float)
         frame["close"] = history["Close"].astype(float)
         frame["volume"] = history["Volume"].fillna(0).astype(float) if "Volume" in history else 0.0
         for name, specification in self.configuration["indicators"].items():

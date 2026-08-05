@@ -97,6 +97,8 @@ class LocalMarketStore:
                 created_at TIMESTAMP NOT NULL
             )
         """)
+        self.connection.execute("ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS strategy_key VARCHAR")
+        self.connection.execute("ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS reproducibility_key VARCHAR")
         self.connection.execute("""
             CREATE TABLE IF NOT EXISTS option_chain_snapshots (
                 symbol VARCHAR NOT NULL,
@@ -318,8 +320,8 @@ class LocalMarketStore:
         self.connection.execute(
             """INSERT INTO research_runs
                (run_id, strategy_id, strategy_json, data_snapshot, engine_version, validation,
-                tested_parameters, results, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                tested_parameters, results, created_at, strategy_key, reproducibility_key)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
                 research_run["run_id"],
                 strategy_id,
@@ -330,6 +332,8 @@ class LocalMarketStore:
                 json.dumps(research_run["tested_parameters"]),
                 json.dumps(research_run["results"]),
                 created_at,
+                research_run.get("strategy_key"),
+                research_run.get("reproducibility_key"),
             ],
         )
         return research_run["run_id"]
@@ -337,22 +341,24 @@ class LocalMarketStore:
     def get_research_run(self, run_id: str) -> dict | None:
         row = self.connection.execute(
             """SELECT run_id, strategy_id, strategy_json, data_snapshot, engine_version, validation,
-                      tested_parameters, results, created_at
+                      tested_parameters, results, created_at, strategy_key, reproducibility_key
                FROM research_runs WHERE run_id = ?""",
             [run_id],
         ).fetchone()
         if row is None:
             return None
         return {
-            "runId": row[0],
-            "strategyId": row[1],
+            "run_id": row[0],
+            "strategy_id": row[1],
             "strategy": json.loads(row[2]),
-            "dataSnapshot": json.loads(row[3]),
-            "engineVersion": row[4],
+            "data_snapshot": json.loads(row[3]),
+            "engine_version": row[4],
             "validation": json.loads(row[5]),
-            "testedParameters": json.loads(row[6]),
+            "tested_parameters": json.loads(row[6]),
             "results": json.loads(row[7]),
-            "createdAt": row[8].isoformat(),
+            "created_at": row[8].isoformat(),
+            "strategy_key": row[9],
+            "reproducibility_key": row[10],
         }
 
     def create_option_position(self, state: dict) -> dict:

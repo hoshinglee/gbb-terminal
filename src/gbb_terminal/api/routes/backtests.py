@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from ...backtesting.engine import run_research_backtest
 from ...backtesting.parameter_search import run_parameter_search
 from ...backtesting.portfolio import run_ranked_portfolio
+from ...backtesting.snapshots import create_snapshot_manifest
 from ...market_data.service import MarketData
 from ...storage.database import LocalMarketStore
 from ...strategy.catalogue import StrategyCatalogue
@@ -30,17 +31,28 @@ def create_backtest_router(store: LocalMarketStore, data: MarketData, catalogue:
                 histories = dict(zip(universe, loaded[:-1]))
                 benchmark_history = loaded[-1]
                 result = await asyncio.to_thread(run_ranked_portfolio, histories, benchmark_history, request.strategy)
-                snapshot = {symbol: frame.index[-1].strftime("%Y-%m-%d") for symbol, frame in {**histories, benchmark: benchmark_history}.items()}
+                snapshot = create_snapshot_manifest({**histories, benchmark: benchmark_history})
             else:
                 ticker = (request.strategy.ticker or "").upper()
                 if not ticker:
                     raise ValueError("A ticker is required for an individual-stock research run.")
                 comparison_symbols = list(dict.fromkeys([benchmark, "SPY", *([request.strategy.sector_benchmark.upper()] if request.strategy.sector_benchmark else [])]))
-                loaded = await asyncio.gather(*(data.history(symbol, request.strategy.timeframe) for symbol in [ticker, *comparison_symbols]))
-                history = loaded[0]
-                comparisons = dict(zip(comparison_symbols, loaded[1:]))
-                result = await asyncio.to_thread(run_research_backtest, history, comparisons, catalogue.build(request.strategy), request.strategy.execution)
-                snapshot = {ticker: history.index[-1].strftime("%Y-%m-%d"), **{symbol: frame.index[-1].strftime("%Y-%m-%d") for symbol, frame in comparisons.items()}}
+                peer_symbols = [symbol for symbol in request.strategy.universe if symbol not in {ticker, *comparison_symbols}]
+                symbols = [ticker, *comparison_symbols, *peer_symbols]
+                loaded = await asyncio.gather(*(data.history(symbol, request.strategy.timeframe) for symbol in symbols))
+                loaded_histories = dict(zip(symbols, loaded))
+                history = loaded_histories[ticker]
+                comparisons = {symbol: loaded_histories[symbol] for symbol in comparison_symbols}
+                peers = {symbol: loaded_histories[symbol] for symbol in peer_symbols}
+                result = await asyncio.to_thread(
+                    run_research_backtest,
+                    history,
+                    comparisons,
+                    catalogue.build(request.strategy),
+                    request.strategy.execution,
+                    peer_histories=peers,
+                )
+                snapshot = create_snapshot_manifest(loaded_histories)
             research_run = ResearchRun(
                 strategy=request.strategy,
                 data_snapshot=snapshot,
@@ -69,7 +81,15 @@ def create_backtest_router(store: LocalMarketStore, data: MarketData, catalogue:
                 raise ValueError("Portfolio parameter search is not available in the initial guarded-search release.")
             if not ticker:
                 raise ValueError("A ticker is required for parameter search.")
-            history, benchmark = await asyncio.gather(data.history(ticker, request.strategy.timeframe), data.history(request.strategy.benchmark, request.strategy.timeframe))
+            comparison_symbols = list(dict.fromkeys([request.strategy.benchmark, "SPY", *([request.strategy.sector_benchmark] if request.strategy.sector_benchmark else [])]))
+            peer_symbols = [symbol for symbol in request.strategy.universe if symbol not in {ticker, *comparison_symbols}]
+            symbols = [ticker, *comparison_symbols, *peer_symbols]
+            loaded = await asyncio.gather(*(data.history(symbol, request.strategy.timeframe) for symbol in symbols))
+            loaded_histories = dict(zip(symbols, loaded))
+            history = loaded_histories[ticker]
+            benchmark = loaded_histories[request.strategy.benchmark]
+            comparisons = {symbol: loaded_histories[symbol] for symbol in comparison_symbols}
+            peers = {symbol: loaded_histories[symbol] for symbol in peer_symbols}
             result = await asyncio.to_thread(
                 run_parameter_search,
                 history,
@@ -81,9 +101,25 @@ def create_backtest_router(store: LocalMarketStore, data: MarketData, catalogue:
                 request.max_trials,
                 lambda progress: store.update_job(job_id, progress=progress),
                 lambda: store.job_cancellation_requested(job_id),
+                comparisons,
+                peers,
             )
+            best_strategy = request.strategy.model_validate(result["bestStrategy"])
+            research_run = ResearchRun(
+                strategy=best_strategy,
+                data_snapshot=create_snapshot_manifest(loaded_histories),
+                validation=request.validation,
+                tested_parameters=result["attempts"],
+                results=result["finalTest"],
+            )
+            store.save_research_run(research_run.model_dump(mode="json"))
             store.update_job(job_id, result=result)
-            return {**result, "jobId": job_id}
+            return {
+                **result,
+                "jobId": job_id,
+                "runId": research_run.run_id,
+                "reproducibilityKey": research_run.reproducibility_key,
+            }
         except ValueError as error:
             store.update_job(job_id, error=str(error))
             raise bad_request(error) from error
