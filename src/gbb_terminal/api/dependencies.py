@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..llm.translator import GoogleAIStrategyTranslator
+from ..llm.translator import StrategyTranslator
 from ..market_data.service import MarketData
 from ..settings import Settings, settings
 from ..storage.database import LocalMarketStore
@@ -13,7 +13,7 @@ from ..strategy.catalogue import StrategyCatalogue, catalogue
 class ApplicationServices:
     store: LocalMarketStore
     market_data: MarketData
-    translator: GoogleAIStrategyTranslator
+    translator: StrategyTranslator
     strategy_catalogue: StrategyCatalogue
 
 
@@ -22,7 +22,6 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
     return ApplicationServices(
         store=store,
         market_data=MarketData(store),
-        translator=GoogleAIStrategyTranslator(),
+        translator=StrategyTranslator(configuration.llm),
         strategy_catalogue=catalogue,
     )
-

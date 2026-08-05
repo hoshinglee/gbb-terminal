@@ -4,14 +4,14 @@ import asyncio
 
 from fastapi import APIRouter
 
-from ...llm.translator import GoogleAIStrategyTranslator
+from ...llm.translator import StrategyTranslator
 from ...storage.database import LocalMarketStore
 from ...strategy.catalogue import StrategyCatalogue
 from .shared import bad_request
 from ..schemas.v2 import StrategyCreateRequest, StrategyProposalV2Request
 
 
-def create_strategy_router(store: LocalMarketStore, translator: GoogleAIStrategyTranslator, catalogue: StrategyCatalogue) -> APIRouter:
+def create_strategy_router(store: LocalMarketStore, translator: StrategyTranslator, catalogue: StrategyCatalogue) -> APIRouter:
     router = APIRouter(prefix="/api/v2", tags=["Strategy V2"])
 
     @router.get("/strategy-templates")

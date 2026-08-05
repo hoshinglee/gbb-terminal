@@ -7,6 +7,7 @@ GBB Terminal is a local-first US equity research and option lifecycle applicatio
 | Area | Business definition | Documentation |
 | --- | --- | --- |
 | Architecture | Boundaries, data flow, path resolution, and deployment seams | [Architecture](architecture.md) |
+| Configuration | Local YAML preferences, environment overrides, and provider keys | [`conf/README.md`](../conf/README.md) |
 | API | Legacy-compatible and V2 HTTP contracts | [API](api.md) |
 | Strategy Model V2 | Templates, instances, parameters, rule graphs, and research runs | [Strategy Model V2](strategy-model-v2.md) |
 | Strategy engine | Safe declarative rule evaluation and semantic identity | [Strategy engine](strategy-engine.md) |

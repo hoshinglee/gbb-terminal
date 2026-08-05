@@ -15,8 +15,9 @@ GBB Terminal is an educational research workbench, not an execution system, brok
 - `src/gbb_terminal/storage/`: DuckDB system of record.
 - `src/gbb_terminal/llm/`: optional language-model translation only.
 - `src/gbb_terminal/observability/`: application logging.
+- `conf/`: checked-in configuration examples and ignored local runtime configuration.
 
-`gbb_terminal.settings` resolves frontend, data, and log paths from the installed source location. Environment variables may override every runtime path, so the server does not depend on its current working directory.
+`gbb_terminal.settings` resolves frontend, data, log, and configuration paths from the installed source location. `conf/app.yaml` holds non-secret local settings; `.env` holds secrets. Process environment variables and `.env` override YAML settings, so the server does not depend on its current working directory.
 
 ## Request flow
 
@@ -28,4 +29,3 @@ GBB Terminal is an educational research workbench, not an execution system, brok
 6. The API returns data plus assumptions and provenance for browser rendering.
 
 Hosted authentication is intentionally absent. Storage tables allow nullable `owner_id` so repository logic can later support users without contaminating domain models.
-

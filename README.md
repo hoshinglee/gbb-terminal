@@ -23,7 +23,7 @@ Open `http://127.0.0.1:8000`. The command works from any directory after editabl
 
 ## Configuration
 
-Copy `.env.example` to `.env`. `GEMINI_API_KEY` enables Google AI Studio translation; without it, a deterministic moving-average parser remains available. External instructions are interpreted only through a constrained strategy schema. GBB Terminal never calls `eval` or `exec` on strategy input.
+Copy `.env.example` to `.env`, then copy `conf/app.example.yaml` to ignored `conf/app.yaml`. Select Google AI Studio, OpenAI, or Anthropic Claude in `conf/app.yaml` and keep its API key only in `.env`. Without a configured provider, a deterministic moving-average parser remains available. External instructions are interpreted only through a constrained strategy schema. GBB Terminal never calls `eval` or `exec` on strategy input.
 
 Runtime data belongs in ignored `data/` and `log/` directories. Existing `data/gbb_terminal.duckdb` files are migrated in place.
 

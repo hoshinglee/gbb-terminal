@@ -10,6 +10,8 @@ pip install -e ".[dev]"
 uvicorn gbb_terminal.api.main:app --reload
 ```
 
+For natural-language translation, copy `conf/app.example.yaml` to `conf/app.yaml` and configure one provider key in `.env`. The OpenAI and Anthropic SDKs are optional: `pip install -e ".[dev,llm-openai]"` or `pip install -e ".[dev,llm-anthropic]"`.
+
 Run validation before opening a pull request:
 
 ```bash
@@ -29,4 +31,3 @@ node --check app/static/app.js
 - Do not commit `.env`, DuckDB files, downloaded datasets, or runtime logs.
 
 See [`docs/strategy-plugin-guide.md`](docs/strategy-plugin-guide.md) before adding a strategy family or indicator.
-

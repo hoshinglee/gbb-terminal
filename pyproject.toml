@@ -31,6 +31,8 @@ dev = [
   "ruff>=0.9,<1.0",
 ]
 research = ["optuna>=4.0,<5.0"]
+llm-openai = ["openai>=1.0,<3.0"]
+llm-anthropic = ["anthropic>=0.40,<1.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
