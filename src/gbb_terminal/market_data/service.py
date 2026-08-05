@@ -24,7 +24,11 @@ class MarketData:
         self.updated_at: dict[str, datetime] = {}
         self.metadata: dict[str, dict] = {}
         self.yahoo = YahooProvider()
-        self.providers = [self.yahoo, SECProvider(), FINRAProvider(), FREDProvider(), OCCProvider()]
+        self.sec = SECProvider()
+        self.finra = FINRAProvider()
+        self.fred = FREDProvider()
+        self.occ = OCCProvider()
+        self.providers = [self.yahoo, self.sec, self.finra, self.fred, self.occ]
 
     async def history(self, ticker: str, period: str = "2y") -> pd.DataFrame:
         symbol = ticker.upper().strip()

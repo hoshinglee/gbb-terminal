@@ -7,7 +7,7 @@ import pandas as pd
 from ..strategy.factory import Strategy
 from ..strategy.models import ExecutionAssumptions
 from .execution import apply_execution
-from .metrics import calculate_metrics, evidence_verdict, outcome_explanation
+from .metrics import calculate_metrics, evidence_verdict, outcome_explanation, regime_analysis
 
 
 def _trades(frame: pd.DataFrame) -> list[dict[str, Any]]:
@@ -89,6 +89,7 @@ def run_research_backtest(
         "explanation": outcome_explanation(metrics),
         "assumptions": assumptions.model_dump(mode="json"),
         "benchmarks": list(benchmark_columns),
+        "regimes": regime_analysis(active, benchmark_columns.get("SPY", next(iter(benchmark_columns.values())))),
         "chart": chart,
         "trades": trades,
     }

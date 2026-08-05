@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from itertools import product
+from math import e, sqrt
 from statistics import median
+from statistics import NormalDist
 from collections.abc import Callable
 from typing import Any
 
@@ -33,9 +35,10 @@ def _walk_forward_score(
     instance: StrategyInstance,
     catalogue: StrategyCatalogue,
     folds: int,
-) -> tuple[float, list[float]]:
+) -> tuple[float, list[float], list[float]]:
     fold_size = max(len(history) // (folds + 1), 30)
     scores: list[float] = []
+    sharpes: list[float] = []
     strategy = catalogue.build(instance)
     for fold in range(folds):
         validation_start = min(fold_size * (fold + 1), len(history) - 20)
@@ -47,7 +50,8 @@ def _walk_forward_score(
             continue
         result = run_research_backtest(segment, {"SPY": benchmark_segment}, strategy, instance.execution)
         scores.append(float(result["metrics"]["calmarRatio"]))
-    return (median(scores) if scores else float("-inf")), scores
+        sharpes.append(float(result["metrics"]["sharpeRatio"]))
+    return (median(scores) if scores else float("-inf")), scores, sharpes
 
 
 def run_parameter_search(
@@ -83,8 +87,8 @@ def run_parameter_search(
         values = {**base_instance.parameter_values, **selected}
         candidate = base_instance.model_copy(update={"parameter_values": values})
         try:
-            score, fold_scores = _walk_forward_score(development_history, development_benchmark, candidate, catalogue, validation.walk_forward_folds)
-            attempts.append({"parameters": selected, "score": round(score, 4), "foldScores": [round(value, 4) for value in fold_scores], "status": "Completed"})
+            score, fold_scores, fold_sharpes = _walk_forward_score(development_history, development_benchmark, candidate, catalogue, validation.walk_forward_folds)
+            attempts.append({"parameters": selected, "score": round(score, 4), "foldScores": [round(value, 4) for value in fold_scores], "foldSharpes": [round(value, 4) for value in fold_sharpes], "status": "Completed"})
         except ValueError as error:
             attempts.append({"parameters": selected, "score": None, "foldScores": [], "status": "Rejected", "reason": str(error)})
         if progress_callback:
@@ -98,6 +102,7 @@ def run_parameter_search(
     final_result = run_research_backtest(final_history, {"SPY": final_benchmark}, catalogue.build(best_instance), best_instance.execution)
     top_score = float(completed[0]["score"])
     stable = [attempt for attempt in completed if float(attempt["score"]) >= top_score * 0.8] if top_score > 0 else []
+    deflated_probability = _deflated_sharpe_probability(completed, len(development_history))
     return {
         "method": method,
         "objective": "Median Walk-Forward Calmar Ratio",
@@ -108,6 +113,26 @@ def run_parameter_search(
         "attempts": attempts,
         "stabilityRegion": [attempt["parameters"] for attempt in stable],
         "performanceDecay": round(top_score - float(final_result["metrics"]["calmarRatio"]), 4),
-        "overfittingWarning": "The selected parameters are unstable across nearby settings." if len(stable) < max(2, len(completed) // 10) else None,
+        "deflatedSharpeProbability": round(deflated_probability * 100, 1),
+        "overfittingWarning": "Selection-adjusted Sharpe evidence or nearby-parameter stability is weak." if deflated_probability < 0.8 or len(stable) < max(2, len(completed) // 10) else None,
         "finalTest": final_result,
     }
+
+
+def _deflated_sharpe_probability(attempts: list[dict[str, Any]], observations: int) -> float:
+    candidate_sharpes = [median(attempt["foldSharpes"]) for attempt in attempts if attempt.get("foldSharpes")]
+    if not candidate_sharpes:
+        return 0.0
+    observed = max(candidate_sharpes)
+    if len(candidate_sharpes) == 1:
+        expected_maximum = 0.0
+    else:
+        standard_deviation = float(np.std(candidate_sharpes, ddof=1))
+        normal = NormalDist()
+        trials = len(candidate_sharpes)
+        expected_maximum = standard_deviation * (
+            0.5772156649 * normal.inv_cdf(1 - 1 / (trials * e))
+            + (1 - 0.5772156649) * normal.inv_cdf(1 - 1 / trials)
+        )
+    standard_error = sqrt(max((1 + 0.5 * observed**2) / max(observations - 1, 1), 1e-12))
+    return NormalDist().cdf((observed - expected_maximum) / standard_error)

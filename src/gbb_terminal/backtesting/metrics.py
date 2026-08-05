@@ -64,8 +64,47 @@ def calculate_metrics(
         "openTrades": len(trades) - len(closed),
         "winRate": round(len(wins) / len(closed) * 100, 1) if closed else 0.0,
         "profitFactor": None if np.isinf(profit_factor) else round(profit_factor, 2),
+        "costSensitivity": [
+            {
+                "totalCostBps": basis_points,
+                "totalReturn": round(
+                    (
+                        (1 + (frame["strategy_return"] + frame["cost"] - frame["turnover"] * basis_points / 10_000)).cumprod().iloc[-1]
+                        - 1
+                    )
+                    * 100,
+                    2,
+                ),
+            }
+            for basis_points in (0, 3, 5, 10, 25)
+        ],
     }
     return metrics
+
+
+def regime_analysis(frame: pd.DataFrame, benchmark_column: str) -> list[dict[str, Any]]:
+    benchmark_returns = frame[benchmark_column].pct_change().fillna(0)
+    trend = frame[benchmark_column].rolling(50).mean() >= frame[benchmark_column].rolling(200).mean()
+    volatility = benchmark_returns.rolling(20).std(ddof=0) * np.sqrt(252)
+    high_volatility = volatility >= volatility.median()
+    regimes = pd.Series("Transition", index=frame.index)
+    regimes[trend & ~high_volatility] = "Bull / Lower Volatility"
+    regimes[trend & high_volatility] = "Bull / Higher Volatility"
+    regimes[~trend & ~high_volatility] = "Bear / Lower Volatility"
+    regimes[~trend & high_volatility] = "Bear / Higher Volatility"
+    results = []
+    for regime, segment in frame.groupby(regimes):
+        if len(segment) < 5:
+            continue
+        results.append(
+            {
+                "regime": regime,
+                "sessions": len(segment),
+                "strategyReturn": round(((1 + segment["strategy_return"]).prod() - 1) * 100, 2),
+                "averageExposure": round(float(segment["position"].abs().mean()) * 100, 1),
+            }
+        )
+    return results
 
 
 def evidence_verdict(metrics: dict[str, Any]) -> dict[str, str]:
@@ -95,4 +134,3 @@ def outcome_explanation(metrics: dict[str, Any]) -> str:
         f"with a maximum drawdown of {abs(metrics['maxDrawdown']):.2f}% and market exposure of "
         f"{metrics['exposure']:.1f}%."
     )
-

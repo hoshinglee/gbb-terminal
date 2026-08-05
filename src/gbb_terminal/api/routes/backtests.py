@@ -35,9 +35,12 @@ def create_backtest_router(store: LocalMarketStore, data: MarketData, catalogue:
                 ticker = (request.strategy.ticker or "").upper()
                 if not ticker:
                     raise ValueError("A ticker is required for an individual-stock research run.")
-                history, benchmark_history = await asyncio.gather(data.history(ticker, request.strategy.timeframe), data.history(benchmark, request.strategy.timeframe))
-                result = await asyncio.to_thread(run_research_backtest, history, {benchmark: benchmark_history}, catalogue.build(request.strategy), request.strategy.execution)
-                snapshot = {ticker: history.index[-1].strftime("%Y-%m-%d"), benchmark: benchmark_history.index[-1].strftime("%Y-%m-%d")}
+                comparison_symbols = list(dict.fromkeys([benchmark, "SPY", *([request.strategy.sector_benchmark.upper()] if request.strategy.sector_benchmark else [])]))
+                loaded = await asyncio.gather(*(data.history(symbol, request.strategy.timeframe) for symbol in [ticker, *comparison_symbols]))
+                history = loaded[0]
+                comparisons = dict(zip(comparison_symbols, loaded[1:]))
+                result = await asyncio.to_thread(run_research_backtest, history, comparisons, catalogue.build(request.strategy), request.strategy.execution)
+                snapshot = {ticker: history.index[-1].strftime("%Y-%m-%d"), **{symbol: frame.index[-1].strftime("%Y-%m-%d") for symbol, frame in comparisons.items()}}
             research_run = ResearchRun(
                 strategy=request.strategy,
                 data_snapshot=snapshot,
