@@ -4,9 +4,9 @@ import asyncio
 from datetime import datetime, timezone
 
 import pandas as pd
-import yfinance as yf
-
-from .storage import LocalMarketStore
+from .providers import FINRAProvider, FREDProvider, OCCProvider, SECProvider, YahooProvider
+from .providers.base import ProviderUnavailable
+from ..storage.database import LocalMarketStore
 
 
 SECTORS = {
@@ -22,6 +22,13 @@ class MarketData:
         self.store = store
         self.history_cache: dict[str, pd.DataFrame] = {}
         self.updated_at: dict[str, datetime] = {}
+        self.metadata: dict[str, dict] = {}
+        self.yahoo = YahooProvider()
+        self.sec = SECProvider()
+        self.finra = FINRAProvider()
+        self.fred = FREDProvider()
+        self.occ = OCCProvider()
+        self.providers = [self.yahoo, self.sec, self.finra, self.fred, self.occ]
 
     async def history(self, ticker: str, period: str = "2y") -> pd.DataFrame:
         symbol = ticker.upper().strip()
@@ -32,11 +39,21 @@ class MarketData:
             self.history_cache[symbol] = cached
             self.updated_at[symbol] = datetime.now(timezone.utc)
             return cached.copy()
-        frame = await asyncio.to_thread(yf.Ticker(symbol).history, period=period, auto_adjust=True)
-        if frame.empty or "Close" not in frame:
-            raise ValueError(f"No Yahoo Finance price data found for {symbol}.")
-        frame.index = pd.to_datetime(frame.index).tz_localize(None)
-        self.store.save_history(symbol, frame)
+        try:
+            envelope = await asyncio.to_thread(self.yahoo.history, symbol, period)
+            frame = envelope.data
+            self.store.save_history(symbol, frame)
+            self.metadata[symbol] = envelope.metadata()
+        except ProviderUnavailable as error:
+            frame = self.store.load_history(symbol, period, max_age_minutes=None)
+            if frame is None:
+                raise ValueError(str(error)) from error
+            self.metadata[symbol] = {
+                "dataset": "daily_prices", "symbol": symbol, "source": "Yahoo Finance",
+                "status": "Stale Cache", "knownAt": frame.index[-1].isoformat(),
+                "observationTimestamp": frame.index[-1].isoformat(), "retrievedAt": datetime.now(timezone.utc).isoformat(),
+                "qualityWarnings": [str(error), "Serving the newest locally cached price history."], "cached": True,
+            }
         self.history_cache[symbol] = frame
         self.updated_at[symbol] = datetime.now(timezone.utc)
         return frame.copy()
@@ -45,26 +62,27 @@ class MarketData:
         history = await self.history(ticker, "1y")
         close = history["Close"].dropna()
         last, previous = float(close.iloc[-1]), float(close.iloc[-2])
-        return {"symbol": ticker.upper(), "price": round(last, 2), "change": round(last - previous, 2), "changePercent": round((last / previous - 1) * 100, 2), "updatedAt": self.updated_at[ticker.upper()].isoformat()}
+        return {"symbol": ticker.upper(), "price": round(last, 2), "change": round(last - previous, 2), "changePercent": round((last / previous - 1) * 100, 2), "updatedAt": self.updated_at[ticker.upper()].isoformat(), "dataStatus": self.metadata.get(ticker.upper(), {})}
 
     async def options(self, ticker: str) -> dict:
         symbol = ticker.upper().strip()
         cached = self.store.load_options(symbol)
         if cached is not None:
             return cached
-        stock = yf.Ticker(symbol)
-        expirations = await asyncio.to_thread(lambda: list(stock.options))
-        if not expirations:
-            return {"expirations": [], "calls": [], "puts": []}
-        expiry = expirations[0]
-        chain = await asyncio.to_thread(stock.option_chain, expiry)
-        def number(value: object) -> float:
-            return 0.0 if pd.isna(value) else float(value)
-        def rows(frame: pd.DataFrame) -> list[dict]:
-            return [{"contract": row.contractSymbol, "strike": number(row.strike), "last": number(row.lastPrice), "bid": number(row.bid), "ask": number(row.ask), "volume": int(number(row.volume)), "openInterest": int(number(row.openInterest)), "iv": round(number(row.impliedVolatility) * 100, 1)} for row in frame.head(12).itertuples()]
-        payload = {"expiration": expiry, "expirations": expirations[:8], "calls": rows(chain.calls), "puts": rows(chain.puts)}
-        self.store.save_options(symbol, payload)
-        return payload
+        try:
+            envelope = await asyncio.to_thread(self.yahoo.option_chain, symbol)
+            payload = {**envelope.data, "source": envelope.source, "dataStatus": envelope.metadata(), "historicalStatus": "Current Snapshot"}
+            self.store.save_options(symbol, payload)
+            return payload
+        except ProviderUnavailable as error:
+            stale = self.store.load_options(symbol, max_age_minutes=None)
+            if stale is None:
+                raise ValueError(str(error)) from error
+            stale["dataStatus"] = {**stale.get("dataStatus", {}), "status": "Stale Cache", "qualityWarnings": [str(error), "Serving the newest locally cached option chain."]}
+            return stale
+
+    def provider_statuses(self) -> list[dict]:
+        return [provider.status() for provider in self.providers]
 
     async def dashboard(self) -> dict:
         sector_quotes = await asyncio.gather(*(self.quote(symbol) for symbol in SECTORS))

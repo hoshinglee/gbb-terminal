@@ -1,0 +1,30 @@
+name: Bug Report
+description: Report a reproducible defect in local research or simulation.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Include the module, action, and visible error.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction
+      description: Provide minimal steps and non-secret inputs.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Environment
+      description: OS, Python version, and browser.
+    validations:
+      required: true
+  - type: checkboxes
+    attributes:
+      label: Data safety
+      options:
+        - label: I removed API keys, personal data, DuckDB files, and logs.
+          required: true
+

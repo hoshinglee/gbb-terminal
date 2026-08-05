@@ -1,0 +1,24 @@
+name: Feature Request
+description: Propose a research, simulation, provider, or usability improvement.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: Research problem
+      description: What decision or investigation should become easier?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Proposed behavior
+      description: Describe expected inputs, evidence, assumptions, and outputs.
+    validations:
+      required: true
+  - type: checkboxes
+    attributes:
+      label: Project fit
+      options:
+        - label: The proposal remains useful with free data and no live trading.
+          required: true
+

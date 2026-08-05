@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GBB Terminal</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <aside>
+      <div class="brand"><span>GBB</span> TERMINAL<small>OPEN-SOURCE MARKET RESEARCH</small></div>
+      <nav>
+        <button class="nav-item active" data-panel="strategy"><b>01</b> Strategy Lab</button>
+        <button class="nav-item" data-panel="options"><b>02</b> Option Lab</button>
+        <button class="nav-item" data-panel="stock"><b>03</b> Stock Observatory</button>
+        <button class="nav-item" data-panel="market"><b>04</b> Market Pulse</button>
+      </nav>
+      <div class="side-note"><i></i> Local-first research<br /><span>Public data · May be delayed</span></div>
+    </aside>
+
+    <main>
+      <header>
+        <div><p class="eyebrow">US EQUITIES · OPTIONS · EVIDENCE-FIRST RESEARCH</p><h1 id="page-title">Strategy Lab</h1></div>
+        <div id="status">● READY</div>
+      </header>
+
+      <section class="panel active" id="strategy">
+        <div class="workflow card">
+          <button class="workflow-step active"><span>1</span><b>Define</b><small>Instruction or template</small></button>
+          <button class="workflow-step"><span>2</span><b>Configure</b><small>Rules and parameters</small></button>
+          <button class="workflow-step"><span>3</span><b>Test Design</b><small>Data and assumptions</small></button>
+          <button class="workflow-step"><span>4</span><b>Evidence</b><small>Returns and robustness</small></button>
+        </div>
+
+        <div class="strategy-layout">
+          <div class="card define-card">
+            <div class="section-heading"><div><p class="eyebrow">1 · DEFINE</p><h2>Describe or select a strategy.</h2></div><button id="open-catalogue" class="text-button">Strategy Catalogue</button></div>
+            <label for="strategy-input">Natural-language instruction</label>
+            <textarea id="strategy-input" placeholder="Long when MA5 crosses above MA20 with volume above its 20-day average. Exit on the reverse crossover or a 6% loss.">Long when MA5 crosses above MA10 and exit when MA5 crosses below MA10.</textarea>
+            <div class="or-divider"><span>OR START FROM A VALIDATED TEMPLATE</span></div>
+            <select id="strategy-template"><option value="">Choose a strategy family…</option></select>
+            <p class="helper">Natural language is translated into a safe rule graph. Templates expose every editable parameter directly.</p>
+          </div>
+
+          <div class="card configure-card">
+            <p class="eyebrow">2 · CONFIGURE</p>
+            <h2 id="configuration-name">Pending Definition</h2>
+            <p id="configuration-description" class="muted">Choose a template or submit an instruction for LLM-assisted confirmation.</p>
+            <div id="parameter-controls" class="parameter-controls"><p class="empty-state">Template parameters appear here.</p></div>
+          </div>
+        </div>
+
+        <div class="card test-design">
+          <div><p class="eyebrow">3 · TEST DESIGN</p><h2>Make assumptions visible.</h2></div>
+          <div class="test-fields">
+            <label>Ticker<input id="strategy-ticker" value="AAPL" maxlength="12" /></label>
+            <label>Benchmark<input id="strategy-benchmark" value="SPY" maxlength="12" /></label>
+            <label id="universe-field" hidden>Universe<input id="strategy-universe" value="AAPL, MSFT, NVDA, AMZN, META" /></label>
+            <label>Backtest Window<select id="backtest-window"><option value="1mo">1 Month</option><option value="3mo">3 Months</option><option value="6mo">6 Months</option><option value="1y" selected>1 Year</option><option value="2y">2 Years</option></select></label>
+            <label>Commission (Bps)<input id="commission-bps" type="number" value="1" min="0" max="100" step="0.5" /></label>
+            <label>Slippage (Bps)<input id="slippage-bps" type="number" value="2" min="0" max="100" step="0.5" /></label>
+            <button id="run-backtest">Run Research ↗</button>
+          </div>
+        </div>
+
+        <div class="evidence-heading"><div><p class="eyebrow">4 · EVIDENCE</p><h2>Judge risk, not only return.</h2></div><div id="evidence-verdict" class="verdict neutral">Awaiting Research</div></div>
+        <div class="metrics" id="backtest-metrics"><div class="metric"><span>TOTAL RETURN</span><strong>—</strong></div><div class="metric"><span>BUY &amp; HOLD</span><strong>—</strong></div><div class="metric"><span>MAX DRAWDOWN</span><strong>—</strong></div><div class="metric"><span>SHARPE</span><strong>—</strong></div><div class="metric"><span>EXPOSURE</span><strong>—</strong></div></div>
+        <div class="grid evidence-grid">
+          <div class="card chart-card"><div class="card-title">EQUITY CURVE <span id="chart-window">NORMALIZED TO 1.00</span></div><div class="legend"><span><i class="strategy-dot"></i>Strategy</span><span><i class="hold-dot"></i>Buy &amp; Hold</span><span><i class="spy-dot"></i>SPY</span></div><div class="chart-shell"><canvas id="backtest-chart"></canvas><div class="chart-tooltip" hidden></div></div></div>
+          <div class="card insight"><div class="card-title">RESEARCH INTERPRETATION</div><div id="parsed-strategy" class="logic">Run research to evaluate the selected rules.</div><p id="strategy-source" class="source">No strategy is loaded.</p><hr /><p id="outcome-explanation">Results remain visible even when passive investing wins.</p><ul id="assumption-list"><li>Next-session execution</li><li>Costs applied on position changes</li><li>No live brokerage execution</li></ul></div>
+        </div>
+
+        <div class="card expandable ledger-card"><button id="toggle-trades" class="expandable-toggle" aria-expanded="false" aria-controls="trade-ledger"><span>TRADE LEDGER</span><span id="trade-count">0 Closed · 0 Open</span></button><div id="trade-ledger" class="trade-table" hidden><p class="empty-state">Run research to inspect entries, exits, and P&amp;L.</p></div></div>
+
+        <div class="card simulation"><div><div class="card-title">MONTE CARLO · RETURN RANGE</div><p>Bootstrap historical daily returns to inspect path uncertainty.</p></div><div class="sim-actions"><select id="simulation-days"><option value="126">6 Months</option><option value="252" selected>1 Year</option><option value="504">2 Years</option></select><button class="outline" id="run-simulation">Simulate</button></div></div>
+        <div class="metrics compact" id="simulation-metrics"><div class="metric"><span>MEDIAN RETURN</span><strong>—</strong></div><div class="metric"><span>10TH PERCENTILE</span><strong>—</strong></div><div class="metric"><span>90TH PERCENTILE</span><strong>—</strong></div><div class="metric"><span>PROFIT PROBABILITY</span><strong>—</strong></div></div>
+        <div class="card simulation-chart"><div class="card-title">SIMULATED EQUITY PATHS <span>10TH · 50TH · 90TH PERCENTILE</span></div><div class="chart-shell"><canvas id="simulation-chart"></canvas><div class="chart-tooltip" hidden></div></div></div>
+      </section>
+
+      <section class="panel" id="options">
+        <div class="toolbar"><div><p class="eyebrow">POSITION CONSTRUCTION · LIFECYCLE EVENTS</p><h2>Option Lab</h2><p class="muted">Theoretical simulation using American-option pricing. Not a historical option backtest.</p></div><button id="load-option-chain" class="outline">Load Current Chain</button></div>
+        <div class="option-builder">
+          <div class="card">
+            <div class="card-title">POSITION SETUP</div>
+            <div class="option-fields">
+              <label>Position<select id="option-kind"><option value="long_call">Long Call</option><option value="long_put">Long Put</option><option value="short_call">Short Call</option><option value="short_put">Short Put</option><option value="covered_call">Covered Call</option><option value="cash_secured_put">Cash-Secured Put</option><option value="bull_call_spread">Bull Call Spread</option><option value="bear_call_spread">Bear Call Spread</option><option value="bull_put_spread">Bull Put Spread</option><option value="bear_put_spread">Bear Put Spread</option></select></label>
+              <label>Ticker<input id="option-ticker" value="AAPL" maxlength="12" /></label>
+              <label>Underlying Price<input id="option-spot" type="number" value="200" min="0.01" step="0.01" /></label>
+              <label>Expiration<input id="option-expiration" type="date" /></label>
+              <label>First Strike<input id="option-strike-one" type="number" value="200" min="0.01" step="0.5" /></label>
+              <label>First Premium<input id="option-premium-one" type="number" value="8" min="0" step="0.01" /></label>
+              <label id="second-strike-field" hidden>Second Strike<input id="option-strike-two" type="number" value="210" min="0.01" step="0.5" /></label>
+              <label id="second-premium-field" hidden>Second Premium<input id="option-premium-two" type="number" value="4" min="0" step="0.01" /></label>
+              <label>Implied Volatility (%)<input id="option-iv" type="number" value="25" min="1" max="500" step="1" /></label>
+              <label>Contracts<input id="option-quantity" type="number" value="1" min="1" max="1000" /></label>
+              <label id="shares-field" hidden>Shares<input id="option-shares" type="number" value="100" min="0" step="100" /></label>
+            </div>
+            <div class="button-row"><button id="simulate-option">Simulate Position</button><button id="create-paper-position" class="outline" disabled>Create Paper Position</button></div>
+          </div>
+          <div class="card chain-preview"><div class="card-title">CURRENT CHAIN SNAPSHOT</div><p id="lab-chain-status" class="muted">Load a Yahoo chain to inspect current contracts and open interest.</p><div id="lab-chain"></div></div>
+        </div>
+        <div class="metrics" id="option-summary"><div class="metric"><span>BREAK-EVEN</span><strong>—</strong></div><div class="metric"><span>MAXIMUM GAIN</span><strong>—</strong></div><div class="metric"><span>MAXIMUM LOSS</span><strong>—</strong></div><div class="metric"><span>COLLATERAL</span><strong>—</strong></div><div class="metric"><span>MODEL</span><strong>—</strong></div></div>
+        <div class="grid">
+          <div class="card chart-card"><div class="card-title">P&amp;L AT EXPIRY</div><div class="chart-shell"><canvas id="option-payoff-chart"></canvas><div class="chart-tooltip" hidden></div></div></div>
+          <div class="card"><div class="card-title">GREEKS &amp; PROBABILITY</div><div id="option-greeks"><p class="empty-state">Simulate a position to calculate its modeled Greeks.</p></div></div>
+        </div>
+        <div class="card option-scenarios"><div class="section-heading"><div><div class="card-title">PRICE · TIME · VOLATILITY SCENARIOS</div><p class="muted">Move through modeled time to expiry. Monte Carlo paths animate underlying outcomes and marked position P&amp;L.</p></div><label>Timeline <input id="option-timeline" type="range" min="0" max="0" value="0" disabled /><span id="option-timeline-label">Entry</span></label></div><div class="scenario-grid"><div><h3>SELECTED TIME SLICE</h3><div class="chart-shell"><canvas id="option-surface-chart"></canvas><div class="chart-tooltip" hidden></div></div></div><div><h3>MONTE CARLO UNDERLYING PATHS</h3><div class="chart-shell"><canvas id="option-path-chart"></canvas><div class="chart-tooltip" hidden></div></div></div></div></div>
+        <div class="card lifecycle-card">
+          <div class="section-heading"><div><div class="card-title">PAPER POSITION LIFECYCLE</div><p id="position-status" class="muted">Create a paper position after simulation to journal decisions.</p></div><code id="position-id"></code></div>
+          <div class="lifecycle-fields">
+            <label>Event<select id="lifecycle-event"><option value="hold">Hold</option><option value="close">Close</option><option value="partial_close">Partially Close</option><option value="roll_strike">Roll Strike</option><option value="roll_expiry">Roll Expiry</option><option value="exercise">Exercise</option><option value="expire">Allow Expiry</option><option value="early_assignment">Early Assignment</option><option value="expiry_assignment">Expiry Assignment</option></select></label>
+            <label>Underlying Price<input id="event-spot" type="number" value="200" min="0.01" step="0.01" /></label>
+            <label>Current Option Mark<input id="event-mark" type="number" value="8" min="0" step="0.01" /></label>
+            <label>Quantity<input id="event-quantity" type="number" value="1" min="1" /></label>
+            <label>New Strike<input id="event-new-strike" type="number" min="0.01" step="0.5" /></label>
+            <label>New Expiration<input id="event-new-expiration" type="date" /></label>
+            <label>New Premium<input id="event-new-premium" type="number" min="0" step="0.01" /></label>
+            <button id="apply-lifecycle-event" disabled>Apply Event</button>
+          </div>
+          <div id="position-ledger"><p class="empty-state">Ledger events will preserve every earlier state.</p></div>
+        </div>
+        <div class="card limitations"><div class="card-title">MODEL LIMITATIONS</div><ul id="option-limitations"><li>Current Yahoo chains initialize simulations; historical contract marks are unavailable.</li><li>All outputs are theoretical and educational.</li></ul></div>
+      </section>
+
+      <section class="panel" id="stock">
+        <div class="toolbar"><div><p class="eyebrow">OHLCV · CURRENT OPTIONS</p><h2>Stock Observatory</h2></div><div class="ticker-search"><input id="stock-ticker" value="AAPL" maxlength="12" /><button id="load-stock">Load</button></div></div>
+        <div class="metrics" id="quote-metrics"><div class="metric"><span>LAST PRICE</span><strong>—</strong></div><div class="metric"><span>DAY CHANGE</span><strong>—</strong></div><div class="metric"><span>DATA STATUS</span><strong>—</strong></div></div>
+        <div class="card chart-card"><div class="card-title">ONE-YEAR PRICE &amp; VOLUME <span id="stock-symbol"></span></div><div class="chart-shell"><canvas id="stock-chart"></canvas><div class="chart-tooltip" hidden></div></div></div>
+        <div class="card option-card"><div class="option-heading"><div><div class="card-title">OPTION CHAIN</div><p id="option-expiry">Nearest expiry</p></div></div><div class="option-grid"><div><h3>CALLS</h3><div id="calls"></div></div><div><h3>PUTS</h3><div id="puts"></div></div></div></div>
+      </section>
+
+      <section class="panel" id="market">
+        <div class="toolbar"><div><p class="eyebrow">CROSS-ASSET OBSERVABILITY</p><h2>Market Pulse</h2></div><button id="load-market" class="outline">Refresh Data</button></div>
+        <div class="grid"><div class="card table-card"><div class="card-title">SECTOR PERFORMANCE <span>DAY / 3M RELATIVE STRENGTH</span></div><div id="sectors"></div></div><div class="card table-card"><div class="card-title">MACRO SNAPSHOT</div><div id="macro"></div></div></div>
+      </section>
+    </main>
+
+    <dialog id="strategy-catalogue-modal" class="catalogue-modal"><div class="modal-heading"><div><p class="eyebrow">GROUPED BY STRATEGY FAMILY</p><h2>Strategy Catalogue</h2><p id="catalogue-count">0 Saved Strategies</p></div><button id="close-catalogue" class="modal-close" aria-label="Close catalogue">×</button></div><div id="strategy-catalogue" class="catalogue"><p class="empty-state">Saved strategies appear here.</p></div></dialog>
+    <dialog id="strategy-confirmation-modal" class="catalogue-modal confirmation-modal"><div class="modal-heading"><div><p class="eyebrow">LLM-ASSISTED DEFINITION</p><h2>Confirm Proposed Strategy</h2><p>Review the executable interpretation before testing.</p></div><button id="close-confirmation" class="modal-close" aria-label="Close strategy confirmation">×</button></div><div class="confirmation-body"><div class="proposal-summary"><span>PROPOSED NAME</span><strong id="proposal-name">—</strong><span>NORMALIZED DESCRIPTION</span><p id="proposal-description">—</p></div><div id="proposal-existing" class="proposal-notice" hidden></div><div id="proposal-clarifications" class="proposal-warnings"></div><details><summary>Advanced · Edit or Export YAML</summary><textarea id="proposal-yaml" spellcheck="false"></textarea></details><div class="confirmation-actions"><button id="cancel-proposal" class="outline">Revise Instruction</button><button id="confirm-proposal">Confirm &amp; Run</button></div></div></dialog>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

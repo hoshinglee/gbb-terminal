@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass
 
 import yaml
-from dotenv import load_dotenv
 
-from .strategy import Strategy, StrategyFactory, parse_strategy
-
-load_dotenv()
+from ..settings import LLMSettings, settings
+from ..strategy.factory import Strategy, StrategyFactory, parse_strategy
+from .providers import CompletionProvider, create_completion_provider
 
 
 @dataclass(frozen=True)
@@ -22,8 +20,8 @@ class Translation:
     needs_confirmation: bool
 
 
-class GoogleAIStrategyTranslator:
-    """Uses Google AI Studio to translate natural language into the safe strategy YAML DSL."""
+class StrategyTranslator:
+    """Translates natural language through a selected provider into safe strategy YAML."""
 
     SYSTEM_PROMPT = """You translate trading instructions into GBB Strategy YAML version 1.
 Return YAML only, without Markdown fences. Never return Python or executable code.
@@ -33,6 +31,14 @@ Available indicator types:
 - ema: source and integer window
 - rsi: source and integer window
 - volume_sma: integer window
+- rolling_std, bollinger_upper, bollinger_lower: source, integer window, and optional deviations
+- macd and macd_signal: fast_window, slow_window, and signal_window
+- atr, donchian_high, donchian_low: integer window
+- darvas_high and darvas_low: integer window and confirmation_bars
+- obv and gap: no parameters
+- zscore and volatility: source and integer window
+- fibonacci_level: integer window and ratio between 0 and 1; never use manually selected historical anchors
+- relative_strength: integer window and requires aligned benchmark data
 Available operators: crosses_above, crosses_below, greater_than, less_than, greater_or_equal, less_or_equal.
 Required schema:
 version: 1
@@ -59,40 +65,30 @@ Optional risk settings:
 risk:
   stop_loss_percent: positive percentage
   take_profit_percent: positive percentage
+  trailing_stop_percent: positive percentage
+  atr_stop_multiple: positive ATR multiple
+  atr_window: optional ATR window
+  max_holding_days: positive session count
 Only express logic possible with this schema. Preserve every explicit threshold and window from the instruction.
 Never invent a missing threshold, indicator window, multiplier, or risk percentage."""
 
-    def __init__(self) -> None:
-        self.api_key = os.getenv("GEMINI_API_KEY", "").strip()
-        self.model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
-        self.timeout_ms = int(os.getenv("GEMINI_TIMEOUT_MS", "45000"))
+    def __init__(self, configuration: LLMSettings | None = None, provider: CompletionProvider | None = None) -> None:
+        self.configuration = configuration or settings.llm
+        self.provider_client = provider or create_completion_provider(self.configuration)
 
     @property
     def configured(self) -> bool:
-        return bool(self.api_key)
+        return self.provider_client.configured
 
     def translate(self, instruction: str) -> Translation:
         if not self.configured:
             strategy = parse_strategy(instruction)
             clarifications = ambiguity_notes(instruction, strategy)
             if re.search(r"\b(volume|rsi|stop loss|loss threshold|take profit)\b", instruction, re.IGNORECASE):
-                clarifications.append("Google AI Studio is not configured; the deterministic fallback only translated the moving-average crossover.")
+                clarifications.append(f"{self.provider_client.display_name} is not configured; the deterministic fallback only translated the moving-average crossover.")
             return Translation(strategy=strategy, provider="deterministic_fallback", yaml_config=strategy.to_yaml(), normalized_instruction=strategy.spec().description, clarifications=clarifications, needs_confirmation=bool(clarifications))
         try:
-            from google import genai
-            from google.genai import types
-
-            client = genai.Client(api_key=self.api_key, http_options=types.HttpOptions(timeout=self.timeout_ms))
-            response = client.models.generate_content(
-                model=self.model,
-                contents=instruction,
-                config=types.GenerateContentConfig(
-                    system_instruction=self.SYSTEM_PROMPT,
-                    temperature=0.1,
-                    max_output_tokens=1200,
-                ),
-            )
-            raw_yaml = response.text.strip().removeprefix("```yaml").removeprefix("```").removesuffix("```").strip()
+            raw_yaml = self.provider_client.generate(instruction, self.SYSTEM_PROMPT).strip().removeprefix("```yaml").removeprefix("```").removesuffix("```").strip()
             strategy, repair_notes = validated_model_strategy(raw_yaml)
             clarifications = [*ambiguity_notes(instruction, strategy), *repair_notes]
             return Translation(strategy=strategy, provider="google_ai_studio", yaml_config=strategy.to_yaml(), normalized_instruction=strategy.spec().description, clarifications=clarifications, needs_confirmation=True)
@@ -100,13 +96,24 @@ Never invent a missing threshold, indicator window, multiplier, or risk percenta
             try:
                 strategy = parse_strategy(instruction)
             except ValueError:
-                raise ValueError(f"Google AI Studio could not translate the strategy: {provider_failure_reason(error)}") from error
+                raise ValueError(f"{self.provider_client.display_name} could not translate the strategy: {provider_failure_reason(error)}") from error
             clarifications = ambiguity_notes(instruction, strategy)
-            clarifications.append(f"Google AI Studio was unavailable ({provider_failure_reason(error)}); the proposed fallback only includes the moving-average crossover.")
-            return Translation(strategy=strategy, provider="deterministic_fallback_after_google_error", yaml_config=strategy.to_yaml(), normalized_instruction=strategy.spec().description, clarifications=list(dict.fromkeys(clarifications)), needs_confirmation=True)
+            clarifications.append(f"{self.provider_client.display_name} was unavailable ({provider_failure_reason(error)}); the proposed fallback only includes the moving-average crossover.")
+            return Translation(strategy=strategy, provider=f"deterministic_fallback_after_{self.provider_client.key}_error", yaml_config=strategy.to_yaml(), normalized_instruction=strategy.spec().description, clarifications=list(dict.fromkeys(clarifications)), needs_confirmation=True)
 
     def status(self) -> dict[str, str | bool | int]:
-        return {"configured": self.configured, "model": self.model, "provider": "Google AI Studio", "format": "GBB Strategy YAML v1", "timeoutMs": self.timeout_ms}
+        return {
+            "configured": self.configured,
+            "model": self.provider_client.model,
+            "provider": self.provider_client.display_name,
+            "providerKey": self.provider_client.key,
+            "format": "GBB Strategy YAML v1",
+            "timeoutMs": self.configuration.timeout_ms,
+        }
+
+
+# Kept for integrations using the original Google-only class name.
+GoogleAIStrategyTranslator = StrategyTranslator
 
 
 def ambiguity_notes(instruction: str, strategy: Strategy) -> list[str]:

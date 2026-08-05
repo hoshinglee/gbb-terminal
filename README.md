@@ -1,34 +1,38 @@
 # GBB Terminal
 
-A local-first US-market financial terminal MVP. It prioritizes natural-language moving-average strategies, backtesting, and Monte Carlo analysis, then adds stock/options and sector/macro observability.
+GBB Terminal is a free, open-source research and simulation workbench for hobbyist US equity and options investors. It keeps underperformance visible, compares active ideas with passive benchmarks, and never sends brokerage orders.
 
-Detailed business and function documentation is available in [`docs/`](docs/README.md).
+## Current capabilities
+
+- **Strategy Lab:** natural-language rules, validated templates, guarded parameter search, cost-aware backtests, SPY/custom benchmarks, portfolio rotation, trade ledgers, evidence verdicts, and Monte Carlo paths.
+- **Option Lab:** current Yahoo chain snapshots, American-option pricing, Greeks, price/time P&L surfaces, Monte Carlo paths, core single- and multi-leg positions, and an auditable paper lifecycle ledger.
+- **Stock and Market:** OHLCV observability, current option open interest, sector performance, relative strength, and macro market proxies.
+- **Local persistence:** DuckDB caches requested public data, strategies, research runs, option snapshots, paper positions, and lifecycle events.
 
 ## Run locally
 
+Python 3.11 or newer is required.
+
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+conda activate gbbterminal
+pip install -e ".[dev]"
+uvicorn gbb_terminal.api.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000`.
+Open `http://127.0.0.1:8000`. The command works from any directory after editable installation because frontend, database, and log paths resolve through `gbb_terminal.settings`.
 
-## Google AI Studio
+## Configuration
 
-1. Copy `.env.example` to `.env` if it is not already present.
-2. Add your Google AI Studio key as `GEMINI_API_KEY`.
-3. Restart the server and run a Strategy Lab backtest.
+Copy `.env.example` to `.env`, then copy `conf/app.example.yaml` to ignored `conf/app.yaml`. Select Google AI Studio, OpenAI, or Anthropic Claude in `conf/app.yaml` and keep its API key only in `.env`. Without a configured provider, a deterministic moving-average parser remains available. External instructions are interpreted only through a constrained strategy schema. GBB Terminal never calls `eval` or `exec` on strategy input.
 
-Without a key, the application uses its deterministic moving-average parser. With a key, Google AI Studio translates instructions into GBB Strategy YAML v1 before the strategy factory validates and interprets them. YAML is parsed as data with `yaml.safe_load`; no external strategy input is executed with `eval` or `exec`.
+Runtime data belongs in ignored `data/` and `log/` directories. Existing `data/gbb_terminal.duckdb` files are migrated in place.
 
-## Notes
+## Data and model limits
 
-- Data is sourced from Yahoo Finance and may be delayed, incomplete, or unavailable. It is for research only, not trading advice.
-- Requested price history and option chains are stored locally in `data/gbb_terminal.duckdb`. The database is ignored by Git and is refreshed every 15 minutes while the application is running.
-- Saved strategy definitions use semantic keys to prevent duplicates. Backtest runs and closed trades are also stored in that local DuckDB database.
-- Runtime events are written to the ignored, rotating `log/gbb_terminal.log` file.
-- The data provider is isolated in `app/market_data.py` so a production provider can replace it later.
-- The deterministic fallback supports: `long when MA5 crosses above MA10 and exit when MA5 crosses below MA10`.
-- Google AI Studio can compose registered price, SMA, EMA, RSI, and volume-average indicators into declarative strategies.
+- Yahoo Finance data may be delayed, adjusted, incomplete, or unavailable.
+- SEC filings become usable at acceptance time, not their report period.
+- FINRA daily short-sale volume is not short interest.
+- Free sources do not provide reliable historical contract-level option chains. Option Lab results are theoretical simulations initialized from current snapshots or manual inputs.
+- Models omit taxes, broker-specific margin, market impact, pin risk, and full bid-ask depth.
+
+Read [`docs/README.md`](docs/README.md) for architecture and module documentation. Contributions are accepted under the [Apache License 2.0](LICENSE); see [`CONTRIBUTING.md`](CONTRIBUTING.md).

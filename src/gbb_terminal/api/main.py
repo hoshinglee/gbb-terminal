@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
-from pathlib import Path
 from time import perf_counter
 from uuid import uuid4
 
@@ -11,17 +10,25 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from .market_data import MarketData
-from .indicators import IndicatorRegistry, technical_indicator_snapshot
-from .llm import GoogleAIStrategyTranslator
-from .logging_config import get_logger, log_event
-from .storage import LocalMarketStore
-from .strategy import StrategyFactory, monte_carlo, run_backtest
+from ..strategy.indicators.registry import IndicatorRegistry, technical_indicator_snapshot
+from ..observability.logging import get_logger, log_event
+from ..strategy.factory import StrategyFactory, monte_carlo
+from ..settings import settings
+from ..backtesting.engine import run_research_backtest
+from ..strategy.models import ExecutionAssumptions
+from .dependencies import build_services
+from .routes.backtests import create_backtest_router
+from .routes.market import create_market_router
+from .routes.options import create_option_router
+from .routes.stocks import create_stock_router
+from .routes.strategies import create_strategy_router
 
 logger = get_logger("api")
 
 
 def catalogue_strategy_definition(item: dict) -> dict:
+    if item.get("strategyJson"):
+        return {"key": item.get("key"), "definition": {"name": item["name"], "description": item["description"], "strategy_type": item["strategy_type"], "direction": item["direction"], "parameters": item["parameters"]}, "strategy_yaml": item.get("strategyYaml") or ""}
     if item.get("strategyYaml"):
         strategy = StrategyFactory.from_yaml(item["strategyYaml"])
     else:
@@ -29,16 +36,18 @@ def catalogue_strategy_definition(item: dict) -> dict:
     return {"key": StrategyFactory.strategy_key(strategy), "definition": strategy.spec().to_dict(), "strategy_yaml": strategy.to_yaml()}
 
 
-store = LocalMarketStore(Path(__file__).parent.parent / "data" / "gbb_terminal.duckdb")
+services = build_services()
+store = services.store
 removed_duplicates = store.deduplicate_strategies(catalogue_strategy_definition)
-data = MarketData(store)
-translator = GoogleAIStrategyTranslator()
+data = services.market_data
+translator = services.translator
+catalogue = services.strategy_catalogue
 log_event(logger, "application_initialized", removed_duplicate_strategies=removed_duplicates)
 
 
 async def refresh_cache() -> None:
     while True:
-        await asyncio.sleep(900)
+        await asyncio.sleep(settings.refresh_interval_seconds)
         for symbol in list(data.history_cache):
             try:
                 await data.history(symbol)
@@ -54,7 +63,12 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="GBB Terminal", lifespan=lifespan)
-app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+app.mount("/static", StaticFiles(directory=settings.frontend_static_directory), name="static")
+app.include_router(create_strategy_router(store, translator, catalogue))
+app.include_router(create_backtest_router(store, data, catalogue))
+app.include_router(create_option_router(store, data))
+app.include_router(create_stock_router(data))
+app.include_router(create_market_router(data))
 
 
 @app.middleware("http")
@@ -81,6 +95,9 @@ class StrategyRequest(BaseModel):
     strategy_id: str | None = None
     strategy_yaml: str | None = Field(default=None, max_length=20_000)
     window: str = Field(default="1y", pattern="^(1mo|3mo|6mo|1y|2y)$")
+    benchmark: str = Field(default="SPY", min_length=1, max_length=12)
+    commission_bps: float = Field(default=1.0, ge=0, le=100)
+    slippage_bps: float = Field(default=2.0, ge=0, le=100)
 
 
 class SimulationRequest(BaseModel):
@@ -99,14 +116,14 @@ def fail(error: Exception) -> HTTPException:
 
 @app.get("/")
 async def index():
-    return FileResponse(Path(__file__).parent / "static" / "index.html")
+    return FileResponse(settings.frontend_index)
 
 
 @app.get("/api/stock/{ticker}")
 async def stock(ticker: str):
     try:
         quote, history = await data.quote(ticker), await data.history(ticker, "1y")
-        chart = [{"date": index.strftime("%Y-%m-%d"), "close": round(float(row.Close), 2), "volume": int(row.Volume or 0)} for index, row in history.tail(252).iterrows()]
+        chart = [{"date": index.strftime("%Y-%m-%d"), "open": round(float(row.Open), 2), "high": round(float(row.High), 2), "low": round(float(row.Low), 2), "close": round(float(row.Close), 2), "volume": int(row.Volume or 0)} for index, row in history.tail(252).iterrows()]
         return {"quote": quote, "chart": chart}
     except ValueError as error:
         raise fail(error)
@@ -141,10 +158,19 @@ async def backtest(request: StrategyRequest):
             strategy, instruction = translation.strategy, request.instruction
             strategy_key = StrategyFactory.strategy_key(strategy)
             catalogue_item = store.save_strategy(instruction, strategy.spec().to_dict(), translation.provider, translation.yaml_config, strategy_key)
-        history, spy_history = await asyncio.gather(
-            data.history(request.ticker, request.window), data.history("SPY", request.window)
+        benchmark_symbol = request.benchmark.upper()
+        requested_symbols = [request.ticker.upper(), "SPY"] + ([benchmark_symbol] if benchmark_symbol != "SPY" else [])
+        histories = await asyncio.gather(*(data.history(symbol, request.window) for symbol in requested_symbols))
+        history, spy_history = histories[0], histories[1]
+        benchmarks = {"SPY": spy_history}
+        if benchmark_symbol != "SPY":
+            benchmarks[benchmark_symbol] = histories[2]
+        result = run_research_backtest(
+            history,
+            benchmarks,
+            strategy,
+            ExecutionAssumptions(commission_bps=request.commission_bps, slippage_bps=request.slippage_bps),
         )
-        result = run_backtest(history, spy_history, strategy)
         result["catalogueStrategy"] = catalogue_item
         result["runId"] = store.save_backtest(catalogue_item["id"], request.ticker.upper(), request.window, result["metrics"], result["trades"])
         result["window"] = request.window

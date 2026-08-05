@@ -1,6 +1,6 @@
 # LLM Strategy Translator
 
-Source: `app/llm.py`
+Source: `src/gbb_terminal/llm/translator.py`
 
 ## Business definition
 
@@ -10,8 +10,8 @@ The translator turns a trader's natural-language intent into GBB Strategy YAML. 
 
 | Name | Definition |
 | --- | --- |
-| `GoogleAIStrategyTranslator.translate` | Sends the instruction and constrained schema to Google AI Studio, validates the returned YAML, and supplies confirmation metadata. |
-| `GoogleAIStrategyTranslator.status` | Reports provider, model, key availability, and output format. |
+| `StrategyTranslator.translate` | Sends the instruction and constrained schema to the selected provider, validates the returned YAML, and supplies confirmation metadata. |
+| `StrategyTranslator.status` | Reports the selected provider, model, key availability, and output format. |
 | `Translation` | Bundles the validated strategy, provider, normalized YAML and description, clarifications, and confirmation flag. |
 | `ambiguity_notes` | Detects missing volume multipliers, missing loss percentages, and subjective timing or trend language. |
 
@@ -25,6 +25,8 @@ If the model returns an empty exit rule for a crossover strategy, `validated_mod
 
 ## Configuration
 
-Set `GEMINI_API_KEY`, `GEMINI_MODEL`, and optional `GEMINI_TIMEOUT_MS` in the ignored `.env` file. The default provider timeout is 45 seconds. Without a key, or when Google returns a timeout/quota/provider error, the translator can propose a deterministic moving-average crossover when two MA windows are present. The confirmation warning states that non-MA clauses were omitted; instructions without a deterministic fallback return an API error instead of being guessed.
+Copy `conf/app.example.yaml` to ignored `conf/app.yaml`, then select `google`, `openai`, or `anthropic` under `llm.provider`. Use `.env` only for provider credentials: `GEMINI_API_KEY`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`. Google ships in the base installation; install an optional adapter with `pip install -e '.[llm-openai]'` or `pip install -e '.[llm-anthropic]'` before selecting it.
+
+The default timeout is 45 seconds. Process environment variables and `.env` override `conf/app.yaml`; `GBB_CONFIG_PATH` selects a different configuration file. Without a key, or when a provider returns a timeout/quota/provider error, the translator can propose a deterministic moving-average crossover when two MA windows are present. The confirmation warning states that non-MA clauses were omitted; instructions without a deterministic fallback return an API error instead of being guessed.
 
 The API key remains server-side and is never returned to the browser or stored in DuckDB.

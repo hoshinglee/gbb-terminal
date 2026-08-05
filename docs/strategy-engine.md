@@ -1,6 +1,6 @@
 # Strategy Engine
 
-Source: `app/strategy.py`
+Sources: `src/gbb_terminal/strategy/factory.py` and `src/gbb_terminal/strategy/catalogue.py`
 
 ## Business definition
 
@@ -17,8 +17,8 @@ The strategy engine converts a validated trading definition into positions, trad
 | `StrategyFactory.strategy_key` | Produces a stable semantic identity independent of names, wording, YAML formatting, and indicator aliases. |
 | `moving_average_configuration` | Creates the built-in MA crossover YAML structure. |
 | `parse_strategy` | Deterministic MA parser used when no LLM key is configured. |
-| `run_backtest` | Produces normalized strategy, buy-and-hold, and SPY equity plus metrics and closed/open trades. |
-| `monte_carlo` | Bootstraps daily returns into percentile paths. |
+| `run_research_backtest` | Cost-aware evidence engine in `backtesting/engine.py`. |
+| `run_parameter_search` | Guarded walk-forward parameter evaluation in `backtesting/parameter_search.py`. |
 
 ## YAML schema
 
@@ -42,7 +42,7 @@ risk:
 
 Each comparison may include `right_multiplier`. For example, `{left: daily_volume, operator: greater_or_equal, right: average_volume, right_multiplier: 1.5}` means current volume must be at least 150% of its configured average.
 
-`risk` supports positive `stop_loss_percent` and `take_profit_percent` values up to 100. Strategy names are normalized to title case while preserving trading acronyms such as MA, SMA, EMA, RSI, and SPY. Descriptions are normalized as sentences.
+`risk` supports fixed stop/profit percentages, trailing stops, ATR-multiple stops, and maximum holding sessions. Strategy names use title format while preserving trading acronyms such as MA, SMA, EMA, MACD, RSI, ATR, OBV, and SPY.
 
 ## Trade ledger semantics
 

@@ -1,6 +1,6 @@
 # Application Logging
 
-Source: `app/logging_config.py`
+Source: `src/gbb_terminal/observability/logging.py`
 
 ## Business definition
 
@@ -18,4 +18,4 @@ Persistent logs provide a local operational trail for data refresh failures, str
 
 Logs are written to `log/gbb_terminal.log`. A file rotates at 5 MB and retains five backups. The entire project `log/` directory is excluded from Git.
 
-Request logs include a generated request ID, HTTP method, path, response status, and duration. Strategy events contain semantic keys and counts but never the Google AI Studio API key or full `.env` content.
+Request logs include a generated request ID, HTTP method, path, response status, and duration. Strategy events contain semantic keys and counts but never an LLM provider API key or full `.env` content.
