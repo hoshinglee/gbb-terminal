@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 import logging
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
 from typing import Any
 
+from ..settings import settings
 
-LOG_DIRECTORY = Path(__file__).parent.parent / "log"
+LOG_DIRECTORY = settings.log_directory
 LOG_FILE = LOG_DIRECTORY / "gbb_terminal.log"
 
 

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import yaml
 from dotenv import load_dotenv
 
-from .strategy import Strategy, StrategyFactory, parse_strategy
+from ..strategy.factory import Strategy, StrategyFactory, parse_strategy
 
 load_dotenv()
 
@@ -33,6 +33,14 @@ Available indicator types:
 - ema: source and integer window
 - rsi: source and integer window
 - volume_sma: integer window
+- rolling_std, bollinger_upper, bollinger_lower: source, integer window, and optional deviations
+- macd and macd_signal: fast_window, slow_window, and signal_window
+- atr, donchian_high, donchian_low: integer window
+- darvas_high and darvas_low: integer window and confirmation_bars
+- obv and gap: no parameters
+- zscore and volatility: source and integer window
+- fibonacci_level: integer window and ratio between 0 and 1; never use manually selected historical anchors
+- relative_strength: integer window and requires aligned benchmark data
 Available operators: crosses_above, crosses_below, greater_than, less_than, greater_or_equal, less_or_equal.
 Required schema:
 version: 1
@@ -59,6 +67,10 @@ Optional risk settings:
 risk:
   stop_loss_percent: positive percentage
   take_profit_percent: positive percentage
+  trailing_stop_percent: positive percentage
+  atr_stop_multiple: positive ATR multiple
+  atr_window: optional ATR window
+  max_holding_days: positive session count
 Only express logic possible with this schema. Preserve every explicit threshold and window from the instruction.
 Never invent a missing threshold, indicator window, multiplier, or risk percentage."""
 

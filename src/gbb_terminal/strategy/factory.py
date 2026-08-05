@@ -8,11 +8,10 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import Any
 
-import numpy as np
 import pandas as pd
 import yaml
 
-from .indicators import IndicatorRegistry
+from .indicators.registry import IndicatorRegistry
 
 
 @dataclass(frozen=True)
@@ -77,16 +76,28 @@ class DeclarativeStrategy(Strategy):
         exit_signal = _evaluate_criteria(self.configuration["exit"], frame)
         active_value = 1 if self.configuration["direction"] == "long" else -1
         risk = self.configuration.get("risk", {})
+        if risk.get("atr_stop_multiple") is not None:
+            frame["risk_atr"] = IndicatorRegistry.calculate(history, {"type": "atr", "window": int(risk.get("atr_window", 14))})
         position, current, entry_price = [], 0, None
-        for close, enter, exit_trade in zip(frame["close"], entry_signal.fillna(False), exit_signal.fillna(False)):
+        favorable_price, entry_atr, holding_days = None, None, 0
+        for row_number, (close, enter, exit_trade) in enumerate(zip(frame["close"], entry_signal.fillna(False), exit_signal.fillna(False))):
             if current == 0 and bool(enter):
                 current, entry_price = active_value, float(close)
+                favorable_price, holding_days = float(close), 0
+                entry_atr = float(frame["risk_atr"].iloc[row_number]) if "risk_atr" in frame and pd.notna(frame["risk_atr"].iloc[row_number]) else None
             elif current != 0:
+                holding_days += 1
                 return_percent = (float(close) / float(entry_price) - 1) * 100 * active_value
+                favorable_price = max(float(favorable_price), float(close)) if active_value == 1 else min(float(favorable_price), float(close))
                 stop_hit = risk.get("stop_loss_percent") is not None and return_percent <= -float(risk["stop_loss_percent"])
                 target_hit = risk.get("take_profit_percent") is not None and return_percent >= float(risk["take_profit_percent"])
-                if bool(exit_trade) or stop_hit or target_hit:
+                trailing_return = (float(close) / float(favorable_price) - 1) * 100 * active_value
+                trailing_hit = risk.get("trailing_stop_percent") is not None and trailing_return <= -float(risk["trailing_stop_percent"])
+                atr_hit = entry_atr is not None and risk.get("atr_stop_multiple") is not None and (float(close) - float(entry_price)) * active_value <= -entry_atr * float(risk["atr_stop_multiple"])
+                time_hit = risk.get("max_holding_days") is not None and holding_days >= int(risk["max_holding_days"])
+                if bool(exit_trade) or stop_hit or target_hit or trailing_hit or atr_hit or time_hit:
                     current, entry_price = 0, None
+                    favorable_price, entry_atr, holding_days = None, None, 0
             position.append(current)
         frame["position"] = position
         return frame
@@ -160,12 +171,13 @@ class StrategyFactory:
         if not isinstance(risk, dict):
             raise ValueError("Strategy risk settings must be a mapping.")
         for key in risk:
-            if key not in {"stop_loss_percent", "take_profit_percent"}:
+            if key not in {"stop_loss_percent", "take_profit_percent", "trailing_stop_percent", "atr_stop_multiple", "atr_window", "max_holding_days"}:
                 raise ValueError(f"Unsupported risk setting '{key}'.")
             value = float(risk[key])
-            if value <= 0 or value > 100:
-                raise ValueError("Risk percentages must be greater than 0 and at most 100.")
-            risk[key] = value
+            upper_bound = 500 if key in {"atr_window", "max_holding_days"} else 100
+            if value <= 0 or value > upper_bound:
+                raise ValueError("Risk settings must be positive and within their supported bounds.")
+            risk[key] = int(value) if key in {"atr_window", "max_holding_days"} else value
         configuration["risk"] = risk
         return configuration
 
@@ -220,7 +232,7 @@ def moving_average_configuration(fast_window: int, slow_window: int, direction: 
 
 def title_case(value: str) -> str:
     formatted = re.sub(r"[_-]+", " ", " ".join(value.strip().split())).title()
-    formatted = re.sub(r"\b(Ma|Sma|Ema|Rsi|Spy)(\d*)\b", lambda match: match.group(1).upper() + match.group(2), formatted)
+    formatted = re.sub(r"\b(Macd|Ma|Sma|Ema|Rsi|Spy|Atr|Obv)(\d*)\b", lambda match: match.group(1).upper() + match.group(2), formatted)
     return re.sub(r"\bP&L\b", "P&L", formatted)
 
 
@@ -229,7 +241,7 @@ def sentence_case(value: str) -> str:
     if not cleaned:
         return "Strategy description."
     cleaned = cleaned[:1].upper() + cleaned[1:]
-    cleaned = re.sub(r"\b(ma|sma|ema|rsi|spy)(\d*)\b", lambda match: match.group(1).upper() + match.group(2), cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\b(macd|ma|sma|ema|rsi|spy|atr|obv)(\d*)\b", lambda match: match.group(1).upper() + match.group(2), cleaned, flags=re.IGNORECASE)
     return cleaned if cleaned.endswith((".", "!", "?")) else f"{cleaned}."
 
 
@@ -312,39 +324,12 @@ def _trades(frame: pd.DataFrame) -> list[dict[str, Any]]:
 
 
 def run_backtest(history: pd.DataFrame, spy_history: pd.DataFrame, strategy: Strategy) -> dict[str, Any]:
-    frame = strategy.positions(history)
-    frame["position"] = frame["position"].shift(1).fillna(0)
-    frame["daily_return"] = frame["close"].pct_change().fillna(0)
-    frame["strategy_return"] = frame["position"] * frame["daily_return"]
-    frame["equity"] = (1 + frame["strategy_return"]).cumprod()
-    frame["benchmark_equity"] = (1 + frame["daily_return"]).cumprod()
-    indicator_columns = list(strategy.spec().parameters["indicators"])
-    active = frame.dropna(subset=indicator_columns).copy()
-    if active.empty:
-        raise ValueError("Not enough price history for the selected indicators.")
-    spy = spy_history["Close"].dropna().astype(float).reindex(active.index).ffill().bfill()
-    if spy.empty or spy.isna().any():
-        raise ValueError("SPY history could not be aligned with the selected backtest window.")
-    active["spy_equity"] = spy / float(spy.iloc[0])
-    drawdown = active["equity"] / active["equity"].cummax() - 1
-    annualized_volatility = active["strategy_return"].std() * np.sqrt(252)
-    sharpe = 0.0 if annualized_volatility == 0 else active["strategy_return"].mean() * 252 / annualized_volatility
-    trades = _trades(active)
-    closed_trades = [trade for trade in trades if trade["status"] == "Closed"]
-    chart = [{"date": index.strftime("%Y-%m-%d"), "strategy": round(float(row.equity), 4), "buyHold": round(float(row.benchmark_equity), 4), "spy": round(float(row.spy_equity), 4), "volume": round(float(row.volume), 0)} for index, row in active.iterrows()]
-    return {
-        "strategy": strategy.spec().to_dict(), "strategyYaml": strategy.to_yaml(),
-        "metrics": {"totalReturn": round((active.equity.iloc[-1] - 1) * 100, 2), "benchmarkReturn": round((active.benchmark_equity.iloc[-1] - 1) * 100, 2), "spyReturn": round((active.spy_equity.iloc[-1] - 1) * 100, 2), "maxDrawdown": round(drawdown.min() * 100, 2), "sharpeRatio": round(float(sharpe), 2), "trades": len(closed_trades), "openTrades": len(trades) - len(closed_trades), "winRate": round(float(sum(trade["pnl"] > 0 for trade in closed_trades) / len(closed_trades) * 100), 1) if closed_trades else 0.0},
-        "chart": chart, "trades": trades,
-    }
+    from ..backtesting.engine import run_backtest as execute_backtest
+
+    return execute_backtest(history, spy_history, strategy)
 
 
 def monte_carlo(history: pd.DataFrame, days: int = 252, simulations: int = 400) -> dict[str, Any]:
-    returns = history["Close"].pct_change().dropna().to_numpy()
-    if len(returns) < 30:
-        raise ValueError("Not enough history to run a simulation.")
-    rng = np.random.default_rng(42)
-    paths = np.cumprod(1 + rng.choice(returns, size=(simulations, days), replace=True), axis=1)
-    final_returns, percentiles = (paths[:, -1] - 1) * 100, np.percentile(paths, [10, 50, 90], axis=0)
-    chart_indices = np.linspace(0, days - 1, min(days, 100), dtype=int)
-    return {"metrics": {"medianReturn": round(float(np.median(final_returns)), 2), "upsideReturn": round(float(np.percentile(final_returns, 90)), 2), "downsideReturn": round(float(np.percentile(final_returns, 10)), 2), "profitProbability": round(float((final_returns > 0).mean() * 100), 1)}, "paths": [{"day": int(index + 1), "p10": round(float(percentiles[0, index]), 4), "p50": round(float(percentiles[1, index]), 4), "p90": round(float(percentiles[2, index]), 4)} for index in chart_indices]}
+    from ..backtesting.monte_carlo import monte_carlo as simulate
+
+    return simulate(history, days, simulations)
