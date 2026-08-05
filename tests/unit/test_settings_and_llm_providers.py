@@ -22,6 +22,8 @@ llm:
     configuration = Settings.from_sources(project_root=tmp_path, environment={})
 
     assert configuration.database_path == tmp_path / "local" / "research.duckdb"
+    assert configuration.frontend_static_directory == tmp_path / "app" / "static"
+    assert configuration.frontend_index == tmp_path / "app" / "index.html"
     assert configuration.llm.provider == "anthropic"
     assert configuration.llm.model == "claude-test-model"
     assert configuration.llm.timeout_ms == 12000
