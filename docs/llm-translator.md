@@ -1,6 +1,6 @@
 # LLM Strategy Translator
 
-Source: `app/llm.py`
+Source: `src/gbb_terminal/llm/translator.py`
 
 ## Business definition
 

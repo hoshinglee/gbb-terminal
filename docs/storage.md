@@ -1,33 +1,24 @@
 # DuckDB Storage
 
-Source: `app/storage.py`
+Source: `src/gbb_terminal/storage/database.py`
 
-## Business definition
-
-DuckDB makes the local MVP responsive and reproducible. It stores downloaded data, strategy definitions, backtest summaries, and trade records without requiring a separate database service.
-
-## Tables
+DuckDB is the local system of record and analytical cache. `LocalMarketStore` creates missing tables and adds backward-compatible columns without deleting existing `data/gbb_terminal.duckdb` records.
 
 | Table | Purpose |
 | --- | --- |
-| `price_history` | Cached OHLCV history by symbol and date. |
-| `option_chains` | Cached normalized option-chain JSON. |
-| `strategy_catalogue` | Natural-language instruction, normalized metadata, provider, canonical YAML, and semantic `strategy_key`. |
-| `backtest_runs` | Ticker, window, metrics, and strategy used for a run. |
-| `backtest_trades` | Entry, exit, side, absolute P&L, and percentage P&L. |
+| `price_history` | Cached daily OHLCV by symbol and observation date. |
+| `option_chains` | Latest normalized chain for fast loading. |
+| `option_chain_snapshots` | One current-chain snapshot per symbol, expiry, and local day. |
+| `provider_cache` | Public-data payload plus observation, known-at, and retrieval metadata. |
+| `strategy_catalogue` | Canonical JSON/legacy YAML, family, template version, and hidden semantic key. |
+| `backtest_runs`, `backtest_trades` | Legacy run summaries and closed trade records. |
+| `research_runs` | Immutable Strategy V2, data snapshot, validation, tested settings, and results. |
+| `option_positions` | Current complete paper-position state with nullable future `owner_id`. |
+| `option_position_events` | Append-only lifecycle event payload and state-after snapshot. |
+| `local_jobs` | Replaceable local progress/cancellation storage for long research work. |
 
-## Main functions
+`save_strategy()` updates an existing semantic identity instead of creating a duplicate. V2 identity includes the template, values, scope, benchmark, timeframe, risk, and execution assumptions. Keys remain internal because they are reproducibility metadata, not user decisions.
 
-- `save_history` / `load_history` manage the market cache.
-- `save_options` / `load_options` manage option-chain cache.
-- `save_strategy`, `list_strategies`, and `get_strategy` manage loadable catalogue items.
-- `deduplicate_strategies` migrates existing rows to canonical keys, redirects historical runs to the newest equivalent definition, and removes duplicate catalogue rows transactionally.
-- `save_backtest` persists run-level metrics and closed trades.
+Every option event is written transactionally with the resulting position state. The ledger can therefore reconcile premium cash, shares, contracts, collateral, and realized P&L after close, roll, exercise, expiry, or assignment.
 
-## Strategy identity
-
-`strategy_key` is a SHA-256 digest of executable strategy meaning: direction, normalized indicators, entry/exit rules, optional right-side multipliers, and risk settings. Names, descriptions, original wording, provider, YAML aliases, and formatting are excluded. Equivalent instructions therefore update and reuse one catalogue item instead of creating duplicates.
-
-Open positions are returned to the browser as mark-to-market ledger rows but are not inserted into `backtest_trades`, whose schema requires a final exit date. Closed positions remain durable audit records.
-
-The database lives at `data/gbb_terminal.duckdb` and is excluded from Git.
+Runtime `data/` is excluded from Git.

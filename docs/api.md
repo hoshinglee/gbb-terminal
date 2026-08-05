@@ -1,35 +1,31 @@
 # API Application
 
-Source: `app/main.py`
+Sources: `src/gbb_terminal/api/main.py`, `src/gbb_terminal/api/routes/`, and `src/gbb_terminal/api/schemas/`
 
-## Business definition
+FastAPI is the orchestration boundary. Routes validate requests, call market/domain services, persist immutable records, and return browser-ready data. Calculation logic remains outside the route layer.
 
-The FastAPI application is the orchestration boundary for GBB Terminal. It accepts user requests, coordinates market data and strategies, and returns browser-ready JSON. It contains no strategy calculations itself.
+## V2 research endpoints
 
-## Main endpoints
+| Endpoint | Definition |
+| --- | --- |
+| `GET /api/v2/strategy-templates` | Return typed built-in templates and parameter metadata. |
+| `POST /api/v2/strategy-proposals` | Translate natural language into a safe proposal and clarification list. |
+| `POST /api/v2/strategies` | Validate and deduplicate a canonical `StrategyInstance`. |
+| `POST /api/v2/research-runs` | Execute and persist an immutable single-stock or ranked-portfolio run. |
+| `GET /api/v2/research-runs/{id}` | Load one persisted research run. |
+| `POST /api/v2/parameter-searches` | Run guarded walk-forward search with an untouched final window. |
+| `GET /api/v2/chart-data` | Return date-aligned OHLCV, indicators, and source metadata. |
 
-| Endpoint | Function | Definition |
-| --- | --- | --- |
-| `POST /api/strategy/propose` | `propose_strategy` | Translate an instruction and return normalized, validated YAML plus assumptions and duplicate status for user confirmation. |
-| `POST /api/backtest` | `backtest` | Translate or load a strategy, fetch stock and SPY history, run it, and persist the result. |
-| `POST /api/simulate` | `simulate` | Run bootstrap Monte Carlo paths from historical stock returns. |
-| `GET /api/strategies` | `strategies` | Return the saved strategy catalogue, including YAML definitions. |
-| `GET /api/llm/status` | `llm_status` | Report whether Google AI Studio is configured and which schema is used. |
-| `GET /api/indicators` | `indicator_catalogue` | List indicators available to YAML strategies. |
-| `GET /api/technical-indicators/{ticker}` | `technical_indicators` | Return OHLCV-derived indicator time series. |
-| `GET /api/stock/{ticker}` | `stock` | Return price and volume observations for the stock dashboard. |
-| `GET /api/options/{ticker}` | `options` | Return the nearest Yahoo Finance option chain. |
+## V2 option endpoints
 
-## Confirmed strategy flow
+| Endpoint | Definition |
+| --- | --- |
+| `GET /api/v2/options/chains/{ticker}` | Return the newest current or cached chain snapshot. |
+| `POST /api/v2/options/simulations` | Calculate theoretical value, Greeks, surfaces, and Monte Carlo paths. |
+| `POST /api/v2/options/positions` | Create a paper-position ledger. |
+| `GET /api/v2/options/positions/{id}` | Return current state and all earlier events. |
+| `POST /api/v2/options/positions/{id}/events` | Apply and persist one validated lifecycle transition. |
 
-`POST /api/strategy/propose` does not persist or execute a new strategy. The browser first presents the generated name, business description, clarifications, semantic key, and YAML. After user confirmation, `POST /api/backtest` receives the validated YAML in `strategy_yaml`, recomputes its semantic key server-side, saves or reuses the catalogue record, and runs the test.
+Legacy `/api/*` routes remain compatible during migration. Internal semantic keys and YAML are omitted from ordinary V2 catalogue responses; advanced export remains available in the browser.
 
-Catalogue-loaded strategies use `strategy_id` and bypass translation. Legacy clients can still submit only `instruction`, in which case the backtest endpoint translates and validates it server-side.
-
-## Request middleware
-
-`request_logging_and_local_no_cache` assigns a request ID, records duration and status, and applies `Cache-Control: no-store` to `/` and `/static/*`. It removes conditional cache headers for those local assets so browser refreshes return `200` rather than repetitive `304 Not Modified` access-log entries during development.
-
-## Extension guidance
-
-Keep endpoints thin. New calculations should live in a domain module and new persistence behavior should live in `storage.py`.
+`request_logging_and_local_no_cache` records request IDs, duration, and status. Browser assets receive `Cache-Control: no-store`, preventing confusing conditional-cache responses during local development.

@@ -1,6 +1,6 @@
 # Indicator Registry
 
-Source: `app/indicators.py`
+Source: `src/gbb_terminal/strategy/indicators/registry.py`
 
 ## Business definition
 
@@ -15,6 +15,14 @@ The indicator registry is the approved vocabulary available to strategies. It le
 | `ema` | `source`, `window` | Moving average that reacts faster to recent observations. |
 | `rsi` | `source`, `window` | Momentum oscillator used for overbought/oversold rules. |
 | `volume_sma` | `window` | Baseline trading activity for volume confirmation. |
+| `macd`, `macd_signal` | fast, slow, signal windows | Trend momentum and confirmation. |
+| `bollinger_upper`, `bollinger_lower`, `zscore` | source, window, deviations | Mean-reversion boundaries. |
+| `atr`, `volatility`, `gap` | window where applicable | Price risk, dispersion, and overnight movement. |
+| `donchian_high`, `donchian_low` | window | Prior channel levels without future observations. |
+| `darvas_high`, `darvas_low` | window, confirmation bars | Confirmed deterministic box boundaries. |
+| `fibonacci_level` | window, ratio | Rolling-swing level without manual hindsight anchors. |
+| `obv` | none | Directional cumulative volume. |
+| `relative_strength` | window, aligned benchmark | Excess rolling return over the selected benchmark. |
 
 ## Functions
 

@@ -1,0 +1,14 @@
+# Public Data Providers
+
+Every provider returns a `DataEnvelope` containing dataset, symbol, observation time, `known_at`, retrieval time, delayed/realtime status, source, quality warnings, quota when available, and cache state.
+
+- `YahooProvider`: adjusted daily equities/ETFs and current option chains.
+- `SECProvider`: EDGAR submissions and acceptance timestamps for fundamentals, Form 4, and 13F discovery.
+- `FINRAProvider`: daily Regulation SHO short-sale volume with an explicit warning that it is not short interest.
+- `FREDProvider`: macroeconomic CSV series with revision warnings.
+- `OCCProvider`: official aggregate volume/open-interest report catalogue, never represented as historical contract pricing.
+
+`MarketData` first checks fresh DuckDB data. Provider requests use bounded retries and exponential backoff. If retrieval fails, the service returns a stale cache with warnings when possible; otherwise it reports a provider error.
+
+Point-in-time consumers must filter on `known_at`, not report-period or observation labels. A 13F record becomes available at SEC filing acceptance. FINRA short interest and daily short-sale volume remain separate datasets.
+

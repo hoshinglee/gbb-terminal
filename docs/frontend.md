@@ -1,24 +1,18 @@
 # Browser Interface
 
-Sources: `app/static/index.html`, `app/static/app.js`, and `app/static/styles.css`
+Sources: `app/index.html`, `app/static/app.js`, and `app/static/styles.css`
 
-## Business definition
+The vanilla browser application intentionally remains framework-free during the repository refactor. It provides four primary panels: Strategy Lab, Option Lab, Stock Observatory, and Market Pulse.
 
-The browser interface gives a research user one workspace for translating ideas, comparing returns, inspecting trades, loading saved definitions, viewing options, and monitoring market context.
+## Strategy workflow
 
-## Strategy Lab behavior
+1. **Define:** enter natural language, choose a validated template, or load a catalogue item.
+2. **Configure:** edit typed values and choose fixed or guarded search modes.
+3. **Test Design:** select ticker/universe, benchmark, timeframe, commission, and slippage.
+4. **Evidence:** inspect metrics, verdict, hoverable OHLCV/indicator equity chart, assumptions, and trade ledger.
 
-- `runBacktest` submits a loaded `strategy_id` directly or requests an assisted proposal for a new instruction.
-- `showProposal` opens a confirmation dialog with normalized logic, ambiguities, duplicate status, semantic key, and YAML.
-- `confirmProposal` submits the confirmed YAML for persistence and backtesting.
-- `drawChart` renders normalized strategy, buy-and-hold, and SPY equity.
-- `renderTrades` presents closed and currently open trades with dates, prices, absolute P&L, and percentage P&L. It also opens the ledger after a successful run.
-- `renderCatalogue` builds the modal catalogue and YAML previews.
-- `loadStrategyFromCatalogue` selects a persisted strategy without another LLM translation.
-- `animateMonteCarlo` progressively renders percentile paths.
+Catalogue items are grouped by family and display parameter chips. Internal hashes are hidden. Canonical JSON or legacy YAML appears only under an Advanced export control. A loaded strategy uses its normalized description as grey placeholder text rather than replaying ambiguous original wording.
 
-## UI state
+`drawChart` links date hover with line values and exact source observations. `animateMonteCarlo` reveals percentile paths progressively. `renderTrades` shows closed and marked-open entries with absolute and percentage P&L.
 
-`selectedStrategyId` is set when a catalogue item is loaded. The text area is cleared and the strategy's normalized description appears as grey placeholder text, so transformed LLM output is not presented as the user's original wording. Editing the field clears the selected ID and starts a new assisted proposal flow.
-
-`pendingProposal` exists only in browser memory between proposal and confirmation. Cancelling the dialog makes no database change.
+Option Lab builds core positions, loads current chain rows into leg inputs, displays payoff and Greeks, creates local paper positions, and appends lifecycle events without brokerage execution.

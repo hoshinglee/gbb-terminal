@@ -1,6 +1,6 @@
 # Application Logging
 
-Source: `app/logging_config.py`
+Source: `src/gbb_terminal/observability/logging.py`
 
 ## Business definition
 
