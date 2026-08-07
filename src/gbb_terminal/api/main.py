@@ -12,10 +12,10 @@ from pydantic import BaseModel, Field
 
 from ..strategy.indicators.registry import IndicatorRegistry, technical_indicator_snapshot
 from ..observability.logging import get_logger, log_event
-from ..strategy.factory import StrategyFactory, monte_carlo
+from ..strategy.factory import StrategyFactory
 from ..settings import settings
 from ..backtesting.engine import run_research_backtest
-from ..strategy.models import ExecutionAssumptions
+from ..strategy.models import ExecutionAssumptions, StrategyInstance
 from .dependencies import build_services
 from .routes.backtests import create_backtest_router
 from .routes.market import create_market_router
@@ -28,7 +28,20 @@ logger = get_logger("api")
 
 def catalogue_strategy_definition(item: dict) -> dict:
     if item.get("strategyJson"):
-        return {"key": item.get("key"), "definition": {"name": item["name"], "description": item["description"], "strategy_type": item["strategy_type"], "direction": item["direction"], "parameters": item["parameters"]}, "strategy_yaml": item.get("strategyYaml") or ""}
+        instance = StrategyInstance.from_catalogue_payload(item["strategyJson"])
+        if catalogue.is_portfolio(instance.template_id):
+            definition = {"strategy_type": "ranked_portfolio", "name": instance.name, "description": instance.description, "direction": "long", "parameters": instance.parameter_values}
+            strategy_yaml = ""
+        else:
+            strategy = catalogue.build(instance)
+            definition = strategy.spec().to_dict()
+            strategy_yaml = strategy.to_yaml()
+        return {
+            "key": instance.semantic_key(),
+            "definition": definition,
+            "strategy_yaml": strategy_yaml,
+            "strategy_json": instance.model_dump(mode="json"),
+        }
     if item.get("strategyYaml"):
         strategy = StrategyFactory.from_yaml(item["strategyYaml"])
     else:
@@ -38,10 +51,10 @@ def catalogue_strategy_definition(item: dict) -> dict:
 
 services = build_services()
 store = services.store
-removed_duplicates = store.deduplicate_strategies(catalogue_strategy_definition)
 data = services.market_data
 translator = services.translator
 catalogue = services.strategy_catalogue
+removed_duplicates = store.deduplicate_strategies(catalogue_strategy_definition)
 log_event(logger, "application_initialized", removed_duplicate_strategies=removed_duplicates)
 
 
@@ -96,14 +109,8 @@ class StrategyRequest(BaseModel):
     strategy_yaml: str | None = Field(default=None, max_length=20_000)
     window: str = Field(default="1y", pattern="^(1mo|3mo|6mo|1y|2y)$")
     benchmark: str = Field(default="SPY", min_length=1, max_length=12)
-    commission_bps: float = Field(default=1.0, ge=0, le=100)
-    slippage_bps: float = Field(default=2.0, ge=0, le=100)
-
-
-class SimulationRequest(BaseModel):
-    ticker: str = Field(min_length=1, max_length=12)
-    days: int = Field(default=252, ge=30, le=756)
-    simulations: int = Field(default=400, ge=100, le=2000)
+    commission_bps: float = Field(default=0.0, ge=0, le=100)
+    slippage_bps: float = Field(default=0.0, ge=0, le=100)
 
 
 class StrategyProposalRequest(BaseModel):
@@ -226,14 +233,6 @@ async def technical_indicators(ticker: str, period: str = "1y", indicators: str 
         history = await data.history(ticker, period)
         frame = technical_indicator_snapshot(history, [item.strip() for item in indicators.split(",") if item.strip()])
         return {"symbol": ticker.upper(), "period": period, "chart": [{"date": index.strftime("%Y-%m-%d"), **{column: round(float(value), 4) for column, value in row.items()}} for index, row in frame.iterrows()]}
-    except ValueError as error:
-        raise fail(error)
-
-
-@app.post("/api/simulate")
-async def simulate(request: SimulationRequest):
-    try:
-        return monte_carlo(await data.history(request.ticker), request.days, request.simulations)
     except ValueError as error:
         raise fail(error)
 

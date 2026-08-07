@@ -6,7 +6,7 @@ from gbb_terminal.backtesting.engine import run_research_backtest
 from gbb_terminal.backtesting.portfolio import run_ranked_portfolio
 from gbb_terminal.strategy.catalogue import catalogue
 from gbb_terminal.strategy.indicators.registry import IndicatorRegistry
-from gbb_terminal.strategy.models import StrategyInstance
+from gbb_terminal.strategy.models import ResearchDesign, StrategyInstance
 
 
 def test_strategy_instance_round_trip_preserves_signals(price_history, benchmark_history):
@@ -35,6 +35,17 @@ def test_cosmetic_text_and_explicit_fixed_modes_do_not_change_semantic_identity(
     )
 
     assert first.semantic_key() == second.semantic_key()
+
+
+def test_research_scope_does_not_change_strategy_identity():
+    strategy = catalogue.create_instance("sma-crossover")
+    legacy_scoped_strategy = catalogue.create_instance("sma-crossover", ticker="AAPL", benchmark="SPY", timeframe="1y")
+    aapl_design = ResearchDesign(ticker="AAPL", benchmark="SPY")
+    msft_design = ResearchDesign(ticker="MSFT", benchmark="QQQ", timeframe="2y", execution={"commission_bps": 5, "slippage_bps": 10})
+
+    assert strategy.semantic_key() == legacy_scoped_strategy.semantic_key()
+    assert {"ticker", "universe", "benchmark", "timeframe", "execution"}.isdisjoint(strategy.model_dump())
+    assert aapl_design != msft_design
 
 
 def test_every_template_executes(price_history, benchmark_history):

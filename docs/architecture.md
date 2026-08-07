@@ -9,7 +9,7 @@ GBB Terminal is an educational research workbench, not an execution system, brok
 - `app/`: browser-only HTML, CSS, and JavaScript.
 - `src/gbb_terminal/api/`: FastAPI application, schemas, and route groups.
 - `src/gbb_terminal/strategy/`: strategy contracts, templates, safe factory, and indicators.
-- `src/gbb_terminal/backtesting/`: signal execution, costs, metrics, Monte Carlo, parameter search, and portfolio ranking.
+- `src/gbb_terminal/backtesting/`: signal execution, costs, metrics, parameter search, and portfolio ranking. Option-specific scenario paths remain under `options/`.
 - `src/gbb_terminal/options/`: option contracts, American pricing, scenario simulation, strategy templates, and lifecycle transitions.
 - `src/gbb_terminal/market_data/`: provider-neutral service and public provider adapters.
 - `src/gbb_terminal/storage/`: DuckDB system of record.

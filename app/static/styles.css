@@ -53,11 +53,15 @@ header, .toolbar, .section-heading, .evidence-heading { display: flex; align-ite
 .card { padding: 22px; border: 1px solid var(--line); background: var(--panel); }
 
 .workflow { display: grid; grid-template-columns: repeat(4, 1fr); padding: 0; margin-bottom: 16px; }
-.workflow-step { display: grid; grid-template-columns: 29px 1fr; padding: 17px; color: var(--ink); background: transparent; border-right: 1px solid var(--line); text-align: left; }
+.workflow-step { display: grid; grid-template-columns: 29px 1fr; padding: 17px; color: var(--ink); background: transparent; border-right: 1px solid var(--line); text-align: left; transition: background .18s ease, box-shadow .18s ease, color .18s ease; }
 .workflow-step:last-child { border: 0; }
 .workflow-step span { grid-row: 1 / 3; display: grid; place-items: center; width: 22px; height: 22px; color: var(--bg); background: var(--mute); border-radius: 50%; font: 11px "DM Mono", monospace; }
 .workflow-step b { font-size: 12px; }
 .workflow-step small { margin-top: 3px; color: var(--mute); font: 9px "DM Mono", monospace; }
+.workflow-step.complete { color: #b8c8c0; }
+.workflow-step.complete span { color: var(--lime); background: #1b2a24; border: 1px solid #6d943a; }
+.workflow-step.complete small { color: #688078; }
+.workflow-step.active { color: var(--lime); background: #17231f; box-shadow: inset 0 -2px var(--lime); }
 .workflow-step.active span { background: var(--lime); }
 .strategy-layout { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; }
 .define-card, .configure-card { min-height: 328px; }
@@ -86,7 +90,7 @@ header, .toolbar, .section-heading, .evidence-heading { display: flex; align-ite
 .metric strong { display: block; overflow: hidden; margin-top: 8px; font: 600 20px "DM Mono", monospace; letter-spacing: -.06em; text-overflow: ellipsis; white-space: nowrap; }
 .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-top: 16px; }
 .chart-card { min-height: 340px; }
-.chart-card canvas, .simulation-chart canvas { display: block; width: 100%; height: 275px; }
+.chart-card canvas { display: block; width: 100%; height: 275px; }
 .chart-shell { position: relative; margin-top: 14px; }
 .chart-tooltip { position: absolute; z-index: 4; min-width: 195px; max-width: 310px; padding: 11px; pointer-events: none; border: 1px solid #45584f; background: #08100ef2; box-shadow: 0 8px 25px #0009; font: 9px "DM Mono", monospace; }
 .chart-tooltip strong { display: block; margin-bottom: 8px; color: var(--ink); }
@@ -127,12 +131,8 @@ header, .toolbar, .section-heading, .evidence-heading { display: flex; align-ite
 .heatmap-title { margin-top: 16px; }
 .heatmap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 5px; }
 .heatmap-cell { display: flex; justify-content: space-between; gap: 8px; padding: 8px; border: 1px solid color-mix(in srgb, var(--green) calc(var(--heat) * 80%), var(--line)); background: color-mix(in srgb, var(--green) calc(var(--heat) * 22%), #07100d); font: 9px "DM Mono", monospace; }
-.simulation { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; }
-.simulation p { margin: 8px 0 0; color: var(--mute); }
 .sim-actions, .button-row { display: flex; gap: 10px; }
 .compact { grid-template-columns: repeat(4, 1fr); margin-top: 16px; }
-.simulation-chart { margin-top: 16px; }
-.simulation-chart canvas { height: 225px; }
 
 .option-builder { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; }
 .option-fields { grid-template-columns: repeat(3, 1fr); margin-top: 20px; }
@@ -209,7 +209,6 @@ header, .toolbar, .section-heading, .evidence-heading { display: flex; align-ite
   .metrics { grid-template-columns: repeat(2, 1fr); }
   .test-fields, .option-fields, .lifecycle-fields { grid-template-columns: repeat(2, 1fr); }
   .option-grid { grid-template-columns: 1fr; }
-  .simulation { align-items: flex-start; flex-direction: column; gap: 16px; }
   .parameter-card { grid-template-columns: 1fr 90px; }
   .parameter-card select { grid-column: 1 / -1; }
 }

@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from ..strategy.catalogue import StrategyCatalogue
-from ..strategy.models import ParameterType, StrategyInstance, ValidationDesign
+from ..strategy.models import ExecutionAssumptions, ParameterType, StrategyInstance, ValidationDesign
 from .engine import run_research_backtest
 from .metrics import EvidenceContext
 
@@ -43,6 +43,8 @@ def _walk_forward_score(
     instance: StrategyInstance,
     catalogue: StrategyCatalogue,
     windows: list[dict[str, Any]],
+    execution: ExecutionAssumptions,
+    benchmark_symbol: str,
 ) -> tuple[float, list[float], list[float]]:
     scores: list[float] = []
     sharpes: list[float] = []
@@ -55,9 +57,10 @@ def _walk_forward_score(
         benchmark_segment = benchmark.reindex(segment.index).ffill()
         result = run_research_backtest(
             segment,
-            {instance.benchmark: benchmark_segment},
+            {benchmark_symbol: benchmark_segment},
             strategy,
-            instance.execution,
+            execution,
+            signal_benchmark=benchmark_symbol,
             evaluation_start=history.index[evaluation_start_row],
         )
         scores.append(float(result["metrics"]["calmarRatio"]))
@@ -124,8 +127,11 @@ def run_parameter_search(
     cancelled: Callable[[], bool] | None = None,
     comparison_benchmarks: dict[str, pd.DataFrame] | None = None,
     peer_histories: dict[str, pd.DataFrame] | None = None,
+    execution: ExecutionAssumptions | None = None,
+    signal_benchmark_symbol: str = "SPY",
 ) -> dict[str, Any]:
     validation = validation or ValidationDesign()
+    execution = execution or ExecutionAssumptions()
     ranges = _validated_ranges(ranges, base_instance, catalogue)
     training_end, final_start, windows = _walk_forward_windows(history, validation)
     development_history = history.iloc[:final_start]
@@ -144,6 +150,8 @@ def run_parameter_search(
                 candidate,
                 catalogue,
                 windows,
+                execution,
+                signal_benchmark_symbol,
             )
             attempts.append(
                 {
@@ -220,7 +228,7 @@ def run_parameter_search(
 
     final_history = history.iloc[max(0, final_start - 520) :]
     final_benchmark = benchmark.reindex(final_history.index).ffill()
-    final_comparisons = {base_instance.benchmark: final_benchmark}
+    final_comparisons = {signal_benchmark_symbol: final_benchmark}
     for label, comparison in (comparison_benchmarks or {}).items():
         if label not in final_comparisons:
             final_comparisons[label] = comparison.reindex(final_history.index).ffill()
@@ -238,8 +246,9 @@ def run_parameter_search(
         final_history,
         final_comparisons,
         catalogue.build(best_instance),
-        best_instance.execution,
+        execution,
         peer_histories=final_peers,
+        signal_benchmark=signal_benchmark_symbol,
         evaluation_start=history.index[final_start],
         evidence_context=context,
     )

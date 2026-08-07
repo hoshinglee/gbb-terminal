@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ..strategy.models import StrategyInstance
+from ..strategy.models import ExecutionAssumptions, StrategyInstance
 from .metrics import calculate_metrics, evidence_verdict, regime_analysis
 
 
@@ -13,7 +13,10 @@ def run_ranked_portfolio(
     histories: dict[str, pd.DataFrame],
     benchmark_history: pd.DataFrame,
     instance: StrategyInstance,
+    assumptions: ExecutionAssumptions | None = None,
+    benchmark_symbol: str = "SPY",
 ) -> dict[str, Any]:
+    assumptions = assumptions or ExecutionAssumptions()
     values = instance.parameter_values
     lookback = int(values["lookback_window"])
     top_n = int(values["top_n"])
@@ -53,7 +56,7 @@ def run_ranked_portfolio(
             }
         )
 
-    weights = target_weights.ffill().fillna(0.0).shift(instance.execution.signal_lag_sessions).fillna(0.0)
+    weights = target_weights.ffill().fillna(0.0).shift(assumptions.signal_lag_sessions).fillna(0.0)
     previous_weights = weights.shift(1).fillna(0.0)
     overnight_returns = (open_price / close.shift(1) - 1).replace([np.inf, -np.inf], np.nan).fillna(0.0)
     intraday_returns = (close / open_price - 1).replace([np.inf, -np.inf], np.nan).fillna(0.0)
@@ -61,8 +64,8 @@ def run_ranked_portfolio(
     intraday_portfolio_return = (weights * intraday_returns).sum(axis=1)
     gross_return = (1 + overnight_portfolio_return) * (1 + intraday_portfolio_return) - 1
     turnover = (weights - previous_weights).abs().sum(axis=1)
-    costs = turnover * instance.execution.one_way_cost_rate
-    cash_daily_rate = (1 + instance.execution.annual_cash_rate) ** (1 / 252) - 1
+    costs = turnover * assumptions.one_way_cost_rate
+    cash_daily_rate = (1 + assumptions.annual_cash_rate) ** (1 / 252) - 1
     cash_return = ((previous_weights.abs().sum(axis=1) == 0) & (weights.abs().sum(axis=1) == 0)).astype(float) * cash_daily_rate
     portfolio_return = (1 + gross_return + cash_return - costs).clip(lower=1e-9) - 1
 
@@ -93,12 +96,12 @@ def run_ranked_portfolio(
     active["cash_equity"] /= float(active["cash_equity"].iloc[0])
     benchmark_columns = {
         "Equal-Weight Peers": "equal_weight_peers",
-        instance.benchmark: "selected_benchmark",
+        benchmark_symbol: "selected_benchmark",
         "Exposure-Matched": "exposure_matched_equity",
         "Volatility-Matched": "volatility_matched_equity",
         "Cash": "cash_equity",
     }
-    metrics = calculate_metrics(active, [], benchmark_columns, instance.execution)
+    metrics = calculate_metrics(active, [], benchmark_columns, assumptions)
     metrics["benchmarkReturn"] = metrics["benchmarkReturns"]["Equal-Weight Peers"]
     metrics["excessReturn"] = metrics["excessReturns"]["Equal-Weight Peers"]
     metrics["trades"] = len(rebalance_rows)
@@ -144,7 +147,7 @@ def run_ranked_portfolio(
         "metrics": metrics,
         "verdict": verdict,
         "explanation": portfolio_explanation,
-        "assumptions": instance.execution.model_dump(mode="json"),
+        "assumptions": assumptions.model_dump(mode="json"),
         "executionModel": "Rankings observed at session close; portfolio rebalances fill at the next session open.",
         "evaluationPeriod": {
             "start": active.index[0].strftime("%Y-%m-%d"),

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from gbb_terminal.backtesting.snapshots import create_data_snapshot, create_snapshot_manifest
 from gbb_terminal.strategy.catalogue import catalogue
-from gbb_terminal.strategy.models import ENGINE_VERSION, ResearchRun, StrategyInstance
+from gbb_terminal.strategy.models import ENGINE_VERSION, ResearchDesign, ResearchRun, StrategyInstance
 import pytest
 
 
@@ -21,12 +21,14 @@ def test_data_snapshot_is_deterministic_and_changes_with_price_data(price_histor
 def test_research_run_round_trip_locks_reproducibility_identity(price_history, benchmark_history):
     strategy = catalogue.create_instance("donchian-breakout", ticker="aapl", benchmark="spy")
     snapshots = create_snapshot_manifest({"AAPL": price_history, "SPY": benchmark_history})
-    original = ResearchRun(strategy=strategy, data_snapshot=snapshots, results={"metrics": {"totalReturn": 1.2}})
+    design = ResearchDesign(ticker="AAPL", benchmark="SPY")
+    original = ResearchRun(strategy=strategy, research_design=design, data_snapshot=snapshots, results={"metrics": {"totalReturn": 1.2}})
     restored = ResearchRun.model_validate_json(original.model_dump_json())
 
     assert restored.strategy == StrategyInstance.model_validate_json(strategy.model_dump_json())
     assert restored.engine_version == ENGINE_VERSION
     assert restored.strategy_key == strategy.semantic_key()
+    assert restored.research_design == design
     assert restored.reproducibility_key == original.reproducibility_key
 
 
@@ -35,9 +37,9 @@ def test_research_run_rejects_spoofed_reproducibility_keys(price_history):
     snapshots = create_snapshot_manifest({"AAPL": price_history})
 
     with pytest.raises(ValueError, match="strategy key"):
-        ResearchRun(strategy=strategy, strategy_key="wrong", data_snapshot=snapshots)
+        ResearchRun(strategy=strategy, research_design=ResearchDesign(ticker="AAPL"), strategy_key="wrong", data_snapshot=snapshots)
     with pytest.raises(ValueError, match="reproducibility key"):
-        ResearchRun(strategy=strategy, data_snapshot=snapshots, reproducibility_key="wrong")
+        ResearchRun(strategy=strategy, research_design=ResearchDesign(ticker="AAPL"), data_snapshot=snapshots, reproducibility_key="wrong")
 
 
 def test_every_single_stock_template_preserves_signals_after_serialization(price_history, benchmark_history):

@@ -130,6 +130,7 @@ def run_research_backtest(
     assumptions: ExecutionAssumptions | None = None,
     *,
     peer_histories: dict[str, pd.DataFrame] | None = None,
+    signal_benchmark: str | None = None,
     evaluation_start: pd.Timestamp | str | None = None,
     evidence_context: EvidenceContext | None = None,
 ) -> dict[str, Any]:
@@ -142,7 +143,10 @@ def run_research_backtest(
         label: _aligned_close(frame, strategy_history.index, label) for label, frame in normalized_benchmarks.items()
     }
     if comparison_close:
-        strategy_history["Benchmark_Close"] = next(iter(comparison_close.values()))
+        benchmark_label = signal_benchmark or next(iter(comparison_close))
+        if benchmark_label not in comparison_close:
+            raise ValueError(f"Signal benchmark '{benchmark_label}' was not loaded.")
+        strategy_history["Benchmark_Close"] = comparison_close[benchmark_label]
     signal_frame = strategy.positions(strategy_history)
     indicator_columns = list(strategy.spec().parameters["indicators"])
     readiness = signal_frame[indicator_columns].notna().all(axis=1)
@@ -173,7 +177,17 @@ def run_research_backtest(
     active["equity_before"] = active["equity"].shift(1).fillna(1.0)
     active["benchmark_equity"] = active["close"] / float(active["close"].iloc[0])
 
-    benchmark_columns = {"Buy & Hold": "benchmark_equity"}
+    next_open_buy_hold = signal_frame.copy()
+    next_open_buy_hold["position"] = 0
+    next_open_buy_hold.loc[next_open_buy_hold.index >= active_start, "position"] = 1
+    executed_buy_hold = apply_execution(next_open_buy_hold, assumptions).loc[active.index].copy()
+    executed_buy_hold.iloc[0, executed_buy_hold.columns.get_loc("strategy_return")] = 0.0
+    active["next_open_buy_hold_equity"] = (1 + executed_buy_hold["strategy_return"]).cumprod()
+
+    benchmark_columns = {
+        "Buy & Hold": "benchmark_equity",
+        "Next-Open Buy & Hold": "next_open_buy_hold_equity",
+    }
     for label, close in comparison_close.items():
         aligned = close.reindex(active.index).ffill()
         if aligned.isna().any():

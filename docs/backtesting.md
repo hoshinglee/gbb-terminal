@@ -10,13 +10,13 @@ Backtesting estimates how a precisely defined rule would have behaved under expl
 
 Trade-ledger entry and exit prices use those same next-open fills. Dollar P&L is based on the run's initial capital and includes configured entry/exit costs. Open trades are marked at the final close.
 
-Benchmark and peer histories are forward-filled only after their first known observation. They are never backfilled from a future observation. Every displayed equity series is rebased to `1.0` on the exact common evaluation start.
+Benchmark histories are forward-filled only after their first known observation. They are never backfilled from a future observation. Every displayed equity series is rebased to `1.0` on the exact common evaluation start. The evidence table includes both conventional close-to-close buy-and-hold and a next-open buy-and-hold comparator using the strategy execution convention; an always-long zero-cost strategy must match the latter.
 
 ## Evidence
 
 `run_research_backtest()` returns:
 
-- Underlying buy-and-hold, selected benchmark, SPY, optional sector ETF, optional equal-weight peers, cash, exposure-matched, and volatility-matched comparisons.
+- Underlying buy-and-hold, next-open buy-and-hold, selected market benchmark, SPY, cash, exposure-matched, and volatility-matched comparisons.
 - Total return, CAGR, excess return, Sharpe, Sortino, Calmar, drawdown, time underwater, volatility, exposure, turnover, cost sensitivity, trade count, win rate, and profit factor.
 - Per-benchmark return, CAGR, drawdown, and volatility.
 - Exact evaluation dates, execution assumptions, aligned hover data, indicators, fills, trades, regimes, and visible quality warnings.
@@ -35,8 +35,8 @@ Benchmark and peer histories are forward-filled only after their first known obs
 
 The response includes validation-window dates, median walk-forward Calmar scores, a parameter heatmap, nearby-parameter stability region, performance decay, Deflated-Sharpe probability, and an overfitting warning. Mutating final-window prices cannot change the selected parameters or development attempts.
 
-Each search also persists its selected `StrategyInstance`, every attempted configuration, final result, data fingerprints, engine version, and reproducibility key as a `ResearchRun`.
+Each search also persists its selected `StrategyInstance`, immutable `ResearchDesign`, every attempted configuration, final result, data fingerprints, engine version, and reproducibility key as a `ResearchRun`.
 
 ## Ranked portfolios
 
-`run_ranked_portfolio()` ranks a user universe by trailing return, holds the strongest names at equal weight, and fills scheduled rebalances at the following session's open. It reports both signal and execution dates and compares against equal-weight peers plus the selected and risk-matched benchmarks.
+`run_ranked_portfolio()` ranks a selection universe by trailing return, holds the strongest names at equal weight, and fills scheduled rebalances at the following session's open. It reports both signal and execution dates and compares against equal-weight peers plus the selected and risk-matched benchmarks.

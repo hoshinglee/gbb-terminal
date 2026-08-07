@@ -14,6 +14,24 @@ SECTORS = {
     "XLP": "Consumer Staples", "XLE": "Energy", "XLI": "Industrials", "XLB": "Materials",
     "XLU": "Utilities", "XLRE": "Real Estate", "XLC": "Communication Services",
 }
+SECTOR_ETFS = {
+    "basic materials": "XLB",
+    "communication services": "XLC",
+    "consumer cyclical": "XLY",
+    "consumer defensive": "XLP",
+    "consumer discretionary": "XLY",
+    "consumer staples": "XLP",
+    "energy": "XLE",
+    "financial services": "XLF",
+    "financials": "XLF",
+    "health care": "XLV",
+    "healthcare": "XLV",
+    "industrials": "XLI",
+    "materials": "XLB",
+    "real estate": "XLRE",
+    "technology": "XLK",
+    "utilities": "XLU",
+}
 MACRO = {"^GSPC": "S&P 500", "^VIX": "VIX", "DX-Y.NYB": "US Dollar", "GC=F": "Gold", "CL=F": "WTI Crude", "^TNX": "10Y Yield"}
 
 
@@ -23,6 +41,7 @@ class MarketData:
         self.history_cache: dict[str, pd.DataFrame] = {}
         self.updated_at: dict[str, datetime] = {}
         self.metadata: dict[str, dict] = {}
+        self.sector_benchmark_cache: dict[str, str | None] = {}
         self.yahoo = YahooProvider()
         self.sec = SECProvider()
         self.finra = FINRAProvider()
@@ -80,6 +99,20 @@ class MarketData:
                 raise ValueError(str(error)) from error
             stale["dataStatus"] = {**stale.get("dataStatus", {}), "status": "Stale Cache", "qualityWarnings": [str(error), "Serving the newest locally cached option chain."]}
             return stale
+
+    async def sector_benchmark(self, ticker: str) -> str | None:
+        symbol = ticker.upper().strip()
+        if symbol in self.sector_benchmark_cache:
+            return self.sector_benchmark_cache[symbol]
+        try:
+            sector = await asyncio.to_thread(self.yahoo.sector, symbol)
+        except ProviderUnavailable:
+            self.sector_benchmark_cache[symbol] = None
+            return None
+        normalized = " ".join(sector.replace("_", " ").replace("-", " ").lower().split()) if sector else ""
+        benchmark = SECTOR_ETFS.get(normalized)
+        self.sector_benchmark_cache[symbol] = benchmark
+        return benchmark
 
     def provider_statuses(self) -> list[dict]:
         return [provider.status() for provider in self.providers]

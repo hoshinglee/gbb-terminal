@@ -9,7 +9,7 @@ This checklist separates research correctness from launch-environment stabilizat
 - [x] Close-derived signals fill at the following session's open.
 - [x] Trade-ledger prices and P&L use the same fill model as portfolio equity.
 - [x] Benchmark alignment never backfills from future observations.
-- [x] Buy-and-hold, SPY, sector, peers, cash, exposure-matched, and volatility-matched evidence is available.
+- [x] Buy-and-hold, SPY, cash, exposure-matched, and volatility-matched evidence is available; sector references are explicit relative-strength inputs.
 - [x] One/two-parameter search is exhaustive and capped.
 - [x] Three-to-six-parameter search uses seeded, capped Optuna TPE trials.
 - [x] Walk-forward selection cannot inspect the untouched final window.
@@ -17,6 +17,16 @@ This checklist separates research correctness from launch-environment stabilizat
 - [x] A single historical run cannot receive a Robust Candidate verdict.
 - [x] SMA trend, RSI mean reversion, and Donchian breakout signals are future-data invariant.
 - [ ] Validate Release 0.4 against several real tickers and market regimes before removing the development version suffix.
+
+## Release 0.4.1 — Strategy Scope Correction
+
+- [x] Catalogue strategy identity excludes ticker, universe, benchmark, timeframe, and execution assumptions.
+- [x] Research runs persist a separate immutable research design and include it in reproducibility identity.
+- [x] Existing V2 catalogue rows are scope-normalized and deduplicated during local application initialization.
+- [x] Relative-strength templates support market, automatic-sector, and explicit-custom benchmark references.
+- [x] Commission and slippage default to zero basis points with visible cost sensitivity retained.
+- [x] Next-open buy-and-hold parity is tested for an always-long, zero-cost strategy.
+- [x] Stock Strategy Lab Monte Carlo UI and API are removed; Option Lab paths remain available.
 
 ## Deferred Launch Stability — Former Release 0.3 Gates
 

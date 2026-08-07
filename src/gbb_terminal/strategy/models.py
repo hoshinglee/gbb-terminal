@@ -76,8 +76,8 @@ class DataRequirement(ContractModel):
 
 class ExecutionAssumptions(ContractModel):
     initial_capital: float = Field(default=100_000, gt=0)
-    commission_bps: float = Field(default=1.0, ge=0, le=100)
-    slippage_bps: float = Field(default=2.0, ge=0, le=100)
+    commission_bps: float = Field(default=0.0, ge=0, le=100)
+    slippage_bps: float = Field(default=0.0, ge=0, le=100)
     annual_cash_rate: float = Field(default=0.0, ge=-0.1, le=0.25)
     signal_lag_sessions: Literal[1] = 1
     fill_price: Literal["next_open"] = "next_open"
@@ -119,33 +119,10 @@ class StrategyInstance(ContractModel):
     description: str
     parameter_values: dict[str, int | float | bool | str]
     parameter_modes: dict[str, ParameterMode] = Field(default_factory=dict)
-    ticker: str | None = None
-    universe: list[str] = Field(default_factory=list)
-    benchmark: str = "SPY"
-    sector_benchmark: str | None = None
-    timeframe: Literal["1mo", "3mo", "6mo", "1y", "2y"] = "1y"
     risk: dict[str, float] = Field(default_factory=dict)
-    execution: ExecutionAssumptions = Field(default_factory=ExecutionAssumptions)
-
-    @field_validator("ticker", "benchmark", "sector_benchmark", mode="before")
-    @classmethod
-    def normalize_symbol(cls, value: object) -> object:
-        if value is None:
-            return None
-        normalized = str(value).strip().upper()
-        return normalized or None
-
-    @field_validator("universe", mode="before")
-    @classmethod
-    def normalize_universe(cls, value: object) -> object:
-        if value is None:
-            return []
-        return list(dict.fromkeys(str(symbol).strip().upper() for symbol in value if str(symbol).strip()))
 
     @model_validator(mode="after")
     def validate_instance(self) -> Self:
-        if not self.benchmark:
-            raise ValueError("A benchmark symbol is required.")
         for key, value in self.parameter_values.items():
             if isinstance(value, float) and not math.isfinite(value):
                 raise ValueError(f"Parameter '{key}' must be finite.")
@@ -162,6 +139,60 @@ class StrategyInstance(ContractModel):
     def semantic_key(self) -> str:
         encoded = json.dumps(self.canonical_payload(), sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(encoded.encode()).hexdigest()
+
+    @classmethod
+    def from_catalogue_payload(cls, payload: dict[str, Any]) -> "StrategyInstance":
+        """Load a pre-0.4.1 catalogue row while dropping historical research scope."""
+        identity_fields = {
+            "instance_id",
+            "template_id",
+            "template_version",
+            "name",
+            "description",
+            "parameter_values",
+            "parameter_modes",
+            "risk",
+        }
+        return cls.model_validate({key: value for key, value in payload.items() if key in identity_fields})
+
+
+class RelativeStrengthReference(StrEnum):
+    MARKET = "market"
+    SECTOR = "sector"
+    CUSTOM = "custom"
+
+
+class ResearchDesign(ContractModel):
+    ticker: str | None = None
+    universe: list[str] = Field(default_factory=list)
+    timeframe: Literal["1mo", "3mo", "6mo", "1y", "2y"] = "1y"
+    benchmark: str = "SPY"
+    relative_strength_reference: RelativeStrengthReference = RelativeStrengthReference.MARKET
+    relative_strength_symbol: str | None = None
+    execution: ExecutionAssumptions = Field(default_factory=ExecutionAssumptions)
+
+    @field_validator("ticker", "benchmark", "relative_strength_symbol", mode="before")
+    @classmethod
+    def normalize_symbol(cls, value: object) -> object:
+        if value is None:
+            return None
+        normalized = str(value).strip().upper()
+        return normalized or None
+
+    @field_validator("universe", mode="before")
+    @classmethod
+    def normalize_universe(cls, value: object) -> object:
+        if value is None:
+            return []
+        return list(dict.fromkeys(str(symbol).strip().upper() for symbol in value if str(symbol).strip()))
+
+    @model_validator(mode="after")
+    def validate_design(self) -> Self:
+        if not self.benchmark:
+            raise ValueError("A market benchmark symbol is required.")
+        if self.relative_strength_reference == RelativeStrengthReference.CUSTOM and not self.relative_strength_symbol:
+            raise ValueError("A custom relative-strength symbol is required.")
+        return self
 
 
 class DataSnapshot(ContractModel):
@@ -187,6 +218,7 @@ class ResearchRun(ContractModel):
 
     run_id: str = Field(default_factory=lambda: str(uuid4()))
     strategy: StrategyInstance
+    research_design: ResearchDesign
     strategy_key: str = ""
     data_snapshot: dict[str, DataSnapshot]
     engine_version: str = ENGINE_VERSION
@@ -206,6 +238,7 @@ class ResearchRun(ContractModel):
                 raise ValueError(f"Snapshot key '{symbol}' does not match symbol '{snapshot.symbol}'.")
         payload = {
             "strategyKey": strategy_key,
+            "researchDesign": self.research_design.model_dump(mode="json"),
             "data": {symbol: snapshot.sha256 for symbol, snapshot in sorted(self.data_snapshot.items())},
             "engineVersion": self.engine_version,
             "validation": self.validation.model_dump(mode="json"),

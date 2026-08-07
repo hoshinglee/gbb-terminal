@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ...strategy.models import StrategyInstance, ValidationDesign
+from ...strategy.models import ResearchDesign, StrategyInstance, ValidationDesign
 
 
 class APIModel(BaseModel):
@@ -17,11 +17,13 @@ class StrategyProposalV2Request(APIModel):
 
 class ResearchRunRequest(APIModel):
     strategy: StrategyInstance
+    research_design: ResearchDesign
     validation: ValidationDesign = Field(default_factory=ValidationDesign)
 
 
 class ParameterSearchRequest(APIModel):
     strategy: StrategyInstance
+    research_design: ResearchDesign
     ranges: dict[str, list[int | float]]
     validation: ValidationDesign = Field(default_factory=ValidationDesign)
     max_trials: int = Field(default=60, ge=2, le=200)

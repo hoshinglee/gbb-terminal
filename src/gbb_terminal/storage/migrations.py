@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import duckdb
 
 
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 
 def record_schema_version(connection: duckdb.DuckDBPyConnection) -> None:

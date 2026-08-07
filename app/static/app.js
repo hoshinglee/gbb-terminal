@@ -15,6 +15,30 @@ let lastOptionRequest = null;
 let currentPosition = null;
 let lastOptionSimulation = null;
 
+function setWorkflowStep(step) {
+  const currentStep = Math.max(1, Math.min(Number(step), 4));
+  $$(".workflow-step").forEach((button) => {
+    const buttonStep = Number(button.dataset.step);
+    const active = buttonStep === currentStep;
+    const complete = buttonStep < currentStep;
+    button.classList.toggle("active", active);
+    button.classList.toggle("complete", complete);
+    if (active) button.setAttribute("aria-current", "step"); else button.removeAttribute("aria-current");
+    button.querySelector("span").textContent = complete ? "✓" : String(buttonStep);
+  });
+}
+
+function clearStrategyConfiguration() {
+  currentTemplate = null;
+  selectedStrategyId = null;
+  pendingProposal = null;
+  $("#strategy-template").value = "";
+  $("#configuration-name").textContent = "Pending Definition";
+  $("#configuration-description").textContent = "Choose a template, submit an instruction, or load a catalogue strategy.";
+  $("#parameter-controls").innerHTML = "<p class=\"empty-state\">Strategy parameters appear here.</p>";
+  updateResearchDesignFields(null);
+}
+
 function notify(message) {
   const toast = $("#toast");
   toast.textContent = message;
@@ -142,18 +166,6 @@ function researchTooltip(point) {
   return `<strong>${escapeHtml(point.date)}</strong><div><span>OHLC</span><b>${formatNumber(point.open)} / ${formatNumber(point.high)} / ${formatNumber(point.low)} / ${formatNumber(point.close)}</b><span>Volume</span><b>${Number(point.volume || 0).toLocaleString()}</b><span>Position</span><b>${point.position === 1 ? "Long" : point.position === -1 ? "Short" : "Cash"}</b><span>Strategy Equity</span><b>${formatNumber(point.strategy, 4)}</b><span>Buy & Hold</span><b>${formatNumber(point.buyHold, 4)}</b><span>SPY</span><b>${formatNumber(point.spy, 4)}</b>${indicators}</div>`;
 }
 
-function animateMonteCarlo(paths) {
-  const canvas = $("#simulation-chart");
-  const start = performance.now();
-  const duration = 1000;
-  const render = (now) => {
-    const amount = Math.max(2, Math.floor(paths.length * Math.min((now - start) / duration, 1)));
-    drawChart(canvas, paths.slice(0, amount), [{ key: "p10", label: "10th", color: "#ff6a6a" }, { key: "p50", label: "Median", color: "#b6f559" }, { key: "p90", label: "90th", color: "#64d5c7" }], "day");
-    if (amount < paths.length) requestAnimationFrame(render);
-  };
-  requestAnimationFrame(render);
-}
-
 function renderTrades(trades) {
   const safeTrades = Array.isArray(trades) ? trades : [];
   const closed = safeTrades.filter((trade) => trade.status === "Closed").length;
@@ -184,36 +196,35 @@ async function loadCatalogue() {
 function loadStrategyFromCatalogue(strategyId) {
   const strategy = catalogueStrategies.find((item) => item.id === strategyId);
   if (!strategy) return;
+  clearStrategyConfiguration();
   if (strategy.strategyJson) {
     const template = templates.find((item) => item.template_id === strategy.strategyJson.template_id);
     if (template) {
       currentTemplate = template;
       definitionMode = "template";
-      $("#strategy-template").value = template.template_id;
       renderParameterControls(template, strategy.strategyJson.parameter_values);
       $("#configuration-name").textContent = strategy.name;
       $("#configuration-description").textContent = strategy.description;
-      $("#strategy-ticker").value = strategy.strategyJson.ticker || $("#strategy-ticker").value;
-      $("#strategy-benchmark").value = strategy.strategyJson.benchmark || "SPY";
-      $("#strategy-sector").value = strategy.strategyJson.sector_benchmark || "";
-      $("#backtest-window").value = strategy.strategyJson.timeframe || "1y";
-      $("#universe-field").hidden = template.rule_graph.kind !== "ranked_portfolio";
-      $("#peer-field").hidden = template.rule_graph.kind === "ranked_portfolio";
-      if (strategy.strategyJson.universe?.length) {
-        const target = template.rule_graph.kind === "ranked_portfolio" ? "#strategy-universe" : "#strategy-peers";
-        $(target).value = strategy.strategyJson.universe.join(", ");
-      }
+      updateResearchDesignFields(template);
+    } else {
+      definitionMode = "catalogue";
+      selectedStrategyId = strategy.id;
+      $("#configuration-name").textContent = strategy.name;
+      $("#configuration-description").textContent = strategy.description;
+      $("#parameter-controls").innerHTML = "<p class=\"empty-state\">This catalogue strategy uses a template version that is not currently editable.</p>";
     }
   } else {
     selectedStrategyId = strategy.id;
     definitionMode = "catalogue";
     $("#configuration-name").textContent = strategy.name;
     $("#configuration-description").textContent = strategy.description;
+    $("#parameter-controls").innerHTML = "<p class=\"empty-state\">This stored rule graph has no editable template parameters.</p>";
   }
   $("#strategy-input").value = "";
   $("#strategy-input").placeholder = strategy.description;
   $("#strategy-source").textContent = `Loaded “${strategy.name}” from the local catalogue.`;
   $("#strategy-catalogue-modal").close();
+  setWorkflowStep(2);
 }
 
 async function loadTemplates() {
@@ -232,7 +243,8 @@ function renderParameterControls(template, selectedValues = {}) {
     const adaptive = parameter.adaptive_modes?.length ? `<option value="adaptive">Adaptive</option>` : "";
     return `<div class="parameter-card" data-key="${escapeHtml(parameter.key)}" data-type="${escapeHtml(parameter.parameter_type)}"><div><label>${escapeHtml(parameter.label)}</label><small>${escapeHtml(parameter.unit || "Value")}</small></div><input class="parameter-value" type="${inputType}" ${valueAttribute} ${checked} min="${parameter.minimum ?? ""}" max="${parameter.maximum ?? ""}" step="${parameter.step ?? 1}" /><select class="parameter-mode"><option value="fixed">Fixed</option>${adaptive}<option value="search">Search Range</option></select><div class="search-controls" hidden><input class="range-min" type="number" value="${parameter.minimum ?? value}" step="${parameter.step ?? 1}" /><span>to</span><input class="range-max" type="number" value="${parameter.maximum ?? value}" step="${parameter.step ?? 1}" /></div></div>`;
   }).join("");
-  $$(".parameter-mode").forEach((select) => select.addEventListener("change", () => { select.closest(".parameter-card").querySelector(".search-controls").hidden = select.value !== "search"; }));
+  $$(".parameter-mode").forEach((select) => select.addEventListener("change", () => { select.closest(".parameter-card").querySelector(".search-controls").hidden = select.value !== "search"; setWorkflowStep(2); }));
+  $$(".parameter-value,.range-min,.range-max").forEach((input) => input.addEventListener("input", () => setWorkflowStep(2)));
 }
 
 function selectedTemplateInstance() {
@@ -244,7 +256,6 @@ function selectedTemplateInstance() {
     values[card.dataset.key] = card.dataset.type === "integer" ? Number.parseInt(input.value, 10) : card.dataset.type === "boolean" ? input.checked : Number(input.value);
     modes[card.dataset.key] = card.querySelector(".parameter-mode").value;
   });
-  const isPortfolio = currentTemplate.rule_graph.kind === "ranked_portfolio";
   return {
     template_id: currentTemplate.template_id,
     template_version: currentTemplate.version,
@@ -252,14 +263,31 @@ function selectedTemplateInstance() {
     description: currentTemplate.description,
     parameter_values: values,
     parameter_modes: modes,
-    ticker: $("#strategy-ticker").value.trim().toUpperCase(),
-    universe: $(isPortfolio ? "#strategy-universe" : "#strategy-peers").value.split(",").map((symbol) => symbol.trim().toUpperCase()).filter(Boolean),
-    benchmark: $("#strategy-benchmark").value.trim().toUpperCase() || "SPY",
-    sector_benchmark: $("#strategy-sector").value.trim().toUpperCase() || null,
-    timeframe: $("#backtest-window").value,
     risk: {},
+  };
+}
+
+function selectedResearchDesign() {
+  const isPortfolio = currentTemplate?.rule_graph.kind === "ranked_portfolio";
+  return {
+    ticker: $("#strategy-ticker").value.trim().toUpperCase() || null,
+    universe: isPortfolio ? $("#strategy-universe").value.split(",").map((symbol) => symbol.trim().toUpperCase()).filter(Boolean) : [],
+    timeframe: $("#backtest-window").value,
+    benchmark: $("#strategy-benchmark").value.trim().toUpperCase() || "SPY",
+    relative_strength_reference: $("#relative-strength-reference").value,
+    relative_strength_symbol: $("#relative-strength-symbol").value.trim().toUpperCase() || null,
     execution: { initial_capital: 100000, commission_bps: Number($("#commission-bps").value), slippage_bps: Number($("#slippage-bps").value), annual_cash_rate: 0 },
   };
+}
+
+function updateResearchDesignFields(template = currentTemplate) {
+  const isPortfolio = template?.rule_graph.kind === "ranked_portfolio";
+  const isRelativeStrength = template?.template_id === "benchmark-relative-strength";
+  $("#ticker-field").hidden = Boolean(isPortfolio);
+  $("#universe-field").hidden = !isPortfolio;
+  $("#relative-strength-reference-field").hidden = !isRelativeStrength;
+  $("#relative-strength-symbol-field").hidden = !isRelativeStrength || $("#relative-strength-reference").value !== "custom";
+  $("#relative-strength-note").hidden = !isRelativeStrength;
 }
 
 function searchRanges() {
@@ -277,17 +305,19 @@ function searchRanges() {
 
 async function runBacktest() {
   const ticker = $("#strategy-ticker").value.trim().toUpperCase();
-  if (!ticker) throw new Error("Enter a US ticker before running research.");
+  setWorkflowStep(3);
   if (definitionMode === "template") {
     const strategy = selectedTemplateInstance();
+    const researchDesign = selectedResearchDesign();
+    if (!currentTemplate || (currentTemplate.rule_graph.kind !== "ranked_portfolio" && !ticker)) throw new Error("Enter a US ticker before running research.");
     const ranges = searchRanges();
     await api("/api/v2/strategies", { method: "POST", body: JSON.stringify({ strategy, original_instruction: "" }) });
     if (Object.keys(ranges).length) {
-      const search = await api("/api/v2/parameter-searches", { method: "POST", body: JSON.stringify({ strategy, ranges, max_trials: 60 }) });
+      const search = await api("/api/v2/parameter-searches", { method: "POST", body: JSON.stringify({ strategy, research_design: researchDesign, ranges, max_trials: 60 }) });
       renderBacktest(search.finalTest, `Guarded ${search.method}; final test began ${search.finalTestStart}.`, { search });
       notify(`Parameter search completed ${search.attempts.length} trials. Best: ${JSON.stringify(search.bestParameters)}.`);
     } else {
-      const run = await api("/api/v2/research-runs", { method: "POST", body: JSON.stringify({ strategy }) });
+      const run = await api("/api/v2/research-runs", { method: "POST", body: JSON.stringify({ strategy, research_design: researchDesign }) });
       renderBacktest(run.results, `Strategy Model V2 · Run ${run.run_id.slice(0, 8)}.`, { run });
     }
     await loadCatalogue();
@@ -312,12 +342,14 @@ function showProposal(proposal) {
   existing.hidden = !proposal.existingStrategy;
   existing.textContent = proposal.existingStrategy ? `This rule graph already exists as “${proposal.existingStrategy.name}”. It will be reused instead of duplicated.` : "";
   $("#proposal-clarifications").innerHTML = proposal.clarifications.length ? `<strong>REVIEW THESE ASSUMPTIONS</strong><ul>${proposal.clarifications.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : "";
+  setWorkflowStep(2);
   $("#strategy-confirmation-modal").showModal();
 }
 
 async function confirmProposal() {
   if (!pendingProposal) return;
   $("#strategy-confirmation-modal").close();
+  setWorkflowStep(3);
   const payload = { ticker: $("#strategy-ticker").value.trim().toUpperCase(), instruction: $("#strategy-input").value.trim(), strategy_yaml: $("#proposal-yaml").value, window: $("#backtest-window").value, benchmark: $("#strategy-benchmark").value.trim().toUpperCase(), commission_bps: Number($("#commission-bps").value), slippage_bps: Number($("#slippage-bps").value) };
   const data = await api("/api/backtest", { method: "POST", body: JSON.stringify(payload) });
   renderBacktest(data, `LLM-assisted definition · ${data.catalogueStrategy.provider.replaceAll("_", " ")}.`);
@@ -330,6 +362,7 @@ async function confirmProposal() {
 
 function renderBacktest(data, source, researchContext = {}) {
   const metrics = data.metrics;
+  setWorkflowStep(4);
   metricCards("#backtest-metrics", [
     { label: "TOTAL RETURN", value: metrics.totalReturn, display: `${formatNumber(metrics.totalReturn)}%` },
     { label: "BUY & HOLD", value: metrics.benchmarkReturn, display: `${formatNumber(metrics.benchmarkReturn)}%` },
@@ -373,13 +406,6 @@ function renderCredibilityEvidence(data, researchContext) {
   const minimum = Math.min(...scores);
   const span = Math.max(Math.max(...scores) - minimum, 0.0001);
   $("#parameter-heatmap").innerHTML = `<div class="heatmap-title">PARAMETER STABILITY MAP · ${escapeHtml(heatmap.xParameter)}${heatmap.yParameter ? ` × ${escapeHtml(heatmap.yParameter)}` : ""}</div><div class="heatmap-grid">${heatmap.cells.map((cell) => { const strength = (cell.medianScore - minimum) / span; return `<div class="heatmap-cell" style="--heat:${strength.toFixed(3)}" title="Median Calmar ${formatNumber(cell.medianScore, 3)} across ${cell.trials} trial(s)"><span>${escapeHtml(cell.x)}${cell.y === null ? "" : ` · ${escapeHtml(cell.y)}`}</span><strong>${formatNumber(cell.medianScore, 2)}</strong></div>`; }).join("")}</div>`;
-}
-
-async function runSimulation() {
-  const data = await api("/api/simulate", { method: "POST", body: JSON.stringify({ ticker: $("#strategy-ticker").value.trim().toUpperCase(), days: Number($("#simulation-days").value) }) });
-  const metrics = data.metrics;
-  metricCards("#simulation-metrics", [{ label: "MEDIAN RETURN", value: metrics.medianReturn, display: `${formatNumber(metrics.medianReturn)}%` }, { label: "10TH PERCENTILE", value: metrics.downsideReturn, display: `${formatNumber(metrics.downsideReturn)}%` }, { label: "90TH PERCENTILE", value: metrics.upsideReturn, display: `${formatNumber(metrics.upsideReturn)}%` }, { label: "PROFIT PROBABILITY", value: metrics.profitProbability, display: `${formatNumber(metrics.profitProbability, 1)}%` }]);
-  animateMonteCarlo(data.paths);
 }
 
 function optionKindDefinition(kind) {
@@ -570,19 +596,27 @@ $$('.nav-item').forEach((button) => button.addEventListener("click", () => {
   $(`#${button.dataset.panel}`).classList.add("active");
   $("#page-title").textContent = button.textContent.replace(/^\s*\d+\s*/, "").trim();
 }));
+$$(".workflow-step").forEach((button) => button.addEventListener("click", () => {
+  document.getElementById(button.dataset.target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}));
 
 $("#strategy-template").addEventListener("change", () => {
   currentTemplate = templates.find((template) => template.template_id === $("#strategy-template").value) || null;
-  if (!currentTemplate) return;
+  if (!currentTemplate) {
+    clearStrategyConfiguration();
+    definitionMode = "natural";
+    setWorkflowStep(1);
+    return;
+  }
   definitionMode = "template";
   selectedStrategyId = null;
   $("#strategy-input").value = "";
   $("#strategy-input").placeholder = currentTemplate.description;
   $("#configuration-name").textContent = currentTemplate.name;
   $("#configuration-description").textContent = currentTemplate.description;
-  $("#universe-field").hidden = currentTemplate.rule_graph.kind !== "ranked_portfolio";
-  $("#peer-field").hidden = currentTemplate.rule_graph.kind === "ranked_portfolio";
+  updateResearchDesignFields(currentTemplate);
   renderParameterControls(currentTemplate);
+  setWorkflowStep(2);
 });
 $("#strategy-input").addEventListener("input", () => {
   definitionMode = "natural";
@@ -592,9 +626,10 @@ $("#strategy-input").addEventListener("input", () => {
   $("#configuration-name").textContent = "LLM-Assisted Definition";
   $("#configuration-description").textContent = "The exact executable rule graph will be shown for confirmation.";
   $("#parameter-controls").innerHTML = "<p class=\"empty-state\">Confirm the translated rule before it is stored or tested.</p>";
+  updateResearchDesignFields(null);
+  setWorkflowStep(1);
 });
 $("#run-backtest").addEventListener("click", withLoading("#run-backtest", runBacktest));
-$("#run-simulation").addEventListener("click", withLoading("#run-simulation", runSimulation));
 $("#load-stock").addEventListener("click", withLoading("#load-stock", loadStock));
 $("#load-market").addEventListener("click", withLoading("#load-market", loadMarket));
 $("#simulate-option").addEventListener("click", withLoading("#simulate-option", simulateOption));
@@ -602,6 +637,14 @@ $("#load-option-chain").addEventListener("click", withLoading("#load-option-chai
 $("#create-paper-position").addEventListener("click", withLoading("#create-paper-position", createPaperPosition));
 $("#apply-lifecycle-event").addEventListener("click", withLoading("#apply-lifecycle-event", applyLifecycleEvent));
 $("#option-kind").addEventListener("change", updateOptionKind);
+$("#relative-strength-reference").addEventListener("change", () => updateResearchDesignFields());
+$$(".test-fields input,.test-fields select").forEach((control) => {
+  const showTestDesign = () => {
+    if (currentTemplate || selectedStrategyId || $("#strategy-input").value.trim().length >= 8) setWorkflowStep(3);
+  };
+  control.addEventListener("input", showTestDesign);
+  control.addEventListener("change", showTestDesign);
+});
 $("#option-timeline").addEventListener("input", () => renderOptionTimeSlice(Number($("#option-timeline").value)));
 $("#open-catalogue").addEventListener("click", async () => { try { await loadCatalogue(); $("#strategy-catalogue-modal").showModal(); } catch (error) { notify(error.message); } });
 $("#close-catalogue").addEventListener("click", () => $("#strategy-catalogue-modal").close());
@@ -612,4 +655,5 @@ $("#confirm-proposal").addEventListener("click", withLoading("#confirm-proposal"
 
 initializeExpiration();
 updateOptionKind();
+setWorkflowStep(1);
 Promise.all([loadTemplates(), loadCatalogue()]).catch((error) => notify(error.message));

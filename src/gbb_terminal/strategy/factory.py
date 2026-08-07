@@ -330,9 +330,3 @@ def run_backtest(history: pd.DataFrame, spy_history: pd.DataFrame, strategy: Str
     from ..backtesting.engine import run_backtest as execute_backtest
 
     return execute_backtest(history, spy_history, strategy)
-
-
-def monte_carlo(history: pd.DataFrame, days: int = 252, simulations: int = 400) -> dict[str, Any]:
-    from ..backtesting.monte_carlo import monte_carlo as simulate
-
-    return simulate(history, days, simulations)
