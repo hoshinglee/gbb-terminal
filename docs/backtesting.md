@@ -20,6 +20,7 @@ Benchmark histories are forward-filled only after their first known observation.
 - Total return, CAGR, excess return, Sharpe, Sortino, Calmar, drawdown, time underwater, volatility, exposure, turnover, cost sensitivity, trade count, win rate, and profit factor.
 - Per-benchmark return, CAGR, drawdown, and volatility.
 - Exact evaluation dates, execution assumptions, aligned hover data, indicators, fills, trades, regimes, and visible quality warnings.
+- A `marketChart` payload that recomputes OHLCV and standard indicators for daily, weekly, monthly, and yearly bars across the exact evaluation window.
 
 `evidence_verdict()` assigns one plain-language label: Robust Candidate, Promising But Unstable, Insufficient Evidence, or Does Not Justify Complexity. The label is explanatory, not investment advice.
 
@@ -40,3 +41,5 @@ Each search also persists its selected `StrategyInstance`, immutable `ResearchDe
 ## Ranked portfolios
 
 `run_ranked_portfolio()` ranks a selection universe by trailing return, holds the strongest names at equal weight, and fills scheduled rebalances at the following session's open. It reports both signal and execution dates and compares against equal-weight peers plus the selected and risk-matched benchmarks.
+
+Ranked portfolios return `marketChart: null`. Combining unrelated holdings into synthetic high/low candles would imply a tradable price series that does not exist; portfolio evidence remains available through its equity curve and rebalance ledger.

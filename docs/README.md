@@ -19,6 +19,7 @@ GBB Terminal is a local-first US equity research and option lifecycle applicatio
 | LLM translator | Natural language to validated strategy data | [LLM translator](llm-translator.md) |
 | Observability | Structured events and rotating local logs | [Logging](logging.md) |
 | Browser | Vanilla JavaScript workflow and chart interactions | [Frontend](frontend.md) |
+| Market replay | Candles, interval aggregation, overlays, volume, RSI, and MACD | [Market Replay](market-replay.md) |
 | Strategy Lab UX | Research-canvas interaction model and shadcn/ui migration direction | [Strategy Lab UX](strategy-lab-ux.md) |
 | Release readiness | Completed research gates and deferred launch-stability checks | [Release Checklist](release-checklist.md) |
 | Community extensions | Adding indicators and strategy templates safely | [Strategy Plugin Guide](strategy-plugin-guide.md) |

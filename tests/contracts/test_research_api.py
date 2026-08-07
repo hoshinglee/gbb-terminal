@@ -56,6 +56,8 @@ def test_research_run_contract_persists_data_and_reproducibility_identity(tmp_pa
             "Volatility-Matched",
             "Cash",
         }
+        assert set(run["results"]["marketChart"]["intervals"]) == {"day", "week", "month", "year"}
+        assert run["results"]["marketChart"]["intervals"]["day"][-1]["indicators"]["macdSignal"] is not None
         restored = client.get(f"/api/v2/research-runs/{run['run_id']}")
         assert restored.status_code == 200
         assert restored.json()["reproducibility_key"] == run["reproducibility_key"]

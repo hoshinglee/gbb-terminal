@@ -30,4 +30,6 @@ Legacy `/api/*` routes remain compatible during migration. Internal semantic key
 
 V2 request models reject unknown fields. `ResearchDesign` owns ticker/universe, benchmarks, timeframe, and execution assumptions; `StrategyInstance` owns only reusable rule and risk configuration. Relative-strength designs may resolve an automatic sector ETF from Yahoo sector metadata, or use an explicit custom symbol. Research-run responses include internal strategy and reproducibility keys for machine-level replay, but the browser intentionally does not display them in ordinary Strategy Lab views.
 
+Individual-stock research results include an additive `marketChart` object. Its `intervals` map contains `day`, `week`, `month`, and `year` OHLCV points with interval-specific technical indicators and final strategy state for each bar. Ranked-portfolio results return `marketChart: null` because an average of different securities is not a valid tradable candlestick series. The existing `chart` equity-curve contract remains unchanged.
+
 `request_logging_and_local_no_cache` records request IDs, duration, and status. Browser assets receive `Cache-Control: no-store`, preventing confusing conditional-cache responses during local development.
