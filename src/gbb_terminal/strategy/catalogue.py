@@ -150,6 +150,8 @@ class StrategyCatalogue:
         **overrides: Any,
     ) -> StrategyInstance:
         template = self.get(template_id)
+        for legacy_scope in ("ticker", "universe", "benchmark", "sector_benchmark", "timeframe", "execution"):
+            overrides.pop(legacy_scope, None)
         selected = {parameter.key: parameter.default for parameter in template.parameters}
         selected.update(values or {})
         self._validate_values(template, selected)
@@ -164,6 +166,11 @@ class StrategyCatalogue:
 
     def build(self, instance: StrategyInstance) -> DeclarativeStrategy:
         template = self.get(instance.template_id)
+        if instance.template_version != template.version:
+            raise ValueError(
+                f"Strategy template version {instance.template_version} is unavailable; "
+                f"'{template.template_id}' currently requires version {template.version}."
+            )
         if template.rule_graph.get("kind") == "ranked_portfolio":
             raise ValueError("Ranked portfolio templates must run through the portfolio engine.")
         values = deepcopy(instance.parameter_values)

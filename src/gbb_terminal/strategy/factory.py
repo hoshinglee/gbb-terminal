@@ -68,6 +68,9 @@ class DeclarativeStrategy(Strategy):
 
     def positions(self, history: pd.DataFrame) -> pd.DataFrame:
         frame = pd.DataFrame(index=history.index)
+        frame["open"] = history["Open"].astype(float)
+        frame["high"] = history["High"].astype(float)
+        frame["low"] = history["Low"].astype(float)
         frame["close"] = history["Close"].astype(float)
         frame["volume"] = history["Volume"].fillna(0).astype(float) if "Volume" in history else 0.0
         for name, specification in self.configuration["indicators"].items():
@@ -327,9 +330,3 @@ def run_backtest(history: pd.DataFrame, spy_history: pd.DataFrame, strategy: Str
     from ..backtesting.engine import run_backtest as execute_backtest
 
     return execute_backtest(history, spy_history, strategy)
-
-
-def monte_carlo(history: pd.DataFrame, days: int = 252, simulations: int = 400) -> dict[str, Any]:
-    from ..backtesting.monte_carlo import monte_carlo as simulate
-
-    return simulate(history, days, simulations)

@@ -39,3 +39,10 @@ class YahooProvider(BaseProvider):
         payload = {"expiration": expiry, "expirations": expirations, "calls": rows(chain.calls), "puts": rows(chain.puts)}
         return DataEnvelope("current_option_chain", symbol, payload, retrieved_at, retrieved_at, retrieved_at, self.delayed_status, self.name, ["This snapshot is current-chain data, not a historical option backtest dataset."])
 
+    def sector(self, symbol: str) -> str | None:
+        try:
+            info = yf.Ticker(symbol).get_info()
+        except Exception as error:
+            raise ProviderUnavailable(f"Yahoo Finance sector metadata is unavailable for {symbol}.") from error
+        value = info.get("sectorKey") or info.get("sector")
+        return str(value).strip() if value else None

@@ -26,14 +26,14 @@
 
       <section class="panel active" id="strategy">
         <div class="workflow card">
-          <button class="workflow-step active"><span>1</span><b>Define</b><small>Instruction or template</small></button>
-          <button class="workflow-step"><span>2</span><b>Configure</b><small>Rules and parameters</small></button>
-          <button class="workflow-step"><span>3</span><b>Test Design</b><small>Data and assumptions</small></button>
-          <button class="workflow-step"><span>4</span><b>Evidence</b><small>Returns and robustness</small></button>
+          <button type="button" class="workflow-step active" data-step="1" data-target="strategy-define" aria-current="step"><span>1</span><b>Define</b><small>Instruction or template</small></button>
+          <button type="button" class="workflow-step" data-step="2" data-target="strategy-configure"><span>2</span><b>Configure</b><small>Rules and parameters</small></button>
+          <button type="button" class="workflow-step" data-step="3" data-target="strategy-test-design"><span>3</span><b>Test Design</b><small>Data and assumptions</small></button>
+          <button type="button" class="workflow-step" data-step="4" data-target="strategy-evidence"><span>4</span><b>Evidence</b><small>Returns and robustness</small></button>
         </div>
 
         <div class="strategy-layout">
-          <div class="card define-card">
+          <div class="card define-card" id="strategy-define">
             <div class="section-heading"><div><p class="eyebrow">1 · DEFINE</p><h2>Describe or select a strategy.</h2></div><button id="open-catalogue" class="text-button">Strategy Catalogue</button></div>
             <label for="strategy-input">Natural-language instruction</label>
             <textarea id="strategy-input" placeholder="Long when MA5 crosses above MA20 with volume above its 20-day average. Exit on the reverse crossover or a 6% loss.">Long when MA5 crosses above MA10 and exit when MA5 crosses below MA10.</textarea>
@@ -42,7 +42,7 @@
             <p class="helper">Natural language is translated into a safe rule graph. Templates expose every editable parameter directly.</p>
           </div>
 
-          <div class="card configure-card">
+          <div class="card configure-card" id="strategy-configure">
             <p class="eyebrow">2 · CONFIGURE</p>
             <h2 id="configuration-name">Pending Definition</h2>
             <p id="configuration-description" class="muted">Choose a template or submit an instruction for LLM-assisted confirmation.</p>
@@ -50,31 +50,37 @@
           </div>
         </div>
 
-        <div class="card test-design">
+        <div class="card test-design" id="strategy-test-design">
           <div><p class="eyebrow">3 · TEST DESIGN</p><h2>Make assumptions visible.</h2></div>
           <div class="test-fields">
-            <label>Ticker<input id="strategy-ticker" value="AAPL" maxlength="12" /></label>
-            <label>Benchmark<input id="strategy-benchmark" value="SPY" maxlength="12" /></label>
-            <label id="universe-field" hidden>Universe<input id="strategy-universe" value="AAPL, MSFT, NVDA, AMZN, META" /></label>
+            <label id="ticker-field">Ticker<input id="strategy-ticker" value="AAPL" maxlength="12" /></label>
+            <label id="universe-field" hidden>Selection Universe<input id="strategy-universe" value="AAPL, MSFT, NVDA, AMZN, META" /></label>
+            <label>Market Benchmark<input id="strategy-benchmark" value="SPY" maxlength="12" /></label>
+            <label id="relative-strength-reference-field" hidden>Relative Strength Against<select id="relative-strength-reference"><option value="market">Market Benchmark</option><option value="sector">Automatic Sector ETF</option><option value="custom">Custom Symbol</option></select></label>
+            <label id="relative-strength-symbol-field" hidden>Custom Reference<input id="relative-strength-symbol" placeholder="QQQ" maxlength="12" /></label>
             <label>Backtest Window<select id="backtest-window"><option value="1mo">1 Month</option><option value="3mo">3 Months</option><option value="6mo">6 Months</option><option value="1y" selected>1 Year</option><option value="2y">2 Years</option></select></label>
-            <label>Commission (Bps)<input id="commission-bps" type="number" value="1" min="0" max="100" step="0.5" /></label>
-            <label>Slippage (Bps)<input id="slippage-bps" type="number" value="2" min="0" max="100" step="0.5" /></label>
+            <label>Commission (Bps)<input id="commission-bps" type="number" value="0" min="0" max="100" step="0.5" /></label>
+            <label>Slippage (Bps)<input id="slippage-bps" type="number" value="0" min="0" max="100" step="0.5" /></label>
             <button id="run-backtest">Run Research ↗</button>
           </div>
+          <p id="relative-strength-note" class="helper" hidden>Automatic Sector ETF uses Yahoo Finance sector metadata. Select Custom Symbol to override it; future peer baskets will remain explicit, dated research inputs.</p>
+          <p class="helper">Zero costs are the default educational assumption. Review cost sensitivity before relying on results.</p>
         </div>
 
-        <div class="evidence-heading"><div><p class="eyebrow">4 · EVIDENCE</p><h2>Judge risk, not only return.</h2></div><div id="evidence-verdict" class="verdict neutral">Awaiting Research</div></div>
+        <div class="evidence-heading" id="strategy-evidence"><div><p class="eyebrow">4 · EVIDENCE</p><h2>Judge risk, not only return.</h2></div><div id="evidence-verdict" class="verdict neutral">Awaiting Research</div></div>
         <div class="metrics" id="backtest-metrics"><div class="metric"><span>TOTAL RETURN</span><strong>—</strong></div><div class="metric"><span>BUY &amp; HOLD</span><strong>—</strong></div><div class="metric"><span>MAX DRAWDOWN</span><strong>—</strong></div><div class="metric"><span>SHARPE</span><strong>—</strong></div><div class="metric"><span>EXPOSURE</span><strong>—</strong></div></div>
         <div class="grid evidence-grid">
           <div class="card chart-card"><div class="card-title">EQUITY CURVE <span id="chart-window">NORMALIZED TO 1.00</span></div><div class="legend"><span><i class="strategy-dot"></i>Strategy</span><span><i class="hold-dot"></i>Buy &amp; Hold</span><span><i class="spy-dot"></i>SPY</span></div><div class="chart-shell"><canvas id="backtest-chart"></canvas><div class="chart-tooltip" hidden></div></div></div>
           <div class="card insight"><div class="card-title">RESEARCH INTERPRETATION</div><div id="parsed-strategy" class="logic">Run research to evaluate the selected rules.</div><p id="strategy-source" class="source">No strategy is loaded.</p><hr /><p id="outcome-explanation">Results remain visible even when passive investing wins.</p><ul id="assumption-list"><li>Next-session execution</li><li>Costs applied on position changes</li><li>No live brokerage execution</li></ul></div>
         </div>
 
+        <div class="grid credibility-grid">
+          <div class="card credibility-card"><div class="card-title">BENCHMARK EVIDENCE <span>RETURN · RISK · DRAWDOWN</span></div><div id="benchmark-evidence"><p class="empty-state">Run research to compare passive and risk-matched alternatives.</p></div></div>
+          <div class="card credibility-card"><div class="card-title">VALIDATION EVIDENCE <span>SELECTION · HOLDOUT · STABILITY</span></div><div id="validation-evidence"><p class="empty-state">A single historical run cannot be labelled robust.</p></div><div id="parameter-heatmap"></div></div>
+        </div>
+
         <div class="card expandable ledger-card"><button id="toggle-trades" class="expandable-toggle" aria-expanded="false" aria-controls="trade-ledger"><span>TRADE LEDGER</span><span id="trade-count">0 Closed · 0 Open</span></button><div id="trade-ledger" class="trade-table" hidden><p class="empty-state">Run research to inspect entries, exits, and P&amp;L.</p></div></div>
 
-        <div class="card simulation"><div><div class="card-title">MONTE CARLO · RETURN RANGE</div><p>Bootstrap historical daily returns to inspect path uncertainty.</p></div><div class="sim-actions"><select id="simulation-days"><option value="126">6 Months</option><option value="252" selected>1 Year</option><option value="504">2 Years</option></select><button class="outline" id="run-simulation">Simulate</button></div></div>
-        <div class="metrics compact" id="simulation-metrics"><div class="metric"><span>MEDIAN RETURN</span><strong>—</strong></div><div class="metric"><span>10TH PERCENTILE</span><strong>—</strong></div><div class="metric"><span>90TH PERCENTILE</span><strong>—</strong></div><div class="metric"><span>PROFIT PROBABILITY</span><strong>—</strong></div></div>
-        <div class="card simulation-chart"><div class="card-title">SIMULATED EQUITY PATHS <span>10TH · 50TH · 90TH PERCENTILE</span></div><div class="chart-shell"><canvas id="simulation-chart"></canvas><div class="chart-tooltip" hidden></div></div></div>
       </section>
 
       <section class="panel" id="options">

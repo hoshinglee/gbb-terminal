@@ -97,6 +97,9 @@ class LocalMarketStore:
                 created_at TIMESTAMP NOT NULL
             )
         """)
+        self.connection.execute("ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS strategy_key VARCHAR")
+        self.connection.execute("ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS reproducibility_key VARCHAR")
+        self.connection.execute("ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS research_design JSON")
         self.connection.execute("""
             CREATE TABLE IF NOT EXISTS option_chain_snapshots (
                 symbol VARCHAR NOT NULL,
@@ -282,22 +285,61 @@ class LocalMarketStore:
         removed = 0
         self.connection.execute("BEGIN TRANSACTION")
         try:
+            normalized_records: list[tuple[str, dict, dict]] = []
             for strategy_key, records in groups.items():
                 keeper, normalized = records[0]
                 for duplicate, _ in records[1:]:
                     self.connection.execute("UPDATE backtest_runs SET strategy_id = ? WHERE strategy_id = ?", [keeper["id"], duplicate["id"]])
-                    self.connection.execute("DELETE FROM strategy_catalogue WHERE strategy_id = ?", [duplicate["id"]])
+                    self.connection.execute("UPDATE research_runs SET strategy_id = ? WHERE strategy_id = ?", [keeper["id"], duplicate["id"]])
                     removed += 1
+                normalized_records.append((strategy_key, keeper, normalized))
+
+            self.connection.execute("CREATE TABLE strategy_catalogue_rebuilt AS SELECT * FROM strategy_catalogue WHERE FALSE")
+            for strategy_key, keeper, normalized in normalized_records:
                 definition = normalized["definition"]
                 self.connection.execute(
-                    """UPDATE strategy_catalogue SET strategy_key = ?, fingerprint = ?, name = ?, description = ?,
-                              strategy_type = ?, direction = ?, parameters = ?, strategy_yaml = ? WHERE strategy_id = ?""",
-                    [strategy_key, strategy_key, definition["name"], definition["description"], definition["strategy_type"], definition["direction"], json.dumps(definition["parameters"]), normalized["strategy_yaml"], keeper["id"]],
+                    """INSERT INTO strategy_catalogue_rebuilt
+                       (strategy_id, strategy_key, fingerprint, instruction, name, description, strategy_type, direction,
+                        parameters, provider, strategy_yaml, created_at, updated_at, strategy_json, family, template_id,
+                        template_version)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    [
+                        keeper["id"],
+                        strategy_key,
+                        strategy_key,
+                        keeper["instruction"],
+                        definition["name"],
+                        definition["description"],
+                        definition["strategy_type"],
+                        definition["direction"],
+                        json.dumps(definition["parameters"]),
+                        keeper["provider"],
+                        normalized["strategy_yaml"],
+                        datetime.fromisoformat(keeper["createdAt"]).replace(tzinfo=None),
+                        datetime.fromisoformat(keeper["updatedAt"]).replace(tzinfo=None),
+                        json.dumps(normalized.get("strategy_json")) if normalized.get("strategy_json") else None,
+                        keeper["family"],
+                        keeper["templateId"],
+                        keeper["templateVersion"],
+                    ],
                 )
-            self.connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS strategy_catalogue_key_index ON strategy_catalogue(strategy_key)")
+            self.connection.execute("DROP TABLE strategy_catalogue")
+            self.connection.execute("ALTER TABLE strategy_catalogue_rebuilt RENAME TO strategy_catalogue")
+            self.connection.execute(
+                "CREATE UNIQUE INDEX strategy_catalogue_id_index ON strategy_catalogue(strategy_id)"
+            )
+            self.connection.execute(
+                "CREATE UNIQUE INDEX strategy_catalogue_key_index ON strategy_catalogue(strategy_key)"
+            )
+            self.connection.execute(
+                "CREATE UNIQUE INDEX strategy_catalogue_fingerprint_index ON strategy_catalogue(fingerprint)"
+            )
             self.connection.execute("COMMIT")
         except Exception:
-            self.connection.execute("ROLLBACK")
+            try:
+                self.connection.execute("ROLLBACK")
+            except duckdb.TransactionException:
+                pass
             raise
         return removed
 
@@ -317,42 +359,48 @@ class LocalMarketStore:
         created_at = datetime.fromisoformat(research_run["created_at"].replace("Z", "+00:00")).replace(tzinfo=None)
         self.connection.execute(
             """INSERT INTO research_runs
-               (run_id, strategy_id, strategy_json, data_snapshot, engine_version, validation,
-                tested_parameters, results, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (run_id, strategy_id, strategy_json, research_design, data_snapshot, engine_version, validation,
+                tested_parameters, results, created_at, strategy_key, reproducibility_key)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
                 research_run["run_id"],
                 strategy_id,
                 json.dumps(research_run["strategy"]),
+                json.dumps(research_run["research_design"]),
                 json.dumps(research_run["data_snapshot"]),
                 research_run["engine_version"],
                 json.dumps(research_run["validation"]),
                 json.dumps(research_run["tested_parameters"]),
                 json.dumps(research_run["results"]),
                 created_at,
+                research_run.get("strategy_key"),
+                research_run.get("reproducibility_key"),
             ],
         )
         return research_run["run_id"]
 
     def get_research_run(self, run_id: str) -> dict | None:
         row = self.connection.execute(
-            """SELECT run_id, strategy_id, strategy_json, data_snapshot, engine_version, validation,
-                      tested_parameters, results, created_at
+            """SELECT run_id, strategy_id, strategy_json, research_design, data_snapshot, engine_version, validation,
+                      tested_parameters, results, created_at, strategy_key, reproducibility_key
                FROM research_runs WHERE run_id = ?""",
             [run_id],
         ).fetchone()
         if row is None:
             return None
         return {
-            "runId": row[0],
-            "strategyId": row[1],
+            "run_id": row[0],
+            "strategy_id": row[1],
             "strategy": json.loads(row[2]),
-            "dataSnapshot": json.loads(row[3]),
-            "engineVersion": row[4],
-            "validation": json.loads(row[5]),
-            "testedParameters": json.loads(row[6]),
-            "results": json.loads(row[7]),
-            "createdAt": row[8].isoformat(),
+            "research_design": json.loads(row[3]) if row[3] else None,
+            "data_snapshot": json.loads(row[4]),
+            "engine_version": row[5],
+            "validation": json.loads(row[6]),
+            "tested_parameters": json.loads(row[7]),
+            "results": json.loads(row[8]),
+            "created_at": row[9].isoformat(),
+            "strategy_key": row[10],
+            "reproducibility_key": row[11],
         }
 
     def create_option_position(self, state: dict) -> dict:

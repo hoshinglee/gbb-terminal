@@ -11,9 +11,9 @@ FastAPI is the orchestration boundary. Routes validate requests, call market/dom
 | `GET /api/v2/strategy-templates` | Return typed built-in templates and parameter metadata. |
 | `POST /api/v2/strategy-proposals` | Translate natural language into a safe proposal and clarification list. |
 | `POST /api/v2/strategies` | Validate and deduplicate a canonical `StrategyInstance`. |
-| `POST /api/v2/research-runs` | Execute and persist an immutable single-stock or ranked-portfolio run. |
-| `GET /api/v2/research-runs/{id}` | Load one persisted research run. |
-| `POST /api/v2/parameter-searches` | Run guarded walk-forward search with an untouched final window. |
+| `POST /api/v2/research-runs` | Execute and persist an immutable, fingerprinted single-stock or ranked-portfolio run from a strategy configuration and `research_design`. |
+| `GET /api/v2/research-runs/{id}` | Load one persisted run using the same snake-case ResearchRun contract returned at creation. |
+| `POST /api/v2/parameter-searches` | Run exhaustive or seeded Optuna walk-forward search, evaluate an untouched final window, and persist the selected run. |
 | `GET /api/v2/chart-data` | Return date-aligned OHLCV, indicators, and source metadata. |
 
 ## V2 option endpoints
@@ -27,5 +27,7 @@ FastAPI is the orchestration boundary. Routes validate requests, call market/dom
 | `POST /api/v2/options/positions/{id}/events` | Apply and persist one validated lifecycle transition. |
 
 Legacy `/api/*` routes remain compatible during migration. Internal semantic keys and YAML are omitted from ordinary V2 catalogue responses; advanced export remains available in the browser.
+
+V2 request models reject unknown fields. `ResearchDesign` owns ticker/universe, benchmarks, timeframe, and execution assumptions; `StrategyInstance` owns only reusable rule and risk configuration. Relative-strength designs may resolve an automatic sector ETF from Yahoo sector metadata, or use an explicit custom symbol. Research-run responses include internal strategy and reproducibility keys for machine-level replay, but the browser intentionally does not display them in ordinary Strategy Lab views.
 
 `request_logging_and_local_no_cache` records request IDs, duration, and status. Browser assets receive `Cache-Control: no-store`, preventing confusing conditional-cache responses during local development.

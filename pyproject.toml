@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gbb-terminal"
-version = "0.2.0"
+version = "0.4.1"
 description = "Open-source US equity strategy research and options lifecycle simulator"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -21,6 +21,7 @@ dependencies = [
   "python-dotenv>=1.0,<2.0",
   "PyYAML>=6.0,<7.0",
   "pydantic>=2.10,<3.0",
+  "optuna>=4.0,<5.0",
 ]
 
 [project.optional-dependencies]
@@ -30,7 +31,6 @@ dev = [
   "pytest-asyncio>=0.24,<1.0",
   "ruff>=0.9,<1.0",
 ]
-research = ["optuna>=4.0,<5.0"]
 llm-openai = ["openai>=1.0,<3.0"]
 llm-anthropic = ["anthropic>=0.40,<1.0"]
 
