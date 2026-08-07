@@ -117,6 +117,39 @@ header, .toolbar, .section-heading, .evidence-heading { display: flex; align-ite
 .trade-row { display: grid; grid-template-columns: .7fr .8fr 1fr .8fr 1.1fr .8fr .8fr .8fr; gap: 8px; min-width: 760px; padding: 10px 0; border-top: 1px solid var(--line); color: #acbab4; font: 10px "DM Mono", monospace; }
 .trade-row span:nth-child(n+3) { text-align: right; }
 .trade-head { color: var(--mute); font-size: 8px; }
+.market-replay { padding: 0; margin-top: 16px; overflow: hidden; }
+.market-chart-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 22px; }
+.market-chart-toolbar h2 { margin-top: 5px; font-size: 22px; }
+.market-chart-toolbar h2 span { color: var(--lime); font: 11px "DM Mono", monospace; letter-spacing: .04em; }
+.market-chart-toolbar .muted { margin: 7px 0 0; }
+.market-chart-controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.chart-control-group { display: flex; align-items: center; border: 1px solid var(--line); background: #0c1412; }
+.chart-control-group > span { padding: 0 10px; color: var(--mute); font: 8px "DM Mono", monospace; letter-spacing: .08em; }
+.chart-toggle { min-width: 52px; padding: 9px 11px; color: var(--mute); background: transparent; border-left: 1px solid var(--line); font: 9px "DM Mono", monospace; }
+.chart-toggle:hover:not(:disabled) { color: var(--ink); background: #19231f; }
+.chart-toggle.active { color: #10200d; background: var(--lime); }
+.market-chart-empty { margin: 0; padding: 28px 22px; border-top: 1px solid var(--line); }
+.market-chart-content { border-top: 1px solid var(--line); }
+.market-chart-content[hidden] { display: none; }
+.market-pane { padding: 16px 22px 12px; background: #0d1614; }
+.market-pane + .market-pane { border-top: 1px solid var(--line); }
+.pane-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; color: var(--mute); font: 8px "DM Mono", monospace; letter-spacing: .09em; }
+.pane-legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; letter-spacing: 0; }
+.pane-legend span { white-space: nowrap; }
+.pane-legend span[hidden] { display: none; }
+.pane-legend i { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 2px; }
+.candle-up-dot { background: var(--lime); }
+.candle-down-dot { background: var(--red); }
+.sma-dot, .volume-average-dot, .rsi-dot, .entry-dot { background: var(--cyan); }
+.ema-dot, .macd-dot, .exit-dot { background: var(--amber); }
+.boll-dot, .signal-dot { background: #a78bfa; }
+.volume-dot { background: #71857c; }
+.market-canvas-shell { position: relative; margin-top: 9px; }
+.market-canvas { display: block; width: 100%; }
+.price-market-canvas { height: 410px; }
+.volume-market-canvas { height: 155px; }
+.momentum-market-canvas { height: 245px; }
+.market-canvas { cursor: crosshair; }
 .credibility-grid { margin-top: 16px; grid-template-columns: 1.2fr 1fr; }
 .credibility-card { overflow: hidden; }
 .evidence-table { display: grid; grid-template-columns: 1.5fr repeat(4, .75fr); gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); font: 10px "DM Mono", monospace; text-align: right; }
@@ -198,6 +231,8 @@ header, .toolbar, .section-heading, .evidence-heading { display: flex; align-ite
   .strategy-layout, .option-builder, .grid, .scenario-grid { grid-template-columns: 1fr; }
   .test-design { grid-template-columns: 1fr; }
   .test-fields { grid-template-columns: repeat(3, 1fr); }
+  .market-chart-toolbar { display: grid; }
+  .market-chart-controls { justify-content: flex-start; }
 }
 
 @media (max-width: 800px) {
@@ -211,4 +246,11 @@ header, .toolbar, .section-heading, .evidence-heading { display: flex; align-ite
   .option-grid { grid-template-columns: 1fr; }
   .parameter-card { grid-template-columns: 1fr 90px; }
   .parameter-card select { grid-column: 1 / -1; }
+  .market-chart-toolbar, .market-pane { padding-right: 14px; padding-left: 14px; }
+  .market-chart-controls, .chart-control-group { width: 100%; }
+  .chart-control-group { overflow-x: auto; }
+  .chart-toggle { flex: 1; }
+  .pane-heading { align-items: flex-start; flex-direction: column; }
+  .pane-legend { justify-content: flex-start; }
+  .price-market-canvas { height: 340px; }
 }

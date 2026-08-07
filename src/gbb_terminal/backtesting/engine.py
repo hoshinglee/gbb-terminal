@@ -4,6 +4,7 @@ from typing import Any
 
 import pandas as pd
 
+from ..market_data.charting import build_market_chart
 from ..strategy.factory import Strategy
 from ..strategy.models import ExecutionAssumptions
 from .execution import apply_execution
@@ -244,6 +245,14 @@ def run_research_backtest(
         }
         point["indicators"] = {column: round(float(row[column]), 4) for column in indicator_columns if pd.notna(row[column])}
         chart.append(point)
+    market_history = strategy_history[["Open", "High", "Low", "Close", "Volume"]]
+    market_state = active[["position", "signal_position", "equity"]].rename(
+        columns={
+            "position": "Position",
+            "signal_position": "SignalPosition",
+            "equity": "StrategyEquity",
+        }
+    )
     return {
         "strategy": strategy.spec().to_dict(),
         "strategyYaml": strategy.to_yaml(),
@@ -260,6 +269,12 @@ def run_research_backtest(
         "benchmarks": list(benchmark_columns),
         "regimes": regime_analysis(active, benchmark_columns.get("SPY", benchmark_columns["Buy & Hold"])),
         "chart": chart,
+        "marketChart": build_market_chart(
+            market_history,
+            visible_start=active.index[0],
+            visible_end=active.index[-1],
+            research_state=market_state,
+        ),
         "trades": trades,
         "qualityWarnings": ["Strategy equity was depleted during the evaluation window."] if bool(active["insolvent"].any()) else [],
     }

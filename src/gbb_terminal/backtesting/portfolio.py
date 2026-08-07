@@ -157,6 +157,7 @@ def run_ranked_portfolio(
         "benchmarks": list(benchmark_columns),
         "regimes": regime_analysis(active, "selected_benchmark"),
         "chart": chart,
+        "marketChart": None,
         "trades": [],
         "rebalances": rebalance_rows,
     }

@@ -81,6 +81,31 @@
 
         <div class="card expandable ledger-card"><button id="toggle-trades" class="expandable-toggle" aria-expanded="false" aria-controls="trade-ledger"><span>TRADE LEDGER</span><span id="trade-count">0 Closed · 0 Open</span></button><div id="trade-ledger" class="trade-table" hidden><p class="empty-state">Run research to inspect entries, exits, and P&amp;L.</p></div></div>
 
+        <section class="card market-replay" id="research-market-chart" data-state="empty">
+          <div class="market-chart-toolbar">
+            <div><p class="eyebrow">PRICE ACTION · TECHNICAL CONTEXT</p><h2>Market Replay <span id="market-chart-symbol"></span></h2><p id="market-chart-range" class="muted">Run individual-stock research to load candles.</p></div>
+            <div class="market-chart-controls">
+              <div class="chart-control-group" role="group" aria-label="Candlestick interval"><span>INTERVAL</span><button type="button" class="chart-toggle active" data-market-interval="day" aria-pressed="true">Day</button><button type="button" class="chart-toggle" data-market-interval="week" aria-pressed="false">Week</button><button type="button" class="chart-toggle" data-market-interval="month" aria-pressed="false">Month</button><button type="button" class="chart-toggle" data-market-interval="year" aria-pressed="false">Year</button></div>
+              <div class="chart-control-group" role="group" aria-label="Price overlays"><span>OVERLAYS</span><button type="button" class="chart-toggle active" data-market-overlay="sma" aria-pressed="true">SMA</button><button type="button" class="chart-toggle" data-market-overlay="ema" aria-pressed="false">EMA</button><button type="button" class="chart-toggle" data-market-overlay="bollinger" aria-pressed="false">Boll</button></div>
+            </div>
+          </div>
+          <p class="market-chart-empty empty-state">Candlesticks appear after an individual-stock research run. Ranked portfolios do not fabricate a synthetic OHLC series.</p>
+          <div class="market-chart-content" hidden>
+            <div class="market-pane price-pane">
+              <div class="pane-heading"><span>OHLC · CANDLESTICKS</span><div class="pane-legend"><span><i class="candle-up-dot"></i>Up</span><span><i class="candle-down-dot"></i>Down</span><span data-overlay-legend="sma"><i class="sma-dot"></i>SMA 20</span><span data-overlay-legend="ema" hidden><i class="ema-dot"></i>EMA 20</span><span data-overlay-legend="bollinger" hidden><i class="boll-dot"></i>Bollinger 20 · 2σ</span><span><i class="entry-dot"></i>Entry</span><span><i class="exit-dot"></i>Exit</span></div></div>
+              <div class="market-canvas-shell"><canvas class="market-canvas price-market-canvas" data-market-pane="price" aria-label="Candlestick price chart"></canvas><div class="chart-tooltip" hidden></div></div>
+            </div>
+            <div class="market-pane volume-pane">
+              <div class="pane-heading"><span>VOLUME</span><div class="pane-legend"><span><i class="volume-dot"></i>Volume</span><span><i class="volume-average-dot"></i>20-Bar Average</span></div></div>
+              <div class="market-canvas-shell"><canvas class="market-canvas volume-market-canvas" data-market-pane="volume" aria-label="Volume and average volume chart"></canvas><div class="chart-tooltip" hidden></div></div>
+            </div>
+            <div class="market-pane momentum-pane">
+              <div class="pane-heading"><span>MOMENTUM</span><div class="pane-legend"><span><i class="rsi-dot"></i>RSI 14</span><span><i class="macd-dot"></i>MACD 12 · 26</span><span><i class="signal-dot"></i>Signal 9</span></div></div>
+              <div class="market-canvas-shell"><canvas class="market-canvas momentum-market-canvas" data-market-pane="momentum" aria-label="RSI and MACD chart"></canvas><div class="chart-tooltip" hidden></div></div>
+            </div>
+          </div>
+        </section>
+
       </section>
 
       <section class="panel" id="options">
@@ -144,6 +169,7 @@
     <dialog id="strategy-catalogue-modal" class="catalogue-modal"><div class="modal-heading"><div><p class="eyebrow">GROUPED BY STRATEGY FAMILY</p><h2>Strategy Catalogue</h2><p id="catalogue-count">0 Saved Strategies</p></div><button id="close-catalogue" class="modal-close" aria-label="Close catalogue">×</button></div><div id="strategy-catalogue" class="catalogue"><p class="empty-state">Saved strategies appear here.</p></div></dialog>
     <dialog id="strategy-confirmation-modal" class="catalogue-modal confirmation-modal"><div class="modal-heading"><div><p class="eyebrow">LLM-ASSISTED DEFINITION</p><h2>Confirm Proposed Strategy</h2><p>Review the executable interpretation before testing.</p></div><button id="close-confirmation" class="modal-close" aria-label="Close strategy confirmation">×</button></div><div class="confirmation-body"><div class="proposal-summary"><span>PROPOSED NAME</span><strong id="proposal-name">—</strong><span>NORMALIZED DESCRIPTION</span><p id="proposal-description">—</p></div><div id="proposal-existing" class="proposal-notice" hidden></div><div id="proposal-clarifications" class="proposal-warnings"></div><details><summary>Advanced · Edit or Export YAML</summary><textarea id="proposal-yaml" spellcheck="false"></textarea></details><div class="confirmation-actions"><button id="cancel-proposal" class="outline">Revise Instruction</button><button id="confirm-proposal">Confirm &amp; Run</button></div></div></dialog>
     <div id="toast" role="status" aria-live="polite"></div>
+    <script src="/static/market-chart.js"></script>
     <script src="/static/app.js"></script>
   </body>
 </html>

@@ -14,6 +14,7 @@ let pendingProposal = null;
 let lastOptionRequest = null;
 let currentPosition = null;
 let lastOptionSimulation = null;
+let researchMarketChart = null;
 
 function setWorkflowStep(step) {
   const currentStep = Math.max(1, Math.min(Number(step), 4));
@@ -383,6 +384,8 @@ function renderBacktest(data, source, researchContext = {}) {
   drawChart($("#backtest-chart"), data.chart, [{ key: "strategy", label: "Strategy", color: "#b6f559" }, { key: "buyHold", label: "Buy & Hold", color: "#64d5c7" }, { key: "spy", label: "SPY", color: "#f8bd5e" }], "date", researchTooltip);
   renderCredibilityEvidence(data, researchContext);
   renderTrades(data.trades);
+  const researchSymbol = researchContext.run?.research_design?.ticker || $("#strategy-ticker").value.trim().toUpperCase();
+  researchMarketChart.setData(data.marketChart, data.trades, researchSymbol);
 }
 
 function renderCredibilityEvidence(data, researchContext) {
@@ -656,4 +659,5 @@ $("#confirm-proposal").addEventListener("click", withLoading("#confirm-proposal"
 initializeExpiration();
 updateOptionKind();
 setWorkflowStep(1);
+researchMarketChart = new ResearchMarketChart($("#research-market-chart"));
 Promise.all([loadTemplates(), loadCatalogue()]).catch((error) => notify(error.message));

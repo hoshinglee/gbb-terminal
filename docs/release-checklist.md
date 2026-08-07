@@ -28,6 +28,15 @@ This checklist separates research correctness from launch-environment stabilizat
 - [x] Next-open buy-and-hold parity is tested for an always-long, zero-cost strategy.
 - [x] Stock Strategy Lab Monte Carlo UI and API are removed; Option Lab paths remain available.
 
+## Release 0.4.2 — Market Replay
+
+- [x] Individual-stock research results include daily, weekly, monthly, and yearly OHLCV bars.
+- [x] Every interval recomputes SMA 20, EMA 20, Bollinger 20/2σ, volume average 20, RSI 14, and MACD 12/26/9 without future observations.
+- [x] Strategy Lab renders candlesticks, independent price-overlay toggles, linked volume and momentum panes, hover details, and entry/exit markers after the trade ledger.
+- [x] Ranked portfolios explicitly omit candlesticks rather than constructing a misleading synthetic OHLC series.
+- [x] Aggregation, future-data invariance, API shape, static assets, JavaScript syntax, and the full Python suite are automated.
+- [ ] Complete manual visual checks for interval switching, overlay combinations, hover positioning, narrow layouts, and high-DPI displays before marking 0.4.2 stable.
+
 ## Deferred Launch Stability — Former Release 0.3 Gates
 
 Run these when preparing an actual public release candidate:
