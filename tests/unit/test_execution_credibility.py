@@ -6,7 +6,7 @@ import pytest
 from gbb_terminal.backtesting.engine import run_research_backtest
 from gbb_terminal.backtesting.execution import apply_execution
 from gbb_terminal.strategy.catalogue import catalogue
-from gbb_terminal.strategy.factory import StrategySpec
+from gbb_terminal.strategy.factory import StrategyFactory, StrategySpec
 from gbb_terminal.strategy.models import ExecutionAssumptions
 
 
@@ -113,3 +113,41 @@ def test_always_long_matches_next_open_buy_and_hold_with_zero_costs(price_histor
 
     assert result["metrics"]["totalReturn"] == result["metrics"]["benchmarkMetrics"]["Next-Open Buy & Hold"]["totalReturn"]
     assert [point["strategy"] for point in result["chart"]] == [point["benchmarks"]["Next-Open Buy & Hold"] for point in result["chart"]]
+
+
+def test_trailing_stop_tracks_from_actual_next_open_entry():
+    index = pd.bdate_range("2024-01-02", periods=7)
+    opens = [90.0, 104.0, 120.0, 129.0, 117.0, 116.0, 115.0]
+    closes = [90.0, 105.0, 115.0, 130.0, 118.0, 117.0, 116.0]
+    history = pd.DataFrame(
+        {
+            "Open": opens,
+            "High": [max(open_price, close) + 1 for open_price, close in zip(opens, closes)],
+            "Low": [min(open_price, close) - 1 for open_price, close in zip(opens, closes)],
+            "Close": closes,
+            "Volume": [1_000_000] * len(index),
+        },
+        index=index,
+    )
+    strategy = StrategyFactory.create(
+        {
+            "version": 1,
+            "name": "Trailing Stop Fixture",
+            "description": "Enter after price crosses 100 and trail the most favorable close.",
+            "direction": "long",
+            "indicators": {"price": {"type": "price", "source": "close"}},
+            "entry": {"all": [{"left": "price", "operator": "crosses_above", "right": 100}]},
+            "exit": {"any": [{"left": "price", "operator": "less_than", "right": 1}]},
+            "risk": {"trailing_stop_percent": 8},
+        }
+    )
+
+    result = run_research_backtest(history, {"SPY": history}, strategy)
+    closed_trade = next(trade for trade in result["trades"] if trade["status"] == "Closed")
+
+    assert closed_trade["entryDate"] == index[2].strftime("%Y-%m-%d")
+    assert closed_trade["entryPrice"] == 120
+    assert closed_trade["exitDate"] == index[5].strftime("%Y-%m-%d")
+    assert closed_trade["exitPrice"] == 116
+    assert result["chart"][4]["signalPosition"] == 0
+    assert result["chart"][4]["position"] == 1

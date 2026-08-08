@@ -23,6 +23,8 @@ llm:
 
     assert configuration.database_path == tmp_path / "local" / "research.duckdb"
     assert configuration.frontend_static_directory == tmp_path / "app" / "static"
+    assert configuration.frontend_legacy_index == tmp_path / "app" / "index.html"
+    assert configuration.frontend_react_index == tmp_path / "app" / "static" / "react" / "index.html"
     assert configuration.frontend_index == tmp_path / "app" / "index.html"
     assert configuration.llm.provider == "anthropic"
     assert configuration.llm.model == "claude-test-model"
@@ -40,6 +42,17 @@ def test_environment_overrides_conf_file(tmp_path):
 
     assert configuration.llm.provider == "openai"
     assert configuration.llm.model == "openai-test-model"
+
+
+def test_settings_prefers_built_react_index_and_keeps_legacy_fallback(tmp_path):
+    react_directory = tmp_path / "app" / "static" / "react"
+    react_directory.mkdir(parents=True)
+    (react_directory / "index.html").write_text("<div id='root'></div>", encoding="utf-8")
+
+    configuration = Settings.from_sources(project_root=tmp_path, environment={})
+
+    assert configuration.frontend_index == react_directory / "index.html"
+    assert configuration.frontend_legacy_index == tmp_path / "app" / "index.html"
 
 
 def test_provider_factory_selects_anthropic_without_importing_sdk(monkeypatch):

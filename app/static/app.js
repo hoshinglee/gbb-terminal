@@ -593,12 +593,14 @@ function initializeExpiration() {
   $("#option-expiration").value = expiration.toISOString().slice(0, 10);
 }
 
-$$('.nav-item').forEach((button) => button.addEventListener("click", () => {
+function activatePanel(button) {
   $$(".nav-item,.panel").forEach((element) => element.classList.remove("active"));
   button.classList.add("active");
   $(`#${button.dataset.panel}`).classList.add("active");
   $("#page-title").textContent = button.textContent.replace(/^\s*\d+\s*/, "").trim();
-}));
+}
+
+$$('.nav-item').forEach((button) => button.addEventListener("click", () => activatePanel(button)));
 $$(".workflow-step").forEach((button) => button.addEventListener("click", () => {
   document.getElementById(button.dataset.target)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }));
@@ -658,6 +660,9 @@ $("#confirm-proposal").addEventListener("click", withLoading("#confirm-proposal"
 
 initializeExpiration();
 updateOptionKind();
+const requestedPanel = new URLSearchParams(window.location.search).get("panel");
+const requestedButton = requestedPanel ? $(`.nav-item[data-panel="${requestedPanel}"]`) : null;
+if (requestedButton) activatePanel(requestedButton);
 setWorkflowStep(1);
 researchMarketChart = new ResearchMarketChart($("#research-market-chart"));
 Promise.all([loadTemplates(), loadCatalogue()]).catch((error) => notify(error.message));

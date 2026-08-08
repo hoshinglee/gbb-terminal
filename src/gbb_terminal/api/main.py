@@ -87,14 +87,14 @@ app.include_router(create_market_router(data))
 @app.middleware("http")
 async def request_logging_and_local_no_cache(request: Request, call_next):
     request_id, started = uuid4().hex[:12], perf_counter()
-    if request.url.path == "/" or request.url.path.startswith("/static/"):
+    if request.url.path in {"/", "/legacy"} or request.url.path.startswith("/static/"):
         request.scope["headers"] = [(name, value) for name, value in request.scope["headers"] if name.lower() not in {b"if-none-match", b"if-modified-since"}]
     try:
         response = await call_next(request)
     except Exception:
         logger.exception("event=request_failed request_id=%s method=%s path=%s", request_id, request.method, request.url.path)
         raise
-    if request.url.path == "/" or request.url.path.startswith("/static/"):
+    if request.url.path in {"/", "/legacy"} or request.url.path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-store, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
@@ -124,6 +124,11 @@ def fail(error: Exception) -> HTTPException:
 @app.get("/")
 async def index():
     return FileResponse(settings.frontend_index)
+
+
+@app.get("/legacy")
+async def legacy_index():
+    return FileResponse(settings.frontend_legacy_index)
 
 
 @app.get("/api/stock/{ticker}")

@@ -9,6 +9,7 @@
   <body>
     <aside>
       <div class="brand"><span>GBB</span> TERMINAL<small>OPEN-SOURCE MARKET RESEARCH</small></div>
+      <a class="canvas-return" href="/">← Return To Research Canvas</a>
       <nav>
         <button class="nav-item active" data-panel="strategy"><b>01</b> Strategy Lab</button>
         <button class="nav-item" data-panel="options"><b>02</b> Option Lab</button>
@@ -53,8 +54,8 @@
         <div class="card test-design" id="strategy-test-design">
           <div><p class="eyebrow">3 · TEST DESIGN</p><h2>Make assumptions visible.</h2></div>
           <div class="test-fields">
-            <label id="ticker-field">Ticker<input id="strategy-ticker" value="AAPL" maxlength="12" /></label>
-            <label id="universe-field" hidden>Selection Universe<input id="strategy-universe" value="AAPL, MSFT, NVDA, AMZN, META" /></label>
+            <label id="ticker-field">Ticker<input id="strategy-ticker" value="NVDA" maxlength="12" /></label>
+            <label id="universe-field" hidden>Selection Universe<input id="strategy-universe" value="NVDA, MSFT, AAPL, AMZN, META" /></label>
             <label>Market Benchmark<input id="strategy-benchmark" value="SPY" maxlength="12" /></label>
             <label id="relative-strength-reference-field" hidden>Relative Strength Against<select id="relative-strength-reference"><option value="market">Market Benchmark</option><option value="sector">Automatic Sector ETF</option><option value="custom">Custom Symbol</option></select></label>
             <label id="relative-strength-symbol-field" hidden>Custom Reference<input id="relative-strength-symbol" placeholder="QQQ" maxlength="12" /></label>
@@ -154,7 +155,7 @@
       </section>
 
       <section class="panel" id="stock">
-        <div class="toolbar"><div><p class="eyebrow">OHLCV · CURRENT OPTIONS</p><h2>Stock Observatory</h2></div><div class="ticker-search"><input id="stock-ticker" value="AAPL" maxlength="12" /><button id="load-stock">Load</button></div></div>
+        <div class="toolbar"><div><p class="eyebrow">OHLCV · CURRENT OPTIONS</p><h2>Stock Observatory</h2></div><div class="ticker-search"><input id="stock-ticker" value="NVDA" maxlength="12" /><button id="load-stock">Load</button></div></div>
         <div class="metrics" id="quote-metrics"><div class="metric"><span>LAST PRICE</span><strong>—</strong></div><div class="metric"><span>DAY CHANGE</span><strong>—</strong></div><div class="metric"><span>DATA STATUS</span><strong>—</strong></div></div>
         <div class="card chart-card"><div class="card-title">ONE-YEAR PRICE &amp; VOLUME <span id="stock-symbol"></span></div><div class="chart-shell"><canvas id="stock-chart"></canvas><div class="chart-tooltip" hidden></div></div></div>
         <div class="card option-card"><div class="option-heading"><div><div class="card-title">OPTION CHAIN</div><p id="option-expiry">Nearest expiry</p></div></div><div class="option-grid"><div><h3>CALLS</h3><div id="calls"></div></div><div><h3>PUTS</h3><div id="puts"></div></div></div></div>

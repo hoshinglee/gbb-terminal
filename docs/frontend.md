@@ -1,24 +1,86 @@
 # Browser Interface
 
-Sources: `app/index.html`, `app/static/app.js`, `app/static/market-chart.js`, and `app/static/styles.css`
+Primary sources: `app/web/src/`, `app/web/package.json`, and `app/web/vite.config.ts`
 
-The vanilla browser application intentionally remains framework-free during the repository refactor. It provides four primary panels: Strategy Lab, Option Lab, Stock Observatory, and Market Pulse.
+Fallback sources: `app/index.html`, `app/static/app.js`, `app/static/market-chart.js`, and `app/static/styles.css`
 
-## Strategy workflow
+## Runtime Modes
 
-1. **Define:** enter natural language, choose a validated template, or load a catalogue item.
-2. **Configure:** edit typed values and choose fixed or guarded search modes.
-3. **Test Design:** select a ticker or portfolio selection universe, market benchmark, timeframe, and costs. Relative-strength templates additionally choose the market benchmark, an automatically mapped Yahoo sector ETF, or an explicit custom symbol.
-4. **Evidence:** inspect metrics, verdict, hoverable OHLCV/indicator equity chart, assumptions, benchmark risk table, validation evidence, parameter stability map, trade ledger, and linked market-replay panes.
+GBB Terminal migrates one complete product slice at a time instead of rewriting every panel at once.
 
-The workflow header reflects actual progress: completed stages show a check, the current stage is highlighted, and selecting a stage scrolls to its section. Changing a strategy definition returns the workflow to Configure; changing research assumptions returns it to Test Design; a completed run activates Evidence.
+- A production Vite build under `app/static/react/` makes the React Strategy Lab the root application.
+- If that build is absent, FastAPI serves the vanilla application at `/`.
+- `/legacy` always serves the vanilla interface. React navigation sends Option Lab, Stock Observatory, and Market Pulse there with a `panel` query parameter.
+- The legacy sidebar includes **Return To Research Canvas**, so users never need to edit the browser URL manually.
+- Both interfaces call the same FastAPI endpoints and use the same DuckDB database.
 
-Catalogue items are grouped by family and display parameter chips. Loading a catalogue item first clears the previous template selection and parameter controls, then renders only the selected strategy's editable configuration. Internal hashes are hidden. Canonical JSON or legacy YAML appears only under an Advanced export control. A loaded strategy uses its normalized description as grey placeholder text rather than replaying ambiguous original wording.
+Generated React assets are ignored by Git. Build them locally or in deployment automation:
 
-`drawChart` links date hover with line values and exact source observations. `renderCredibilityEvidence` explains evaluation boundaries, benchmark risk, Optuna/walk-forward selection, holdout evidence, Deflated Sharpe, stability, and performance decay. `renderTrades` shows closed and marked-open entries with absolute and percentage P&L. Stock Strategy Lab does not expose Monte Carlo until it models strategy-specific uncertainty; Option Lab retains its separate scenario-path simulation.
+```bash
+cd app/web
+npm install
+npm run build
+```
 
-`ResearchMarketChart` receives the additive `marketChart` research payload after the trade ledger. Day, week, month, and year controls switch precomputed OHLCV intervals. SMA 20, EMA 20, and Bollinger 20/2σ buttons independently control price overlays. Linked crosshairs and hover details connect candles with volume, 20-bar average volume, RSI 14, MACD 12/26/9, strategy position, strategy equity, and trade markers. See [Market Replay](market-replay.md) for calculation semantics.
+For live frontend development, keep FastAPI on port 8000 and run `npm run dev`. Vite serves port 5173 and proxies `/api` to FastAPI.
 
-Option Lab builds core positions, loads current chain rows into leg inputs, displays payoff and Greeks, creates local paper positions, and appends lifecycle events without brokerage execution.
+## React Strategy Lab
 
-The proposed React/TypeScript interaction model and shadcn/ui component mapping are documented in [Strategy Lab UX Direction](strategy-lab-ux.md).
+Release 0.4.3 replaces the form-led Strategy Lab with a research canvas:
+
+1. Use the natural-language composer, a quick-start card, or `Cmd/Ctrl+K` command search.
+2. Edit validated rule values directly inside a compact readable rule sentence and optionally add a trailing-stop chip.
+3. Keep ticker, timeframe, and Run Research in the compact context bar.
+4. Open benchmark, costs, relative-strength reference, portfolio universe, and validation settings only through the assumptions side sheet.
+5. Inspect the market preview while defining the idea, then review results in Overview, Equity & Drawdown, Trades, Robustness, and Assumptions tabs.
+
+On wide screens, the composer and financial chart default to a resizable side-by-side layout. Panel constraints use explicit percentages: the composer can occupy 24–68% and the chart retains at least 32%. A canvas toolbar switches to a vertically stacked layout when the user wants full-width rule editing and full-width chart inspection. The choice is stored locally in the browser; narrow screens always stack automatically.
+
+Desktop and mobile shells expose the same laboratory navigation. The compact control bar wraps into full-width strategy and run rows on narrow screens, long evidence tables scroll horizontally, and chart detail bars remain in document flow instead of covering candles when controls wrap.
+
+`ResearchWorkspaceProvider` owns one discriminated selection state. Choosing natural language, a template, or a catalogue item clears the other modes, their parameter ranges, and stale evidence. V2 catalogue items restore editable typed parameters; legacy catalogue entries remain runnable but clearly read-only.
+
+Natural-language instructions first call the proposal endpoint. A confirmation dialog displays the normalized description, risk controls, clarification assumptions, provider, and any existing catalogue match. Provider output is constrained JSON; server-generated compatibility YAML remains hidden from ordinary users, and translated input never becomes executable Python.
+
+The initial single-stock symbol is NVDA. The chart badge shows that symbol rather than repeating provider/delay metadata; source, delay/staleness, observation date, and quality warnings remain visible in the provenance line above the canvas.
+
+## Financial Charts
+
+TradingView Lightweight Charts renders:
+
+- Daily, weekly, monthly, and yearly candlesticks from research results.
+- Strategy-aware overlays plus independent SMA, EMA, Bollinger, Darvas, and Fibonacci toggles. Darvas templates use their selected box/confirmation values; Fibonacci templates use their selected rolling window/ratio.
+- Volume and 20-bar average volume.
+- RSI and MACD panes.
+- Entry and exit markers mapped to the selected interval.
+- Crosshair details for date range, OHLCV, RSI, position, and active overlays.
+- Keyboard inspection with Left/Right Arrow and Home/End, with the selected OHLCV or equity values announced through an accessible live summary.
+- Strategy, buy-and-hold, SPY, and strategy drawdown evidence.
+
+The pre-run preview loads raw OHLCV from `/api/v2/chart-data`; browser-side indicators exist only for immediate visualization. Research evidence and fills always come from backend calculations.
+
+## Evidence Design
+
+- Overview keeps the plain-language verdict subordinate to return, drawdown, exposure, trade count, and benchmark risk.
+- Equity & Drawdown identifies strategy, buy-and-hold, and SPY and exposes exact values on hover.
+- Trades lists closed and marked-open positions with entry, exit/as-of date, absolute P&L, percentage P&L, holding period, and execution cost.
+- Robustness shows all parameter-search attempts, the stability region, untouched final test, Deflated Sharpe evidence, performance decay, and regime slices.
+- Assumptions records the execution model, capital, costs, evaluation dates, sessions, and benchmarks.
+
+## Validation
+
+Run the frontend checks from `app/web`:
+
+```bash
+npm run typecheck
+npm run test:run
+npm run build
+```
+
+Component tests cover mutually exclusive strategy selection, the stale-parameter regression, trailing-stop configuration, and Darvas/Fibonacci overlays. Python browser-contract tests verify that React source, evidence tabs, chart markers, return navigation, and legacy assets remain present.
+
+The shell includes skip navigation, labelled desktop/mobile navigation, explicit research-control labels, table captions, visible chart focus rings, and reduced-motion CSS. Smooth evidence scrolling becomes immediate when the operating system requests reduced motion.
+
+The vanilla Strategy Lab remains a migration fallback. Its workflow header, parameter forms, research evidence, trade ledger, and canvas-based market replay stay unchanged until all primary panels reach React parity.
+
+See [System Diagrams](system-diagrams.md) for the component-state and frontend-build diagrams.

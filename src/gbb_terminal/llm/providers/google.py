@@ -37,6 +37,7 @@ class GoogleAIStudioProvider:
                 system_instruction=system_prompt,
                 temperature=self.temperature,
                 max_output_tokens=self.max_output_tokens,
+                response_mime_type="application/json",
             ),
         )
         if not response.text:

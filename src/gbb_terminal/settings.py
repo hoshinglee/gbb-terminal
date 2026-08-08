@@ -71,8 +71,20 @@ class Settings:
         return self.frontend_directory / "static"
 
     @property
-    def frontend_index(self) -> Path:
+    def frontend_legacy_index(self) -> Path:
         return self.frontend_directory / "index.html"
+
+    @property
+    def frontend_react_directory(self) -> Path:
+        return self.frontend_static_directory / "react"
+
+    @property
+    def frontend_react_index(self) -> Path:
+        return self.frontend_react_directory / "index.html"
+
+    @property
+    def frontend_index(self) -> Path:
+        return self.frontend_react_index if self.frontend_react_index.exists() else self.frontend_legacy_index
 
     @classmethod
     def from_sources(

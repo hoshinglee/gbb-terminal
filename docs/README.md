@@ -7,6 +7,7 @@ GBB Terminal is a local-first US equity research and option lifecycle applicatio
 | Area | Business definition | Documentation |
 | --- | --- | --- |
 | Architecture | Boundaries, data flow, path resolution, and deployment seams | [Architecture](architecture.md) |
+| System diagrams | Runtime, frontend state, research sequence, DuckDB model, and build fallback | [System Diagrams](system-diagrams.md) |
 | Configuration | Local YAML preferences, environment overrides, and provider keys | [`conf/README.md`](../conf/README.md) |
 | API | Legacy-compatible and V2 HTTP contracts | [API](api.md) |
 | Strategy Model V2 | Templates, instances, parameters, rule graphs, and research runs | [Strategy Model V2](strategy-model-v2.md) |
@@ -18,9 +19,9 @@ GBB Terminal is a local-first US equity research and option lifecycle applicatio
 | Storage | DuckDB tables, migrations, caches, and ledgers | [Storage](storage.md) |
 | LLM translator | Natural language to validated strategy data | [LLM translator](llm-translator.md) |
 | Observability | Structured events and rotating local logs | [Logging](logging.md) |
-| Browser | Vanilla JavaScript workflow and chart interactions | [Frontend](frontend.md) |
+| Browser | React Strategy Lab, shadcn/ui interactions, financial charts, and vanilla migration fallback | [Frontend](frontend.md) |
 | Market replay | Candles, interval aggregation, overlays, volume, RSI, and MACD | [Market Replay](market-replay.md) |
-| Strategy Lab UX | Research-canvas interaction model and shadcn/ui migration direction | [Strategy Lab UX](strategy-lab-ux.md) |
+| Strategy Lab UX | Implemented research-canvas interaction model and remaining panel migration | [Strategy Lab UX](strategy-lab-ux.md) |
 | Release readiness | Completed research gates and deferred launch-stability checks | [Release Checklist](release-checklist.md) |
 | Community extensions | Adding indicators and strategy templates safely | [Strategy Plugin Guide](strategy-plugin-guide.md) |
 

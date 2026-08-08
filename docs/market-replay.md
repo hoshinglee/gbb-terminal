@@ -1,6 +1,6 @@
 # Market Replay
 
-Sources: `src/gbb_terminal/market_data/charting.py`, `src/gbb_terminal/backtesting/engine.py`, `app/static/market-chart.js`, and `app/index.html`
+Sources: `src/gbb_terminal/market_data/charting.py`, `src/gbb_terminal/backtesting/engine.py`, `app/web/src/features/strategy-lab/market-workspace-chart.tsx`, `app/web/src/lib/indicators.ts`, `app/static/market-chart.js`, and `app/index.html`
 
 ## Business Definition
 
@@ -34,7 +34,9 @@ The backend uses the approved `IndicatorRegistry` implementations:
 - **RSI 14:** Wilder-style smoothed relative strength index with 30 and 70 guide levels.
 - **MACD 12/26/9:** fast EMA minus slow EMA, its 9-bar signal, and their histogram difference.
 
-SMA, EMA, and Bollinger buttons independently switch price overlays without rerunning research. Volume and momentum panes remain visible because they provide distinct scale-aware context. RSI and MACD occupy separate vertical bands within the momentum canvas so their incompatible numeric scales are never overlaid.
+SMA, EMA, Bollinger, Darvas, and Fibonacci buttons independently switch price overlays without rerunning research. Standalone Darvas and Fibonacci toggles use documented defaults; the **Strategy Rule** overlay uses the selected template's actual parameter values. Volume and momentum panes remain visible because they provide distinct scale-aware context. RSI and MACD occupy separate vertical bands within the momentum canvas so their incompatible numeric scales are never overlaid.
+
+The React **Strategy Rule** control uses the selected template and parameter values. A Darvas strategy displays the rolling ceiling and floor after the configured confirmation delay. A Fibonacci strategy displays the configured retracement resistance from the prior deterministic rolling high/low window. Both calculations mirror the backend indicator definitions and never select historical anchors by hindsight.
 
 ## Function Definitions
 
@@ -42,10 +44,11 @@ SMA, EMA, and Bollinger buttons independently switch price overlays without reru
 - `_aggregate_ohlcv(history, frequency)` preserves first/open, high/max, low/min, close/last, volume/sum, and final research state.
 - `ResearchMarketChart.setData(payload, trades, symbol)` replaces the earlier run, resets the interval, maps trade events, and displays an explicit unavailable state for non-stock results.
 - `ResearchMarketChart.render(highlightIndex)` redraws linked price, volume, and momentum canvases using one interval and crosshair index.
+- `strategyPriceOverlays(points, template, parameterValues)` derives immediate browser previews for the selected validated rule, including crossover, Bollinger, Donchian, Darvas, and Fibonacci overlays.
 
 ## Integrity And Limitations
 
 - Indicator calculations use only current and earlier bars; appending future data cannot change an earlier daily point.
 - Weekly, monthly, and yearly aggregation never invents non-trading sessions.
 - Portfolio runs return `marketChart: null`; averaging different securities into a synthetic candle would not represent a tradable instrument.
-- The current vanilla Canvas renderer intentionally avoids a runtime CDN dependency. A later React migration may replace its rendering layer while preserving the `marketChart` API contract.
+- The vanilla Canvas renderer remains the fallback without a runtime CDN dependency. The primary React Strategy Lab uses TradingView Lightweight Charts while preserving the same `marketChart` API contract.
