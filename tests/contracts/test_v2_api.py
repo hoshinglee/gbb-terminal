@@ -1,9 +1,12 @@
 from datetime import date, timedelta
 
+import pandas as pd
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from gbb_terminal.api.routes.market import create_market_router
 from gbb_terminal.api.routes.options import create_option_router
+from gbb_terminal.api.routes.stocks import create_stock_router
 from gbb_terminal.api.routes.strategies import create_strategy_router
 from gbb_terminal.llm.translator import GoogleAIStrategyTranslator
 from gbb_terminal.storage.database import LocalMarketStore
@@ -13,6 +16,35 @@ from gbb_terminal.strategy.catalogue import catalogue
 class UnusedMarketData:
     async def options(self, ticker, expiration=None):
         return {"symbol": ticker, "expiration": expiration, "expirations": [], "calls": [], "puts": []}
+
+
+class ObservatoryMarketData:
+    def __init__(self):
+        self.updated_at = {}
+        self.metadata = {}
+
+    async def history(self, ticker, period):
+        index = pd.date_range("2026-01-02", periods=80, freq="B")
+        frame = pd.DataFrame({
+            "Open": range(100, 180),
+            "High": range(102, 182),
+            "Low": range(98, 178),
+            "Close": range(101, 181),
+            "Volume": [1_000_000 + value * 1000 for value in range(80)],
+        }, index=index)
+        self.metadata[ticker.upper()] = {"source": "Fixture", "status": "Delayed", "knownAt": index[-1].isoformat()}
+        return frame
+
+    async def dashboard(self):
+        status = {"source": "Fixture", "status": "Delayed", "knownAt": "2026-04-23T00:00:00"}
+        return {
+            "benchmark": {"symbol": "SPY", "name": "S&P 500 ETF", "price": 600, "change": 3, "changePercent": 0.5, "periodReturn": 4, "relativeStrength": None, "dataStatus": status, "available": True},
+            "sectors": [{"symbol": "XLK", "name": "Technology", "price": 250, "change": 2, "changePercent": 0.8, "periodReturn": 7, "relativeStrength": 3, "dataStatus": status, "available": True}],
+            "macro": [{"symbol": "^VIX", "name": "VIX", "price": 18, "change": -1, "changePercent": -5, "periodReturn": -2, "relativeStrength": None, "dataStatus": status, "available": True}],
+        }
+
+    def provider_statuses(self):
+        return [{"provider": "Fixture", "configured": True, "status": "Delayed"}]
 
 
 def test_v2_templates_and_option_simulation_contract(tmp_path):
@@ -68,3 +100,21 @@ def test_v2_option_position_lifecycle_contract(tmp_path):
         assert held.status_code == 200
         assert held.json()["position"]["underlying_price"] == 185
         assert [event["eventType"] for event in held.json()["events"]] == ["opened", "hold"]
+
+
+def test_v2_stock_and_market_observability_contracts():
+    app = FastAPI()
+    data = ObservatoryMarketData()
+    app.include_router(create_stock_router(data))
+    app.include_router(create_market_router(data))
+
+    with TestClient(app) as client:
+        stock = client.get("/api/v2/stocks/NVDA?period=1y")
+        assert stock.status_code == 200
+        assert stock.json()["quote"]["symbol"] == "NVDA"
+        assert set(stock.json()["marketChart"]["intervals"]) == {"day", "week", "month", "year"}
+        market = client.get("/api/v2/market-overview")
+        assert market.status_code == 200
+        assert market.json()["sectors"][0]["symbol"] == "XLK"
+        assert market.json()["providers"][0]["provider"] == "Fixture"
+        assert market.json()["generatedAt"]

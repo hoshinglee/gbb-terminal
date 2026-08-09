@@ -46,18 +46,28 @@ def test_react_research_canvas_sources_are_present():
     chart = Path("app/web/src/features/strategy-lab/market-workspace-chart.tsx").read_text()
     option_lab = Path("app/web/src/features/option-lab/option-lab.tsx").read_text()
     lifecycle = Path("app/web/src/features/option-lab/lifecycle-workspace.tsx").read_text()
-    assert '"version": "0.5.0"' in package
+    stock_observatory = Path("app/web/src/features/stock-observatory/stock-observatory.tsx").read_text()
+    market_pulse = Path("app/web/src/features/market-pulse/market-pulse.tsx").read_text()
+    assert '"version": "0.6.0"' in package
     assert '"react"' in package
     assert '"lightweight-charts"' in package
     assert 'import("@/features/strategy-lab/strategy-lab")' in application
     assert 'import("@/features/option-lab/option-lab")' in application
+    assert 'import("@/features/stock-observatory/stock-observatory")' in application
+    assert 'import("@/features/market-pulse/market-pulse")' in application
     assert "<StrategyLab />" in application
-    assert "<OptionLab />" in application
+    assert "<OptionLab initialTicker={initialTicker} />" in application
+    assert "<StockObservatory initialTicker={initialTicker} />" in application
+    assert "<MarketPulse />" in application
     assert "PositionBuilder" in option_lab
     assert "ScenarioWorkspace" in option_lab
     assert "LifecycleWorkspace" in option_lab
     assert "applyOptionLifecycleEvent" in option_lab
     assert "Journal Next Decision" in lifecycle
+    assert "MarketWorkspaceChart" in stock_observatory
+    assert "Current Option Context" in stock_observatory
+    assert "summarizeSectors" in market_pulse
+    assert "Provider Readiness" in market_pulse
     assert "StrategyCommand" in strategy_lab
     assert "ProposalReviewDialog" in strategy_lab
     assert 'value="robustness"' in evidence
@@ -77,8 +87,12 @@ def test_react_research_canvas_sources_are_present():
     assert "market-chart-current-value" in chart
     assert "prefers-reduced-motion: reduce" in Path("app/web/src/index.css").read_text()
     app_shell = Path("app/web/src/components/app-shell.tsx").read_text()
-    assert 'const mainId = activeLab === "options" ? "option-main" : "strategy-main"' in app_shell
+    assert 'const mainId = mainIds[activeLab]' in app_shell
     assert 'href: "/?lab=options"' in app_shell
+    assert 'href: "/?lab=stock"' in app_shell
+    assert 'href: "/?lab=market"' in app_shell
+    assert 'legacy?panel=stock' not in app_shell
+    assert 'legacy?panel=market' not in app_shell
     assert 'aria-label="Mobile research laboratories"' in app_shell
     assert "id={mainId}" in app_shell
 

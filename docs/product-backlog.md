@@ -82,6 +82,8 @@ Implementation status: P0.1–P0.5 are implemented on the release 0.5 branch. Co
 
 ## Release 0.6 — Complete React Migration
 
+Implementation status: P0.6 and P0.7 are implemented on the release 0.6 branch. P0.8 remains open until connected-browser, narrow-layout, and keyboard parity checks are completed.
+
 ### P0.6 — Stock Observatory Revamp
 
 - Port quote, OHLCV, volume, current-chain context, technical overlays, provenance, and cached-data warnings from the vanilla panel.

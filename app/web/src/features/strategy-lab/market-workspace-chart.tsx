@@ -28,6 +28,7 @@ interface MarketWorkspaceChartProps {
   parameterValues?: Record<string, ParameterValue>
   loading?: boolean
   symbol?: string
+  showRuleOverlay?: boolean
 }
 
 type OverlayKey = "rule" | "sma" | "ema" | "bollinger" | "darvas" | "fibonacci"
@@ -36,10 +37,10 @@ const intervalLabels: Record<string, string> = { day: "Day", week: "Week", month
 const EMPTY_TRADES: Trade[] = []
 const EMPTY_PARAMETER_VALUES: Record<string, ParameterValue> = {}
 
-export function MarketWorkspaceChart({ points, marketChart, trades = EMPTY_TRADES, template, parameterValues = EMPTY_PARAMETER_VALUES, loading, symbol }: MarketWorkspaceChartProps) {
+export function MarketWorkspaceChart({ points, marketChart, trades = EMPTY_TRADES, template, parameterValues = EMPTY_PARAMETER_VALUES, loading, symbol, showRuleOverlay = true }: MarketWorkspaceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [interval, setInterval] = useState(marketChart?.defaultInterval || "day")
-  const [activeOverlays, setActiveOverlays] = useState<OverlayKey[]>(["rule"])
+  const [activeOverlays, setActiveOverlays] = useState<OverlayKey[]>(showRuleOverlay ? ["rule"] : ["sma"])
   const selectedPoints = marketChart?.intervals[interval] || points
   const enriched = useMemo(() => selectedPoints.length && "periodStart" in selectedPoints[0] ? selectedPoints as MarketChartPoint[] : enrichPricePoints(selectedPoints as PricePoint[]), [selectedPoints])
   const ruleOverlays = useMemo(() => strategyPriceOverlays(enriched, template, parameterValues), [enriched, template, parameterValues])
@@ -142,7 +143,7 @@ export function MarketWorkspaceChart({ points, marketChart, trades = EMPTY_TRADE
       <div className="flex flex-wrap items-center gap-2 border-b bg-background/80 px-3 py-2">
         {marketChart && Object.keys(marketChart.intervals).map((key) => <Button key={key} size="sm" variant={interval === key ? "secondary" : "ghost"} aria-pressed={interval === key} onClick={() => { setInterval(key); setKeyboardIndex(null); setHover(null) }}>{intervalLabels[key] || key}</Button>)}
         <span className="mx-1 h-5 w-px bg-border" />
-        {(["rule", "sma", "ema", "bollinger", "darvas", "fibonacci"] as OverlayKey[]).map((overlay) => <Button key={overlay} size="sm" variant={activeOverlays.includes(overlay) ? "secondary" : "ghost"} aria-pressed={activeOverlays.includes(overlay)} onClick={() => toggleOverlay(overlay)}>{overlay === "rule" ? "Strategy Rule" : overlay === "bollinger" ? "Boll" : overlay === "fibonacci" ? "Fib" : overlay === "darvas" ? "Darvas" : overlay.toUpperCase()}</Button>)}
+        {(showRuleOverlay ? ["rule", "sma", "ema", "bollinger", "darvas", "fibonacci"] : ["sma", "ema", "bollinger", "darvas", "fibonacci"]).map((overlay) => <Button key={overlay} size="sm" variant={activeOverlays.includes(overlay as OverlayKey) ? "secondary" : "ghost"} aria-pressed={activeOverlays.includes(overlay as OverlayKey)} onClick={() => toggleOverlay(overlay as OverlayKey)}>{overlay === "rule" ? "Strategy Rule" : overlay === "bollinger" ? "Boll" : overlay === "fibonacci" ? "Fib" : overlay === "darvas" ? "Darvas" : overlay.toUpperCase()}</Button>)}
         <span className="ml-auto hidden text-[10px] text-muted-foreground sm:inline">Focus chart · ←/→ inspect dates</span>
       </div>
       <div aria-hidden="true" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-background/85 px-3 py-2 font-mono text-[10px]">

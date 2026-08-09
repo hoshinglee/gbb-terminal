@@ -3,6 +3,7 @@ import type {
   CatalogueStrategy,
   DataStatus,
   LegacyProposal,
+  MarketOverviewResponse,
   OptionChainResponse,
   OptionLifecycleEvent,
   OptionPositionCreate,
@@ -18,6 +19,7 @@ import type {
   PricePoint,
   ResearchDesign,
   ResearchRunResponse,
+  StockOverviewResponse,
   StrategyInstance,
   StrategyTemplate,
   ValidationDesign,
@@ -51,6 +53,15 @@ export async function loadStrategySources() {
 export function loadChartData(ticker: string, period: string, indicators: string[]) {
   const parameters = new URLSearchParams({ ticker, period, indicators: indicators.join(",") })
   return request<{ symbol: string; period: string; dataStatus: DataStatus; chart: PricePoint[] }>(`/api/v2/chart-data?${parameters}`)
+}
+
+export function loadStockOverview(ticker: string, period: string) {
+  const parameters = new URLSearchParams({ period })
+  return request<StockOverviewResponse>(`/api/v2/stocks/${encodeURIComponent(ticker.trim().toUpperCase())}?${parameters}`)
+}
+
+export function loadMarketOverview() {
+  return request<MarketOverviewResponse>("/api/v2/market-overview")
 }
 
 export function saveStrategy(strategy: StrategyInstance, originalInstruction = "") {

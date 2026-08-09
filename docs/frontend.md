@@ -6,13 +6,14 @@ Fallback sources: `app/index.html`, `app/static/app.js`, `app/static/market-char
 
 ## Runtime Modes
 
-GBB Terminal migrates one complete product slice at a time instead of rewriting every panel at once.
+GBB Terminal migrated one complete product slice at a time instead of rewriting every panel at once.
 
-- A production Vite build under `app/static/react/` serves the React Strategy Lab and Option Lab.
+- A production Vite build under `app/static/react/` serves Strategy Lab, Option Lab, Stock Observatory, and Market Pulse.
 - If that build is absent, FastAPI serves the vanilla application at `/`.
-- `/` opens Strategy Lab and `/?lab=options` opens Option Lab without requiring a second frontend bundle or client router.
-- Strategy Lab and Option Lab are lazy-loaded as separate release chunks so opening one laboratory does not download the other laboratory's workspace code.
-- `/legacy` always serves the vanilla interface. React navigation sends Stock Observatory and Market Pulse there with a `panel` query parameter.
+- `/` opens Strategy Lab; `/?lab=options`, `/?lab=stock`, and `/?lab=market` open the other canvases without a second frontend bundle or client router.
+- Every laboratory is lazy-loaded as a separate release chunk so opening one canvas does not download every domain workspace.
+- A validated `ticker` query parameter carries a symbol among Strategy Lab, Option Lab, and Stock Observatory without copying domain configuration.
+- `/legacy` always serves the vanilla interface as an explicit migration fallback, but primary navigation no longer routes through it.
 - The legacy sidebar includes **Return To Research Canvas**, so users never need to edit the browser URL manually.
 - Both interfaces call the same FastAPI endpoints and use the same DuckDB database.
 
@@ -60,6 +61,30 @@ The progress rail advances from Build to Explore only after a simulation respons
 
 Scenario SVGs support pointer inspection and Left/Right/Home/End keyboard navigation. Animation honors the operating system reduced-motion preference.
 
+## React Stock Observatory
+
+Release 0.6 turns the earlier quote panel into a stock research canvas:
+
+1. Quote, day return, selected-window return, range, average volume, source status, observation time, `known_at`, retrieval time, and warnings remain visible.
+2. The shared financial chart renders day/week/month/year candles, volume, RSI, MACD, and independent SMA, EMA, Bollinger, Darvas, and Fibonacci overlays.
+3. Current option context exposes every Yahoo-reported expiry and all returned contracts with bid, ask, spread, volume, open interest, IV, and quote quality.
+4. Direct actions open the same ticker in Strategy Lab or Option Lab.
+5. A capped browser-local watchlist provides no-login symbol navigation. It is not represented as holdings or synced to a server.
+
+Stock evidence remains useful when the option provider fails; chain errors do not erase available OHLCV. Changing the chart window does not silently change the selected current option expiry.
+
+## React Market Pulse
+
+Release 0.6 adds an evidence-first market canvas:
+
+1. SPY, advancing/declining sector breadth, leaders/laggards, and the VIX proxy summarize current context without creating a market-timing verdict.
+2. Sector cards and tables separate latest-day movement, trailing three-month return, and relative strength versus SPY.
+3. S&P 500, VIX, dollar, gold, WTI, and 10-year-yield proxies display their own observation status and timing.
+4. Provider readiness distinguishes a configured adapter from a successful upstream refresh.
+5. Unavailable symbols remain visible as failed rows while successful cached or current rows continue rendering.
+
+Sector links open Stock Observatory or Strategy Lab with the selected ETF ticker. Publication dates remain visible because cross-asset proxies do not share identical market hours.
+
 ## Financial Charts
 
 TradingView Lightweight Charts renders:
@@ -93,10 +118,10 @@ npm run test:run
 npm run build
 ```
 
-Component tests cover mutually exclusive strategy selection, the stale-parameter regression, trailing-stop configuration, Darvas/Fibonacci overlays, option recipe replacement, covered-call share cover, and current-contract mapping. Python browser-contract tests verify that both React labs, evidence tabs, chart markers, lifecycle actions, return navigation, and legacy assets remain present.
+Component tests cover mutually exclusive strategy selection, the stale-parameter regression, trailing-stop configuration, Darvas/Fibonacci overlays, option recipe replacement, lifecycle rediscovery, stock ticker handoff, local watchlists, and sector breadth. Python browser-contract tests verify all four React labs, evidence tabs, chart markers, lifecycle actions, direct routes, return navigation, and fallback assets.
 
 The shell includes skip navigation, labelled desktop/mobile navigation, explicit research-control labels, table captions, visible chart focus rings, and reduced-motion CSS. Smooth evidence scrolling becomes immediate when the operating system requests reduced motion.
 
-The vanilla Strategy Lab remains a migration fallback. Its workflow header, parameter forms, research evidence, trade ledger, and canvas-based market replay stay unchanged until all primary panels reach React parity.
+The vanilla application remains a migration fallback until connected-browser parity, narrow-layout, and keyboard checks are signed off. All primary navigation now targets React, but the fallback is intentionally retained rather than deleted during the 0.6 implementation branch.
 
 See [System Diagrams](system-diagrams.md) for the component-state and frontend-build diagrams.

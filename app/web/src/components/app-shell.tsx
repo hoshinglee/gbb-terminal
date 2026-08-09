@@ -2,18 +2,26 @@ import type { ReactNode } from "react"
 import { BarChart3, FlaskConical, Gauge, LineChart, Orbit } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
+import type { LabId } from "@/lib/navigation"
 import { cn } from "@/lib/utils"
 
 const navigation = [
-  { id: "strategy", label: "Strategy Lab", icon: FlaskConical, href: "/", legacy: false },
-  { id: "options", label: "Option Lab", icon: Orbit, href: "/?lab=options", legacy: false },
-  { id: "stock", label: "Stock Observatory", icon: LineChart, href: "/legacy?panel=stock", legacy: true },
-  { id: "market", label: "Market Pulse", icon: Gauge, href: "/legacy?panel=market", legacy: true },
+  { id: "strategy", label: "Strategy Lab", icon: FlaskConical, href: "/" },
+  { id: "options", label: "Option Lab", icon: Orbit, href: "/?lab=options" },
+  { id: "stock", label: "Stock Observatory", icon: LineChart, href: "/?lab=stock" },
+  { id: "market", label: "Market Pulse", icon: Gauge, href: "/?lab=market" },
 ] as const
 
-export function AppShell({ children, activeLab = "strategy" }: { children: ReactNode; activeLab?: "strategy" | "options" }) {
-  const mainId = activeLab === "options" ? "option-main" : "strategy-main"
-  const labName = activeLab === "options" ? "Option Lab" : "Strategy Lab"
+const mainIds: Record<LabId, string> = {
+  strategy: "strategy-main",
+  options: "option-main",
+  stock: "stock-main",
+  market: "market-main",
+}
+
+export function AppShell({ children, activeLab = "strategy" }: { children: ReactNode; activeLab?: LabId }) {
+  const mainId = mainIds[activeLab]
+  const labName = navigation.find((item) => item.id === activeLab)?.label || "Research"
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_55%_-20%,rgba(182,245,89,0.07),transparent_35%),var(--background)]">
       <a href={`#${mainId}`} className="fixed left-3 top-3 z-50 -translate-y-20 rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground transition-transform focus:translate-y-0">Skip To Research</a>
@@ -23,12 +31,13 @@ export function AppShell({ children, activeLab = "strategy" }: { children: React
           <div><div className="font-semibold tracking-[0.16em]">GBB TERMINAL</div><div className="font-mono text-[9px] text-muted-foreground">RESEARCH WORKBENCH</div></div>
         </div>
         <nav aria-label="Research laboratories" className="mt-12 space-y-1">
-          {navigation.map((item) => { const active = item.id === activeLab; return <a key={item.label} href={item.href} aria-current={active ? "page" : undefined} className={cn("flex items-center gap-3 rounded-md px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground", active && "bg-primary/10 text-primary")}><item.icon aria-hidden="true" className="size-4" /><span>{item.label}</span>{item.legacy && <span className="ml-auto font-mono text-[8px]">LEGACY</span>}</a> })}
+          {navigation.map((item) => { const active = item.id === activeLab; return <a key={item.label} href={item.href} aria-current={active ? "page" : undefined} className={cn("flex items-center gap-3 rounded-md px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground", active && "bg-primary/10 text-primary")}><item.icon aria-hidden="true" className="size-4" /><span>{item.label}</span></a> })}
         </nav>
         <div className="mt-auto space-y-3 rounded-lg border bg-card/70 p-3">
           <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]" /><span className="font-mono text-[9px] text-primary">LOCAL · READY</span></div>
           <p className="m-0 text-xs leading-5 text-muted-foreground">Educational US equity and options research. No brokerage execution.</p>
-          <Badge variant="outline" className="font-mono text-[9px]">v0.5 option lab</Badge>
+          <a href="/legacy" className="block text-[10px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Open Migration Fallback</a>
+          <Badge variant="outline" className="font-mono text-[9px]">v0.6 observability</Badge>
         </div>
       </aside>
       <header className="border-b bg-background/95 px-3 py-3 lg:hidden">

@@ -77,6 +77,20 @@ This checklist separates research correctness from launch-environment stabilizat
 - [x] Persist and reload immutable option simulation runs from Product Backlog P0.3.
 - [x] Complete share-purchase and add-leg lifecycle transformations for the LEAP management playbook from Product Backlog P0.5.
 
+## Release 0.6 — Observability Canvases
+
+- [x] Add resilient V2 stock and market-overview contracts with row-level availability and provenance.
+- [x] Port Stock Observatory to React with quote evidence, day/week/month/year candles, volume, momentum, technical overlays, and cached-data warnings.
+- [x] Add expiry-aware current-option context without making stock evidence depend on option-provider success.
+- [x] Add a browser-local, no-login watchlist for symbol navigation without representing it as holdings.
+- [x] Port Market Pulse to React with sector breadth, daily movement, three-month SPY-relative strength, cross-asset proxies, and provider readiness.
+- [x] Preserve unavailable market rows and their warnings while rendering successful current or cached rows.
+- [x] Carry validated ticker symbols directly among Stock Observatory, Strategy Lab, and Option Lab.
+- [x] Route all four primary laboratories through the lazy-loaded React shell while retaining `/legacy` as an explicit fallback.
+- [x] Add API contracts, partial-provider tests, navigation/watchlist tests, component tests, and browser source guards.
+- [ ] Complete connected-browser review across desktop, narrow, high-DPI, keyboard, chain-table, and provider-failure states.
+- [ ] Retire the vanilla fallback only after the connected-browser parity gate is signed off.
+
 ## Deferred Launch Stability — Former Release 0.3 Gates
 
 Run these when preparing an actual public release candidate:
