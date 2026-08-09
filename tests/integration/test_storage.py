@@ -18,9 +18,10 @@ def test_existing_database_migrates_without_losing_prices(tmp_path):
     assert store.connection.execute("SELECT close FROM price_history WHERE symbol = 'AAPL'").fetchone()[0] == 101
     tables = {row[0] for row in store.connection.execute("SHOW TABLES").fetchall()}
     assert {"research_runs", "option_positions", "option_position_events", "provider_cache", "schema_migrations"} <= tables
-    assert store.connection.execute("SELECT max(version) FROM schema_migrations").fetchone()[0] == 4
+    assert store.connection.execute("SELECT max(version) FROM schema_migrations").fetchone()[0] == 5
     research_columns = {row[1] for row in store.connection.execute("PRAGMA table_info('research_runs')").fetchall()}
     assert {"strategy_key", "reproducibility_key"} <= research_columns
+    assert "option_simulation_runs" in tables
 
 
 def test_strategy_deduplication_and_option_event_persistence(tmp_path):
@@ -33,12 +34,25 @@ def test_strategy_deduplication_and_option_event_persistence(tmp_path):
     request = OptionPositionCreate.model_validate({"name": "Persistent Call", "ticker": "AAPL", "underlying_price": 100, "position_kind": "long_call", "paths": 50, "legs": [{"option_type": "call", "side": "long", "strike": 100, "expiration": (date.today() + timedelta(days=30)).isoformat(), "premium": 4, "quantity": 1, "implied_volatility": 0.25}]})
     state = initial_state(request)
     store.create_option_position(state.model_dump(mode="json"))
+    assert store.list_option_positions()[0]["position_id"] == state.position_id
     leg = state.legs[0]
     event = OptionLifecycleEvent(event_type="close", underlying_price=105, leg_id=leg.leg_id, option_marks={leg.leg_id: 7})
     closed = apply_event(state, event)
     store.append_option_event(state.position_id, event.model_dump(mode="json"), closed.model_dump(mode="json"))
     assert store.get_option_position(state.position_id)["status"] == "closed"
     assert len(store.list_option_events(state.position_id)) == 2
+
+
+def test_option_expiry_snapshots_do_not_replace_default_chain(tmp_path):
+    store = LocalMarketStore(tmp_path / "option-expiries.duckdb")
+    default_payload = {"expiration": "2026-09-18", "expirations": ["2026-09-18", "2026-12-18"], "calls": [{"contract": "DEFAULT"}], "puts": []}
+    later_payload = {"expiration": "2026-12-18", "expirations": ["2026-09-18", "2026-12-18"], "calls": [{"contract": "LATER"}], "puts": []}
+
+    store.save_options("NVDA", default_payload)
+    store.save_options("NVDA", later_payload)
+
+    assert store.load_options("NVDA")["expiration"] == "2026-09-18"
+    assert store.load_options("NVDA", expiration="2026-12-18")["calls"][0]["contract"] == "LATER"
 
 
 def test_strategy_cleanup_handles_legacy_key_collisions(tmp_path):

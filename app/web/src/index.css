@@ -105,3 +105,14 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+@keyframes option-path-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+.option-path-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: option-path-draw 1.2s ease-out forwards;
+}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 
 from fastapi import APIRouter, HTTPException
 
@@ -21,18 +22,31 @@ def create_option_router(store: LocalMarketStore, data: MarketData) -> APIRouter
         return {"templates": list_position_templates()}
 
     @router.get("/chains/{ticker}")
-    async def chain(ticker: str):
+    async def chain(ticker: str, expiration: date | None = None):
         try:
-            return await data.options(ticker)
+            return await data.options(ticker, expiration.isoformat() if expiration else None)
         except ValueError as error:
             raise bad_request(error) from error
 
     @router.post("/simulations")
     async def simulation(request: OptionSimulationRequest):
         try:
-            return await asyncio.to_thread(simulate_position, request)
+            result = await asyncio.to_thread(simulate_position, request)
+            run = store.save_option_simulation_run(request.model_dump(mode="json"), result)
+            return {**result, **run}
         except ValueError as error:
             raise bad_request(error) from error
+
+    @router.get("/simulations")
+    async def simulations(limit: int = 20):
+        return {"runs": store.list_option_simulation_runs(limit)}
+
+    @router.get("/simulations/{run_id}")
+    async def stored_simulation(run_id: str):
+        run = store.get_option_simulation_run(run_id)
+        if run is None:
+            raise HTTPException(status_code=404, detail="Option simulation run not found.")
+        return run
 
     @router.post("/positions")
     async def create_position(request: OptionPositionCreate):
@@ -42,6 +56,10 @@ def create_option_router(store: LocalMarketStore, data: MarketData) -> APIRouter
             return {"position": state.model_dump(mode="json"), "events": store.list_option_events(state.position_id)}
         except ValueError as error:
             raise bad_request(error) from error
+
+    @router.get("/positions")
+    async def positions(limit: int = 20):
+        return {"positions": store.list_option_positions(limit)}
 
     @router.get("/positions/{position_id}")
     async def position(position_id: str):
@@ -63,4 +81,3 @@ def create_option_router(store: LocalMarketStore, data: MarketData) -> APIRouter
             raise bad_request(error) from error
 
     return router
-

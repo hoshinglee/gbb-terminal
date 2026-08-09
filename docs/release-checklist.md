@@ -56,7 +56,26 @@ This checklist separates research correctness from launch-environment stabilizat
 - [x] Add frontend typechecking, component tests, production build validation, and Python source-contract coverage.
 - [x] Complete keyboard and screen-reader source review, responsive DOM contracts, keyboard chart inspection, labelled live chart values, and reduced-motion handling.
 - [ ] Complete a connected-browser visual sweep for narrow/high-DPI layouts, overlay combinations, focus appearance, and pointer hover before marking 0.4.3 stable.
-- [ ] Port Option Lab, Stock Observatory, and Market Pulse before retiring the vanilla fallback.
+- [ ] Port the remaining Stock Observatory and Market Pulse panels before retiring the vanilla fallback; Option Lab moved in 0.5.
+
+## Release 0.5 — Option Lifecycle Canvas
+
+- [x] Route Option Lab through the React application while preserving all V2 API contracts and the vanilla fallback.
+- [x] Replace the position form with recipe cards and isolated editable leg cards.
+- [x] Select every Yahoo-reported expiry, inspect every returned contract, load only the target leg, and retain manual assumptions during outages.
+- [x] Keep interest, dividend, path-count, and seed assumptions behind progressive disclosure.
+- [x] Render expiry payoff, price/time slices, scaled Greeks, and animated underlying and position-P&L paths.
+- [x] Persist immutable simulation runs, linked paper positions, and complete lifecycle states in DuckDB.
+- [x] List and reopen saved simulation runs and paper positions after a browser reload.
+- [x] Journal hold, close, partial close, roll, share purchase/sale, added-leg, exercise, expiry, early assignment, and expiry assignment events.
+- [x] Make Build, Explore, and Journal progression reflect actual application state.
+- [x] Add typed frontend contracts, pure option-draft tests, component tests, and React source-contract checks.
+- [ ] Complete connected-browser visual and keyboard checks for chain selection, narrow leg cards, scenario charts, and lifecycle side sheets.
+- [ ] Reconcile golden lifecycle fixtures for every multi-leg close and roll combination before declaring 0.5 stable.
+- [x] Complete expiry-aware chain selection and full-contract inspection from Product Backlog P0.1.
+- [x] Complete Position Recipe V2 and Conversion validation from Product Backlog P0.2/P0.4.
+- [x] Persist and reload immutable option simulation runs from Product Backlog P0.3.
+- [x] Complete share-purchase and add-leg lifecycle transformations for the LEAP management playbook from Product Backlog P0.5.
 
 ## Deferred Launch Stability — Former Release 0.3 Gates
 

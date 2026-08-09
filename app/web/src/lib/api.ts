@@ -3,6 +3,16 @@ import type {
   CatalogueStrategy,
   DataStatus,
   LegacyProposal,
+  OptionChainResponse,
+  OptionLifecycleEvent,
+  OptionPositionCreate,
+  OptionPositionResponse,
+  OptionPositionState,
+  OptionPositionTemplate,
+  OptionSimulationRequest,
+  OptionSimulationResult,
+  OptionSimulationRunDetail,
+  OptionSimulationRunSummary,
   ParameterSearchResponse,
   ParameterValue,
   PricePoint,
@@ -118,5 +128,51 @@ export function runCatalogueStrategy(
       commission_bps: commissionBps,
       slippage_bps: slippageBps,
     }),
+  })
+}
+
+export function loadOptionTemplates() {
+  return request<{ templates: OptionPositionTemplate[] }>("/api/v2/options/templates")
+}
+
+export function loadOptionChain(ticker: string, expiration?: string) {
+  const parameters = expiration ? `?${new URLSearchParams({ expiration })}` : ""
+  return request<OptionChainResponse>(`/api/v2/options/chains/${encodeURIComponent(ticker.trim().toUpperCase())}${parameters}`)
+}
+
+export function simulateOptionPosition(position: OptionSimulationRequest) {
+  return request<OptionSimulationResult>("/api/v2/options/simulations", {
+    method: "POST",
+    body: JSON.stringify(position),
+  })
+}
+
+export function loadOptionSimulationRuns(limit = 20) {
+  return request<{ runs: OptionSimulationRunSummary[] }>(`/api/v2/options/simulations?${new URLSearchParams({ limit: String(limit) })}`)
+}
+
+export function loadOptionSimulationRun(runId: string) {
+  return request<OptionSimulationRunDetail>(`/api/v2/options/simulations/${encodeURIComponent(runId)}`)
+}
+
+export function createOptionPosition(position: OptionPositionCreate) {
+  return request<OptionPositionResponse>("/api/v2/options/positions", {
+    method: "POST",
+    body: JSON.stringify(position),
+  })
+}
+
+export function loadOptionPositions(limit = 20) {
+  return request<{ positions: OptionPositionState[] }>(`/api/v2/options/positions?${new URLSearchParams({ limit: String(limit) })}`)
+}
+
+export function loadOptionPosition(positionId: string) {
+  return request<OptionPositionResponse>(`/api/v2/options/positions/${encodeURIComponent(positionId)}`)
+}
+
+export function applyOptionLifecycleEvent(positionId: string, event: OptionLifecycleEvent) {
+  return request<OptionPositionResponse>(`/api/v2/options/positions/${encodeURIComponent(positionId)}/events`, {
+    method: "POST",
+    body: JSON.stringify(event),
   })
 }

@@ -9,12 +9,14 @@ flowchart LR
     Investor[Hobbyist Investor]
 
     subgraph Browser[Browser]
-        ReactUI[React Strategy Lab<br/>Vite + TypeScript + shadcn/ui]
-        LegacyUI[Legacy Panels<br/>Option Lab + Stock + Market]
+        ReactUI[React Research App<br/>Strategy Lab + Option Lab]
+        LegacyUI[Legacy Panels<br/>Stock + Market + Migration Fallback]
         Charts[Lightweight Charts]
-        Workspace[Research Workspace Reducer]
+        Scenarios[Accessible Scenario SVG]
+        Workspace[Strategy + Option Workspace State]
         ReactUI --> Workspace
         Workspace --> Charts
+        Workspace --> Scenarios
     end
 
     subgraph Server[FastAPI Process]
@@ -140,6 +142,101 @@ flowchart TB
 ```
 
 The reducer clears incompatible selection data whenever the user switches among an instruction, template, or saved strategy. Canvas layout preference is presentation-only browser state and does not enter strategy identity or research reproducibility.
+
+## Frontend Option Lifecycle Canvas
+
+```mermaid
+flowchart TB
+    subgraph Build[Build Position]
+        Recipes[Core Position Recipes]
+        Legs[Editable Leg Cards]
+        Chain[Current Chain Side Sheet]
+        Assumptions[Model Assumptions Side Sheet]
+        Recipes --> Legs
+        Chain -->|Fill selected leg only| Legs
+        Assumptions --> Draft
+        Legs --> Draft[Typed Position Draft]
+    end
+
+    subgraph Explore[Explore Evidence]
+        Simulate[American-Model Simulation]
+        Run[Immutable Simulation Run]
+        Payoff[Expiry Payoff]
+        Surface[Price × Time Slices]
+        Paths[Underlying + Position P&L Paths]
+        Greeks[Scaled Greeks + Probability]
+        Draft --> Simulate
+        Simulate --> Run
+        Simulate --> Payoff
+        Simulate --> Surface
+        Simulate --> Paths
+        Simulate --> Greeks
+    end
+
+    subgraph Journal[Journal Lifecycle]
+        Position[Persisted Paper Position]
+        Decision{Validated Event}
+        State[Complete State After Event]
+        Ledger[Immutable Event Timeline]
+        Run --> Position
+        Position --> Decision
+        Decision --> State
+        State --> Ledger
+        State --> Decision
+    end
+
+    Yahoo[Yahoo Current Chain] --> Chain
+    OptionAPI[FastAPI Option Routes] --> Simulate
+    OptionAPI --> Position
+    OptionAPI --> Decision
+    Run --> DuckDB[(DuckDB)]
+    Position --> DuckDB
+    Ledger --> DuckDB
+```
+
+Simulation state and persisted ledger state are intentionally separate. Editing a new draft invalidates stale scenario evidence but never rewrites an earlier paper-position event. The browser sends only validated JSON option contracts; all pricing, collateral, cash, share, and realized-P&L transitions remain in Python.
+
+## Option Lifecycle Request Sequence
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as React Option Lab
+    participant API as FastAPI Option Routes
+    participant Data as MarketData Service
+    participant Engine as Option Pricing/Lifecycle
+    participant DB as DuckDB
+    participant Yahoo as Yahoo Finance
+
+    User->>UI: Choose recipe and selected leg
+    UI->>API: GET chain for selected expiry
+    API->>Data: Request newest snapshot
+    Data->>DB: Check daily/fresh cache
+    alt Cached snapshot available
+        DB-->>Data: Chain plus provenance
+    else Provider required
+        Data->>Yahoo: Fetch selected current expiry
+        Yahoo-->>Data: All expiries and all selected-date contracts
+        Data->>DB: Cache ticker/expiry snapshot independently
+    end
+    API-->>UI: Current/cached chain and warnings
+    User->>UI: Simulate exact draft
+    UI->>API: POST simulation
+    API->>Engine: American pricing, payoff, Greeks, paths
+    Engine-->>API: Theoretical evidence and limitations
+    API->>DB: Append immutable simulation run
+    API-->>UI: Evidence plus run ID and model version
+    User->>UI: Create paper position
+    UI->>API: POST position
+    API->>Engine: Reconcile initial premium, shares, collateral
+    API->>DB: Persist state plus opened event
+    DB-->>UI: Position and event timeline
+    User->>UI: Hold, close, roll, exercise, expire, or assign
+    UI->>API: POST lifecycle event
+    API->>Engine: Validate and calculate next complete state
+    API->>DB: Transactionally append event and update current state
+    DB-->>UI: Reconciled ledger
+```
 
 ## Research Run And Data Retrieval
 
@@ -320,4 +417,4 @@ flowchart LR
     LegacyRoute --> Legacy
 ```
 
-When the React build exists, `/` serves Strategy Lab from `app/static/react/`. Without generated assets, `/` falls back to the vanilla application. `/legacy` always remains available during the panel-by-panel migration.
+When the React build exists, `/` serves Strategy Lab and `/?lab=options` selects Option Lab from the same generated application. Without generated assets, `/` falls back to the vanilla application. `/legacy` always remains available during the panel-by-panel migration.

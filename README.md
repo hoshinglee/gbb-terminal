@@ -23,7 +23,7 @@ cd ../..
 uvicorn gbb_terminal.api.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000`. FastAPI serves the built React Strategy Lab when `app/static/react/index.html` exists and otherwise falls back to the vanilla application. The legacy interface remains available at `http://127.0.0.1:8000/legacy`. Python commands work from any directory after editable installation because frontend, database, and log paths resolve through `gbb_terminal.settings`.
+Open `http://127.0.0.1:8000` for Strategy Lab and `http://127.0.0.1:8000/?lab=options` for Option Lab. FastAPI serves the built React research application when `app/static/react/index.html` exists and otherwise falls back to the vanilla application. The legacy interface remains available at `http://127.0.0.1:8000/legacy`. Python commands work from any directory after editable installation because frontend, database, and log paths resolve through `gbb_terminal.settings`.
 
 For frontend development, run `npm run dev` from `app/web`; Vite proxies `/api` requests to FastAPI on port 8000. Generated assets under `app/static/react/` are intentionally ignored and must be built in release or deployment workflows.
 

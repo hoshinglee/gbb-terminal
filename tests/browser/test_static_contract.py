@@ -38,16 +38,26 @@ def test_runtime_data_is_git_ignored():
     assert ".env" in ignore
 
 
-def test_react_strategy_canvas_sources_are_present():
+def test_react_research_canvas_sources_are_present():
     package = Path("app/web/package.json").read_text()
     application = Path("app/web/src/app.tsx").read_text()
     strategy_lab = Path("app/web/src/features/strategy-lab/strategy-lab.tsx").read_text()
     evidence = Path("app/web/src/features/strategy-lab/evidence-workspace.tsx").read_text()
     chart = Path("app/web/src/features/strategy-lab/market-workspace-chart.tsx").read_text()
-    assert '"version": "0.4.3"' in package
+    option_lab = Path("app/web/src/features/option-lab/option-lab.tsx").read_text()
+    lifecycle = Path("app/web/src/features/option-lab/lifecycle-workspace.tsx").read_text()
+    assert '"version": "0.5.0"' in package
     assert '"react"' in package
     assert '"lightweight-charts"' in package
+    assert 'import("@/features/strategy-lab/strategy-lab")' in application
+    assert 'import("@/features/option-lab/option-lab")' in application
     assert "<StrategyLab />" in application
+    assert "<OptionLab />" in application
+    assert "PositionBuilder" in option_lab
+    assert "ScenarioWorkspace" in option_lab
+    assert "LifecycleWorkspace" in option_lab
+    assert "applyOptionLifecycleEvent" in option_lab
+    assert "Journal Next Decision" in lifecycle
     assert "StrategyCommand" in strategy_lab
     assert "ProposalReviewDialog" in strategy_lab
     assert 'value="robustness"' in evidence
@@ -67,9 +77,10 @@ def test_react_strategy_canvas_sources_are_present():
     assert "market-chart-current-value" in chart
     assert "prefers-reduced-motion: reduce" in Path("app/web/src/index.css").read_text()
     app_shell = Path("app/web/src/components/app-shell.tsx").read_text()
-    assert 'href="#strategy-main"' in app_shell
+    assert 'const mainId = activeLab === "options" ? "option-main" : "strategy-main"' in app_shell
+    assert 'href: "/?lab=options"' in app_shell
     assert 'aria-label="Mobile research laboratories"' in app_shell
-    assert 'id="strategy-main"' in app_shell
+    assert "id={mainId}" in app_shell
 
 
 def test_legacy_page_can_return_to_research_canvas():
