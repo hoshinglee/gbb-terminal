@@ -19,10 +19,11 @@ GBB Terminal is a local-first US equity research and option lifecycle applicatio
 | Storage | DuckDB tables, migrations, caches, and ledgers | [Storage](storage.md) |
 | LLM translator | Natural language to validated strategy data | [LLM translator](llm-translator.md) |
 | Observability | Structured events and rotating local logs | [Logging](logging.md) |
-| Browser | React Strategy Lab, shadcn/ui interactions, financial charts, and vanilla migration fallback | [Frontend](frontend.md) |
+| Browser | React Strategy and Option labs, shadcn/ui interactions, financial charts, and vanilla migration fallback | [Frontend](frontend.md) |
 | Market replay | Candles, interval aggregation, overlays, volume, RSI, and MACD | [Market Replay](market-replay.md) |
 | Strategy Lab UX | Implemented research-canvas interaction model and remaining panel migration | [Strategy Lab UX](strategy-lab-ux.md) |
 | Release readiness | Completed research gates and deferred launch-stability checks | [Release Checklist](release-checklist.md) |
+| Product backlog | Prioritized Option Lab completion, React migration, and post-0.6 usefulness work | [Product Backlog](product-backlog.md) |
 | Community extensions | Adding indicators and strategy templates safely | [Strategy Plugin Guide](strategy-plugin-guide.md) |
 
 ## Safety invariants

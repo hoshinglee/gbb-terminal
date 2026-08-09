@@ -83,18 +83,18 @@ class MarketData:
         last, previous = float(close.iloc[-1]), float(close.iloc[-2])
         return {"symbol": ticker.upper(), "price": round(last, 2), "change": round(last - previous, 2), "changePercent": round((last / previous - 1) * 100, 2), "updatedAt": self.updated_at[ticker.upper()].isoformat(), "dataStatus": self.metadata.get(ticker.upper(), {})}
 
-    async def options(self, ticker: str) -> dict:
+    async def options(self, ticker: str, expiration: str | None = None) -> dict:
         symbol = ticker.upper().strip()
-        cached = self.store.load_options(symbol)
+        cached = self.store.load_options(symbol, expiration=expiration)
         if cached is not None:
             return cached
         try:
-            envelope = await asyncio.to_thread(self.yahoo.option_chain, symbol)
+            envelope = await asyncio.to_thread(self.yahoo.option_chain, symbol, expiration)
             payload = {**envelope.data, "source": envelope.source, "dataStatus": envelope.metadata(), "historicalStatus": "Current Snapshot"}
             self.store.save_options(symbol, payload)
             return payload
         except ProviderUnavailable as error:
-            stale = self.store.load_options(symbol, max_age_minutes=None)
+            stale = self.store.load_options(symbol, expiration=expiration, max_age_minutes=None)
             if stale is None:
                 raise ValueError(str(error)) from error
             stale["dataStatus"] = {**stale.get("dataStatus", {}), "status": "Stale Cache", "qualityWarnings": [str(error), "Serving the newest locally cached option chain."]}

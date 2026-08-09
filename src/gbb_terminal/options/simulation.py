@@ -5,6 +5,7 @@ from typing import Any
 
 import numpy as np
 
+from .analysis import conversion_financing_analysis, management_playbook, position_profile
 from .models import OptionLeg, OptionSimulationRequest, OptionType, PositionSide
 from .pricing import american_option_price, black_scholes_price, option_greeks, probability_in_the_money
 
@@ -87,6 +88,10 @@ def simulate_position(request: OptionSimulationRequest) -> dict[str, Any]:
         "historicalStatus": "Theoretical Simulation",
         "assumptions": {"interestRate": request.interest_rate, "dividendYield": request.dividend_yield, "valuationDate": date.today().isoformat(), "contractMultiplier": 100},
         "limitations": ["Yahoo provides current chains, not reliable historical contract marks.", "Probability estimates are model-based and are not forecasts.", "Taxes, pin risk, bid-ask depth, and broker margin rules are not modeled."],
+        "positionProfile": position_profile(request),
+        "conversionAnalysis": conversion_financing_analysis(request),
+        "managementPlaybook": management_playbook(request),
+        "dataProvenance": request.data_provenance,
         "summary": _summary(request, payoff),
         "greeks": greeks,
         "payoff": payoff,

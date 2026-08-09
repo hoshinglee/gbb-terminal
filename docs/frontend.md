@@ -8,9 +8,11 @@ Fallback sources: `app/index.html`, `app/static/app.js`, `app/static/market-char
 
 GBB Terminal migrates one complete product slice at a time instead of rewriting every panel at once.
 
-- A production Vite build under `app/static/react/` makes the React Strategy Lab the root application.
+- A production Vite build under `app/static/react/` serves the React Strategy Lab and Option Lab.
 - If that build is absent, FastAPI serves the vanilla application at `/`.
-- `/legacy` always serves the vanilla interface. React navigation sends Option Lab, Stock Observatory, and Market Pulse there with a `panel` query parameter.
+- `/` opens Strategy Lab and `/?lab=options` opens Option Lab without requiring a second frontend bundle or client router.
+- Strategy Lab and Option Lab are lazy-loaded as separate release chunks so opening one laboratory does not download the other laboratory's workspace code.
+- `/legacy` always serves the vanilla interface. React navigation sends Stock Observatory and Market Pulse there with a `panel` query parameter.
 - The legacy sidebar includes **Return To Research Canvas**, so users never need to edit the browser URL manually.
 - Both interfaces call the same FastAPI endpoints and use the same DuckDB database.
 
@@ -43,6 +45,20 @@ Desktop and mobile shells expose the same laboratory navigation. The compact con
 Natural-language instructions first call the proposal endpoint. A confirmation dialog displays the normalized description, risk controls, clarification assumptions, provider, and any existing catalogue match. Provider output is constrained JSON; server-generated compatibility YAML remains hidden from ordinary users, and translated input never becomes executable Python.
 
 The initial single-stock symbol is NVDA. The chart badge shows that symbol rather than repeating provider/delay metadata; source, delay/staleness, observation date, and quality warnings remain visible in the provenance line above the canvas.
+
+## React Option Lab
+
+Release 0.5 ports the complete core option workflow to the React canvas:
+
+1. Position-recipe cards replace the long position-type form while editable leg cards keep every contract assumption visible.
+2. A current-chain side sheet follows Target Leg → Expiry → Contract, fills only the selected leg, and displays all Yahoo-reported expiries and every returned strike with executable-side quote context.
+3. Model assumptions remain in a side sheet; ticker, spot, chain loading, and simulation stay in the compact context bar.
+4. Evidence tabs show expiry payoff, price/time slices, animated underlying and position-P&L paths, and scaled Greeks.
+5. Immutable run and paper-position sheets restore earlier work; the lifecycle card journals validated hold observations, closes, rolls, share trades, added option legs, exercise, expiry, and assignment transitions.
+
+The progress rail advances from Build to Explore only after a simulation response and to Journal only after a persisted paper position. Changing an economic input invalidates stale scenario evidence. Changing only the paper-position name does not invalidate the simulation.
+
+Scenario SVGs support pointer inspection and Left/Right/Home/End keyboard navigation. Animation honors the operating system reduced-motion preference.
 
 ## Financial Charts
 
@@ -77,7 +93,7 @@ npm run test:run
 npm run build
 ```
 
-Component tests cover mutually exclusive strategy selection, the stale-parameter regression, trailing-stop configuration, and Darvas/Fibonacci overlays. Python browser-contract tests verify that React source, evidence tabs, chart markers, return navigation, and legacy assets remain present.
+Component tests cover mutually exclusive strategy selection, the stale-parameter regression, trailing-stop configuration, Darvas/Fibonacci overlays, option recipe replacement, covered-call share cover, and current-contract mapping. Python browser-contract tests verify that both React labs, evidence tabs, chart markers, lifecycle actions, return navigation, and legacy assets remain present.
 
 The shell includes skip navigation, labelled desktop/mobile navigation, explicit research-control labels, table captions, visible chart focus rings, and reduced-motion CSS. Smooth evidence scrolling becomes immediate when the operating system requests reduced motion.
 

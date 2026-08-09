@@ -225,3 +225,250 @@ export interface DataStatus {
   knownAt?: string
   qualityWarnings?: string[]
 }
+
+export type OptionType = "call" | "put"
+export type PositionSide = "long" | "short"
+export type OptionPositionKind =
+  | "custom"
+  | "long_call"
+  | "long_put"
+  | "short_call"
+  | "short_put"
+  | "covered_call"
+  | "cash_secured_put"
+  | "bull_call_spread"
+  | "bear_call_spread"
+  | "bull_put_spread"
+  | "bear_put_spread"
+  | "conversion"
+
+export type OptionLifecycleEventType =
+  | "hold"
+  | "close"
+  | "partial_close"
+  | "roll_strike"
+  | "roll_expiry"
+  | "exercise"
+  | "expire"
+  | "early_assignment"
+  | "expiry_assignment"
+  | "buy_shares"
+  | "sell_shares"
+  | "add_leg"
+
+export interface OptionPositionTemplate {
+  kind: OptionPositionKind
+  name: string
+  category?: "Directional" | "Income" | "Defined Risk" | "Financing / Parity"
+  description?: string
+  capitalProfile?: string
+  riskLabel?: string
+  expiryPolicy?: string
+  strikePolicy?: string
+  shares?: number
+  legs: Array<{ role?: string; optionType: OptionType; side: PositionSide }>
+}
+
+export interface OptionChainContract {
+  contract: string
+  strike: number
+  last: number
+  bid: number
+  ask: number
+  mid?: number
+  spread?: number
+  change?: number
+  percentChange?: number
+  volume: number
+  openInterest: number
+  iv: number
+  inTheMoney?: boolean
+  lastTradeAt?: string | null
+  currency?: string
+  quoteQuality?: "Two-Sided" | "Incomplete Quote"
+}
+
+export interface OptionChainResponse {
+  expiration?: string
+  defaultExpiration?: string
+  expirations: string[]
+  calls: OptionChainContract[]
+  puts: OptionChainContract[]
+  source?: string
+  historicalStatus?: string
+  dataStatus?: DataStatus
+}
+
+export interface OptionLeg {
+  leg_id: string
+  option_type: OptionType
+  side: PositionSide
+  strike: number
+  expiration: string
+  premium: number
+  quantity: number
+  implied_volatility: number
+  multiplier: number
+  contract_symbol?: string | null
+  premium_source?: "manual" | "ask" | "bid" | "last" | "mid"
+}
+
+export interface OptionSimulationRequest {
+  run_name?: string | null
+  ticker: string
+  underlying_price: number
+  position_kind: OptionPositionKind
+  legs: OptionLeg[]
+  shares: number
+  share_cost_basis: number | null
+  interest_rate: number
+  dividend_yield: number
+  paths: number
+  seed: number
+  data_provenance?: Record<string, unknown>
+}
+
+export interface OptionPositionCreate extends OptionSimulationRequest {
+  name: string
+  research_run_id?: string | null
+}
+
+export interface OptionSimulationResult {
+  runId: string
+  createdAt: string
+  modelVersion: string
+  model: string
+  comparisonModel: string
+  historicalStatus: string
+  assumptions: {
+    interestRate: number
+    dividendYield: number
+    valuationDate: string
+    contractMultiplier: number
+  }
+  limitations: string[]
+  dataProvenance: Record<string, unknown>
+  positionProfile: {
+    shareOutlay: number
+    longPremiumDebit: number
+    shortPremiumCredit: number
+    netCashAtEntry: number
+    netCapitalCommitted: number
+    netCreditReceived: number
+    riskLabel: string
+  }
+  conversionAnalysis: null | {
+    lockedTerminalProceeds: number
+    netCapitalCommitted: number
+    nominalProfit: number
+    nominalReturnPercent: number
+    holdingDays: number
+    annualizedReturnPercent: number
+    configuredCashRatePercent: number
+    annualizedExcessVsCashPercent: number
+    dividendYieldAssumptionPercent: number
+    interpretation: string
+  }
+  managementPlaybook: {
+    title: string
+    riskLabel: string
+    branches: Array<{
+      id: string
+      title: string
+      trigger: string
+      action: string
+      eventType: string
+      impact: string
+      requiredCash?: number
+      warnings: string[]
+    }>
+  }
+  summary: {
+    breakEvens: number[]
+    maximumGain: number | "Unlimited"
+    maximumLoss: number | "Unlimited"
+    collateral: number
+    assignmentExposure: number
+  }
+  greeks: Array<{
+    legId: string
+    optionType: OptionType
+    side: PositionSide
+    strike: number
+    americanPrice: number
+    blackScholesPrice: number
+    probabilityInTheMoney: number
+    delta: number
+    gamma: number
+    theta: number
+    vega: number
+  }>
+  payoff: Array<{ underlyingPrice: number; pnl: number }>
+  surface: Array<{ day: number; points: Array<{ underlyingPrice: number; pnl: number }> }>
+  monteCarlo: Array<{
+    path: number
+    points: Array<{ day: number; underlyingPrice: number; positionPnl: number }>
+  }>
+}
+
+export interface OptionPositionState {
+  position_id: string
+  name: string
+  ticker: string
+  position_kind: OptionPositionKind
+  research_run_id?: string | null
+  current_structure?: string
+  status: "open" | "closed" | "expired" | "assigned" | "exercised"
+  opened_at: string
+  updated_at: string
+  underlying_price: number
+  cash: number
+  shares: number
+  share_cost_basis: number
+  realized_pnl: number
+  collateral: number
+  legs: OptionLeg[]
+  closed_quantities: Record<string, number>
+}
+
+export interface OptionLifecycleEvent {
+  event_type: OptionLifecycleEventType
+  underlying_price: number
+  option_marks: Record<string, number>
+  quantity: number | null
+  leg_id: string | null
+  new_strike: number | null
+  new_expiration: string | null
+  new_premium: number | null
+  new_leg?: OptionLeg | null
+  note: string
+}
+
+export interface OptionLedgerEvent {
+  eventId: string
+  eventNumber: number
+  eventType: "opened" | OptionLifecycleEventType
+  event: Record<string, unknown>
+  stateAfter: OptionPositionState
+  createdAt: string
+}
+
+export interface OptionPositionResponse {
+  position: OptionPositionState
+  events: OptionLedgerEvent[]
+}
+
+export interface OptionSimulationRunSummary {
+  runId: string
+  runName: string | null
+  ticker: string
+  positionKind: OptionPositionKind
+  request: OptionSimulationRequest
+  summary: OptionSimulationResult["summary"]
+  modelVersion: string
+  createdAt: string
+}
+
+export interface OptionSimulationRunDetail extends Omit<OptionSimulationRunSummary, "summary"> {
+  result: Omit<OptionSimulationResult, "runId" | "createdAt" | "modelVersion">
+}

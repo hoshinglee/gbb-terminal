@@ -20,11 +20,17 @@ FastAPI is the orchestration boundary. Routes validate requests, call market/dom
 
 | Endpoint | Definition |
 | --- | --- |
-| `GET /api/v2/options/chains/{ticker}` | Return the newest current or cached chain snapshot. |
-| `POST /api/v2/options/simulations` | Calculate theoretical value, Greeks, surfaces, and Monte Carlo paths. |
-| `POST /api/v2/options/positions` | Create a paper-position ledger. |
+| `GET /api/v2/options/templates` | Return grouped Recipe V2 metadata, leg roles, and structural policies. |
+| `GET /api/v2/options/chains/{ticker}?expiration=YYYY-MM-DD` | Return every provider-reported expiry and every contract for the selected current or cached expiry. |
+| `POST /api/v2/options/simulations` | Calculate theoretical evidence and persist an immutable, versioned local simulation run. |
+| `GET /api/v2/options/simulations` | List recent immutable simulation runs and their summary evidence. |
+| `GET /api/v2/options/simulations/{id}` | Reload one exact simulation request and result. |
+| `POST /api/v2/options/positions` | Create a paper-position ledger, optionally linked to its originating simulation run. |
+| `GET /api/v2/options/positions` | List recently updated local paper positions for rediscovery after reload. |
 | `GET /api/v2/options/positions/{id}` | Return current state and all earlier events. |
 | `POST /api/v2/options/positions/{id}/events` | Apply and persist one validated lifecycle transition. |
+
+Option-chain responses include the selected and default expiration, all available expirations, quote provenance, quote-quality warnings, and normalized bid/ask/last/mid/spread, volume, open interest, IV, moneyness, and last-trade fields. An unavailable requested expiry is rejected rather than silently replaced.
 
 Legacy `/api/*` routes remain compatible during migration. `POST /api/strategy/propose` and its V2 counterpart validate provider-authored JSON, return clarification metadata, and expose only server-generated compatibility YAML to the existing backtest flow. Internal semantic keys and YAML are omitted from ordinary catalogue views; advanced export remains available through an intentional future workflow.
 

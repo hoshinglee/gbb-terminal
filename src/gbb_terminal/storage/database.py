@@ -136,6 +136,19 @@ class LocalMarketStore:
             )
         """)
         self.connection.execute("""
+            CREATE TABLE IF NOT EXISTS option_simulation_runs (
+                run_id VARCHAR PRIMARY KEY,
+                owner_id VARCHAR,
+                run_name VARCHAR,
+                ticker VARCHAR NOT NULL,
+                position_kind VARCHAR NOT NULL,
+                request JSON NOT NULL,
+                result JSON NOT NULL,
+                model_version VARCHAR NOT NULL,
+                created_at TIMESTAMP NOT NULL
+            )
+        """)
+        self.connection.execute("""
             CREATE TABLE IF NOT EXISTS local_jobs (
                 job_id VARCHAR PRIMARY KEY,
                 job_type VARCHAR NOT NULL,
@@ -195,21 +208,31 @@ class LocalMarketStore:
         self.connection.execute("INSERT INTO price_history SELECT * FROM incoming_prices")
         self.connection.unregister("incoming_prices")
 
-    def load_options(self, symbol: str, max_age_minutes: int | None = 15) -> dict | None:
-        row = self.connection.execute(
-            "SELECT fetched_at, payload FROM option_chains WHERE symbol = ?", [symbol]
-        ).fetchone()
+    def load_options(self, symbol: str, expiration: str | None = None, max_age_minutes: int | None = 15) -> dict | None:
+        if expiration:
+            row = self.connection.execute(
+                """SELECT known_at, payload FROM option_chain_snapshots
+                   WHERE symbol = ? AND expiration = ?
+                   ORDER BY snapshot_date DESC LIMIT 1""",
+                [symbol, expiration],
+            ).fetchone()
+        else:
+            row = self.connection.execute(
+                "SELECT fetched_at, payload FROM option_chains WHERE symbol = ?", [symbol]
+            ).fetchone()
         if row is None or (max_age_minutes is not None and datetime.now(timezone.utc).replace(tzinfo=None) - row[0] > timedelta(minutes=max_age_minutes)):
             return None
         return json.loads(row[1])
 
     def save_options(self, symbol: str, payload: dict) -> None:
-        self.connection.execute("DELETE FROM option_chains WHERE symbol = ?", [symbol])
-        self.connection.execute(
-            "INSERT INTO option_chains VALUES (?, ?, ?)",
-            [symbol, datetime.now(timezone.utc).replace(tzinfo=None), json.dumps(payload)],
-        )
         expiration = payload.get("expiration")
+        expirations = payload.get("expirations") or []
+        if not expiration or not expirations or expiration == expirations[0]:
+            self.connection.execute("DELETE FROM option_chains WHERE symbol = ?", [symbol])
+            self.connection.execute(
+                "INSERT INTO option_chains VALUES (?, ?, ?)",
+                [symbol, datetime.now(timezone.utc).replace(tzinfo=None), json.dumps(payload)],
+            )
         if expiration:
             now = datetime.now(timezone.utc).replace(tzinfo=None)
             self.connection.execute(
@@ -420,9 +443,54 @@ class LocalMarketStore:
         )
         return state
 
+    def save_option_simulation_run(self, request: dict, result: dict, model_version: str = "option-engine-v1") -> dict:
+        run_id = str(uuid4())
+        created_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        self.connection.execute(
+            """INSERT INTO option_simulation_runs
+               (run_id, owner_id, run_name, ticker, position_kind, request, result, model_version, created_at)
+               VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)""",
+            [run_id, request.get("run_name"), request["ticker"], request["position_kind"], json.dumps(request), json.dumps(result), model_version, created_at],
+        )
+        return {"runId": run_id, "createdAt": created_at.isoformat(), "modelVersion": model_version}
+
+    def list_option_simulation_runs(self, limit: int = 20) -> list[dict]:
+        rows = self.connection.execute(
+            """SELECT run_id, run_name, ticker, position_kind, request, result, model_version, created_at
+               FROM option_simulation_runs ORDER BY created_at DESC LIMIT ?""",
+            [max(1, min(limit, 100))],
+        ).fetchall()
+        return [{
+            "runId": row[0], "runName": row[1], "ticker": row[2], "positionKind": row[3],
+            "request": json.loads(row[4]), "summary": json.loads(row[5]).get("summary", {}),
+            "modelVersion": row[6], "createdAt": row[7].isoformat(),
+        } for row in rows]
+
+    def get_option_simulation_run(self, run_id: str) -> dict | None:
+        row = self.connection.execute(
+            """SELECT run_id, run_name, ticker, position_kind, request, result, model_version, created_at
+               FROM option_simulation_runs WHERE run_id = ?""",
+            [run_id],
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "runId": row[0], "runName": row[1], "ticker": row[2], "positionKind": row[3],
+            "request": json.loads(row[4]), "result": json.loads(row[5]),
+            "modelVersion": row[6], "createdAt": row[7].isoformat(),
+        }
+
     def get_option_position(self, position_id: str) -> dict | None:
         row = self.connection.execute("SELECT state FROM option_positions WHERE position_id = ?", [position_id]).fetchone()
         return json.loads(row[0]) if row else None
+
+    def list_option_positions(self, limit: int = 20) -> list[dict]:
+        rows = self.connection.execute(
+            """SELECT state FROM option_positions
+               ORDER BY updated_at DESC LIMIT ?""",
+            [max(1, min(limit, 100))],
+        ).fetchall()
+        return [json.loads(row[0]) for row in rows]
 
     def list_option_events(self, position_id: str) -> list[dict]:
         rows = self.connection.execute(
