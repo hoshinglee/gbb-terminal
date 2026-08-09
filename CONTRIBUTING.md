@@ -7,6 +7,10 @@ GBB Terminal welcomes focused contributions that improve transparent research fo
 ```bash
 conda activate gbbterminal
 pip install -e ".[dev]"
+cd app/web
+npm install
+npm run build
+cd ../..
 uvicorn gbb_terminal.api.main:app --reload
 ```
 
@@ -18,6 +22,7 @@ Run validation before opening a pull request:
 pytest
 ruff check src tests
 node --check app/static/app.js
+cd app/web && npm run typecheck && npm run test:run && npm run build
 ```
 
 ## Contribution rules

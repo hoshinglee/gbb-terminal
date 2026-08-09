@@ -26,7 +26,7 @@ FastAPI is the orchestration boundary. Routes validate requests, call market/dom
 | `GET /api/v2/options/positions/{id}` | Return current state and all earlier events. |
 | `POST /api/v2/options/positions/{id}/events` | Apply and persist one validated lifecycle transition. |
 
-Legacy `/api/*` routes remain compatible during migration. Internal semantic keys and YAML are omitted from ordinary V2 catalogue responses; advanced export remains available in the browser.
+Legacy `/api/*` routes remain compatible during migration. `POST /api/strategy/propose` and its V2 counterpart validate provider-authored JSON, return clarification metadata, and expose only server-generated compatibility YAML to the existing backtest flow. Internal semantic keys and YAML are omitted from ordinary catalogue views; advanced export remains available through an intentional future workflow.
 
 V2 request models reject unknown fields. `ResearchDesign` owns ticker/universe, benchmarks, timeframe, and execution assumptions; `StrategyInstance` owns only reusable rule and risk configuration. Relative-strength designs may resolve an automatic sector ETF from Yahoo sector metadata, or use an explicit custom symbol. Research-run responses include internal strategy and reproducibility keys for machine-level replay, but the browser intentionally does not display them in ordinary Strategy Lab views.
 

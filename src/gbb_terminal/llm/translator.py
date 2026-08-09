@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
-
-import yaml
 
 from ..settings import LLMSettings, settings
 from ..strategy.factory import Strategy, StrategyFactory, parse_strategy
@@ -21,10 +20,10 @@ class Translation:
 
 
 class StrategyTranslator:
-    """Translates natural language through a selected provider into safe strategy YAML."""
+    """Translates natural language into a validated declarative strategy."""
 
-    SYSTEM_PROMPT = """You translate trading instructions into GBB Strategy YAML version 1.
-Return YAML only, without Markdown fences. Never return Python or executable code.
+    SYSTEM_PROMPT = """You translate trading instructions into GBB Strategy JSON version 1.
+Return exactly one JSON object without Markdown fences. Never return Python, YAML, expressions, or executable code.
 Available indicator types:
 - price: source is open, high, low, close, or volume
 - sma: source and integer window
@@ -40,35 +39,30 @@ Available indicator types:
 - fibonacci_level: integer window and ratio between 0 and 1; never use manually selected historical anchors
 - relative_strength: integer window and requires aligned benchmark data
 Available operators: crosses_above, crosses_below, greater_than, less_than, greater_or_equal, less_or_equal.
-Required schema:
-version: 1
-name: concise strategy name
-description: intuitive business description
-direction: long or short
-indicators:
-  alias_name:
-    type: sma
-    source: close
-    window: 5
-entry:
-  all:
-    - left: alias_name
-      operator: crosses_above
-      right: another_alias_or_number
-exit:
-  any:
-    - left: alias_name
-      operator: crosses_below
-      right: another_alias_or_number
-      right_multiplier: optional positive multiplier applied to right
+Required JSON shape:
+{
+  "version": 1,
+  "name": "Concise Strategy Name",
+  "description": "Intuitive business description.",
+  "direction": "long",
+  "indicators": {
+    "alias_name": {"type": "sma", "source": "close", "window": 5}
+  },
+  "entry": {
+    "all": [
+      {"left": "alias_name", "operator": "crosses_above", "right": "another_alias_or_number"}
+    ]
+  },
+  "exit": {
+    "any": [
+      {"left": "alias_name", "operator": "crosses_below", "right": "another_alias_or_number"}
+    ]
+  },
+  "risk": {}
+}
+The optional right_multiplier is a positive number applied to the right-hand indicator.
 Optional risk settings:
-risk:
-  stop_loss_percent: positive percentage
-  take_profit_percent: positive percentage
-  trailing_stop_percent: positive percentage
-  atr_stop_multiple: positive ATR multiple
-  atr_window: optional ATR window
-  max_holding_days: positive session count
+stop_loss_percent, take_profit_percent, trailing_stop_percent, atr_stop_multiple, atr_window, and max_holding_days.
 Only express logic possible with this schema. Preserve every explicit threshold and window from the instruction.
 Never invent a missing threshold, indicator window, multiplier, or risk percentage."""
 
@@ -84,21 +78,27 @@ Never invent a missing threshold, indicator window, multiplier, or risk percenta
         if not self.configured:
             strategy = parse_strategy(instruction)
             clarifications = ambiguity_notes(instruction, strategy)
-            if re.search(r"\b(volume|rsi|stop loss|loss threshold|take profit)\b", instruction, re.IGNORECASE):
-                clarifications.append(f"{self.provider_client.display_name} is not configured; the deterministic fallback only translated the moving-average crossover.")
+            clarifications.append(
+                f"{self.provider_client.display_name} is not configured; the displayed proposal was translated locally from explicit values."
+            )
             return Translation(strategy=strategy, provider="deterministic_fallback", yaml_config=strategy.to_yaml(), normalized_instruction=strategy.spec().description, clarifications=clarifications, needs_confirmation=bool(clarifications))
         try:
-            raw_yaml = self.provider_client.generate(instruction, self.SYSTEM_PROMPT).strip().removeprefix("```yaml").removeprefix("```").removesuffix("```").strip()
-            strategy, repair_notes = validated_model_strategy(raw_yaml)
+            raw_json = self.provider_client.generate(instruction, self.SYSTEM_PROMPT)
+            strategy, repair_notes = validated_model_strategy(raw_json)
             clarifications = [*ambiguity_notes(instruction, strategy), *repair_notes]
-            return Translation(strategy=strategy, provider="google_ai_studio", yaml_config=strategy.to_yaml(), normalized_instruction=strategy.spec().description, clarifications=clarifications, needs_confirmation=True)
+            return Translation(strategy=strategy, provider=self.provider_client.display_name, yaml_config=strategy.to_yaml(), normalized_instruction=strategy.spec().description, clarifications=clarifications, needs_confirmation=True)
         except Exception as error:
             try:
                 strategy = parse_strategy(instruction)
-            except ValueError:
-                raise ValueError(f"{self.provider_client.display_name} could not translate the strategy: {provider_failure_reason(error)}") from error
+            except ValueError as fallback_error:
+                raise ValueError(
+                    f"{self.provider_client.display_name} could not translate the strategy ({provider_failure_reason(error)}). "
+                    f"Local translation also needs clarification: {fallback_error}"
+                ) from error
             clarifications = ambiguity_notes(instruction, strategy)
-            clarifications.append(f"{self.provider_client.display_name} was unavailable ({provider_failure_reason(error)}); the proposed fallback only includes the moving-average crossover.")
+            clarifications.append(
+                f"{self.provider_client.display_name} was unavailable ({provider_failure_reason(error)}); the displayed proposal was translated locally from explicit values."
+            )
             return Translation(strategy=strategy, provider=f"deterministic_fallback_after_{self.provider_client.key}_error", yaml_config=strategy.to_yaml(), normalized_instruction=strategy.spec().description, clarifications=list(dict.fromkeys(clarifications)), needs_confirmation=True)
 
     def status(self) -> dict[str, str | bool | int]:
@@ -107,7 +107,7 @@ Never invent a missing threshold, indicator window, multiplier, or risk percenta
             "model": self.provider_client.model,
             "provider": self.provider_client.display_name,
             "providerKey": self.provider_client.key,
-            "format": "GBB Strategy YAML v1",
+            "format": "GBB Strategy JSON v1",
             "timeoutMs": self.configuration.timeout_ms,
         }
 
@@ -121,13 +121,13 @@ def ambiguity_notes(instruction: str, strategy: Strategy) -> list[str]:
     notes: list[str] = []
     if re.search(r"\b(high|strong|significant|unusual)\s+(daily\s+)?volume\b", normalized) and not re.search(r"\b\d+(?:\.\d+)?\s*(?:x|times|%)\b", normalized):
         notes.append("High volume has no explicit multiplier; review the proposed volume comparison.")
-    if "loss threshold" in normalized and not re.search(r"\d+(?:\.\d+)?\s*%", normalized):
-        notes.append("The loss threshold has no percentage; the proposal does not invent one.")
+    if re.search(r"\b(loss threshold|stop loss|trailing stop|take profit|profit target)\b", normalized) and not re.search(r"\d+(?:\.\d+)?\s*%", normalized):
+        notes.append("The requested risk control has no percentage; the proposal does not invent one.")
     if any(term in normalized for term in ("quickly", "soon", "strong trend", "weak trend")):
         notes.append("The timing or trend strength is subjective; review the exact indicators and windows.")
     risk = strategy.spec().parameters.get("risk", {})
-    if re.search(r"\b(stop loss|loss threshold|max(?:imum)? loss)\b", normalized) and not risk:
-        notes.append("The instruction mentions loss control, but no valid numeric stop-loss rule was produced.")
+    if re.search(r"\b(stop loss|trailing stop|loss threshold|max(?:imum)? loss|take profit|profit target)\b", normalized) and not risk:
+        notes.append("The instruction mentions risk control, but no valid numeric risk rule was produced.")
     return list(dict.fromkeys(notes))
 
 
@@ -139,16 +139,29 @@ def provider_failure_reason(error: Exception) -> str:
         return "provider timeout"
     if "invalid_argument" in message:
         return "provider rejected the request configuration"
+    if "not found" in message or "404" in message:
+        return "configured model was not found"
+    if "unavailable" in message or "503" in message or "502" in message or "500" in message:
+        return "provider temporarily unavailable"
     return "provider request failed"
 
 
-def validated_model_strategy(raw_yaml: str) -> tuple[Strategy, list[str]]:
+def validated_model_strategy(raw_json: str) -> tuple[Strategy, list[str]]:
+    cleaned = raw_json.strip()
+    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*```$", "", cleaned)
+    first_object, last_object = cleaned.find("{"), cleaned.rfind("}")
+    if first_object >= 0 and last_object > first_object:
+        cleaned = cleaned[first_object : last_object + 1]
     try:
-        return StrategyFactory.from_yaml(raw_yaml), []
+        configuration = json.loads(cleaned)
+    except json.JSONDecodeError as error:
+        raise ValueError("The provider returned invalid strategy JSON.") from error
+    if not isinstance(configuration, dict):
+        raise ValueError("The provider strategy JSON must contain one object.")
+    try:
+        return StrategyFactory.create(configuration), []
     except ValueError as validation_error:
-        configuration = yaml.safe_load(raw_yaml)
-        if not isinstance(configuration, dict):
-            raise validation_error
         exit_rules = configuration.get("exit", {})
         entry_rules = configuration.get("entry", {})
         exit_is_empty = not isinstance(exit_rules, dict) or not any(exit_rules.values())

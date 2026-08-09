@@ -37,6 +37,27 @@ This checklist separates research correctness from launch-environment stabilizat
 - [x] Aggregation, future-data invariance, API shape, static assets, JavaScript syntax, and the full Python suite are automated.
 - [ ] Complete manual visual checks for interval switching, overlay combinations, hover positioning, narrow layouts, and high-DPI displays before marking 0.4.2 stable.
 
+## Release 0.4.3 — Strategy Research Canvas
+
+- [x] Add Vite, React, TypeScript, Tailwind, and shadcn/ui without changing FastAPI contracts.
+- [x] Keep natural-language, template, and catalogue selections mutually exclusive.
+- [x] Replace permanent strategy forms with command search, quick starts, editable rule chips, and progressive disclosure.
+- [x] Keep ticker, timeframe, assumptions, and the run action in one compact research context bar.
+- [x] Require confirmation of normalized natural-language proposals before execution.
+- [x] Validate provider-authored JSON and generate legacy YAML only on the server.
+- [x] Preserve explicit risk and volume clauses in deterministic translation fallbacks.
+- [x] Offer trailing-stop configuration with next-open fill semantics.
+- [x] Distinguish single-stock relative strength from portfolio ranking in labels and help text.
+- [x] Show Darvas and Fibonacci strategy rules on the financial chart.
+- [x] Provide a direct return path from every legacy panel to the React research canvas.
+- [x] Keep candlesticks, interval controls, strategy overlays, SMA/EMA/Bollinger/Darvas/Fibonacci toggles, volume, RSI, MACD, and markers visible in the research workspace.
+- [x] Add evidence tabs for overview, equity/drawdown, trades, robustness, and assumptions.
+- [x] Serve the React build at `/` when available and preserve the vanilla interface at `/legacy`.
+- [x] Add frontend typechecking, component tests, production build validation, and Python source-contract coverage.
+- [x] Complete keyboard and screen-reader source review, responsive DOM contracts, keyboard chart inspection, labelled live chart values, and reduced-motion handling.
+- [ ] Complete a connected-browser visual sweep for narrow/high-DPI layouts, overlay combinations, focus appearance, and pointer hover before marking 0.4.3 stable.
+- [ ] Port Option Lab, Stock Observatory, and Market Pulse before retiring the vanilla fallback.
+
 ## Deferred Launch Stability — Former Release 0.3 Gates
 
 Run these when preparing an actual public release candidate:

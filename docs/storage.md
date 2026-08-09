@@ -17,8 +17,10 @@ DuckDB is the local system of record and analytical cache. `LocalMarketStore` cr
 | `option_position_events` | Append-only lifecycle event payload and state-after snapshot. |
 | `local_jobs` | Replaceable local progress/cancellation storage for long research work. |
 
-`save_strategy()` updates an existing semantic identity instead of creating a duplicate. V2 identity includes the template, values, scope, benchmark, timeframe, risk, and execution assumptions. Keys remain internal because they are reproducibility metadata, not user decisions.
+`save_strategy()` updates an existing semantic identity instead of creating a duplicate. V2 strategy identity includes the template version, parameter values, and risk definition; it excludes ticker, universe, benchmark, timeframe, execution assumptions, display name, and description. Those research inputs live in `research_design` and contribute to the separate research-run reproducibility key. Keys remain internal because they are reproducibility metadata, not user decisions.
 
 Every option event is written transactionally with the resulting position state. The ledger can therefore reconcile premium cash, shares, contracts, collateral, and realized P&L after close, roll, exercise, expiry, or assignment.
 
 Runtime `data/` is excluded from Git.
+
+See [System Diagrams](system-diagrams.md) for the logical DuckDB entity-relationship view and the provider-cache request sequence.

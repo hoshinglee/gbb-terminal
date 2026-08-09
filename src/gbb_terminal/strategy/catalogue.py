@@ -112,8 +112,8 @@ BUILT_IN_TEMPLATES = [
     StrategyTemplate(
         template_id="benchmark-relative-strength",
         family="Relative Strength",
-        name="Benchmark Relative Strength",
-        description="Enter when rolling performance exceeds the selected benchmark and exit after relative strength turns negative.",
+        name="Stock Relative Strength",
+        description="For one stock, compare rolling return with SPY, its sector ETF, or an explicit symbol; enter on outperformance and exit when it turns negative.",
         parameters=[_integer("window", "Relative Strength Window", 63, 10, 252), _number("entry_threshold", "Entry Threshold", 2.0, 0.0, 30.0, 0.5, "%")],
         required_datasets=[*PRICE_DATA, DataRequirement(dataset="benchmark_prices", fields=["close"])],
         rule_graph={"kind": "relative_strength"},
@@ -121,8 +121,8 @@ BUILT_IN_TEMPLATES = [
     StrategyTemplate(
         template_id="relative-strength-rotation",
         family="Portfolio",
-        name="Relative Strength Rotation",
-        description="Rank a user-defined stock universe by trailing return and hold the strongest equal-weight names.",
+        name="Relative Strength Portfolio",
+        description="Rank an explicit user-defined stock universe by trailing return, rebalance on schedule, and hold the strongest names at equal weight.",
         parameters=[_integer("lookback_window", "Ranking Lookback", 63, 10, 252), _integer("top_n", "Number Of Holdings", 3, 1, 20), _integer("rebalance_sessions", "Rebalance Frequency", 21, 5, 126)],
         required_datasets=PRICE_DATA,
         rule_graph={"kind": "ranked_portfolio"},

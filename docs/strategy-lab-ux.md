@@ -4,11 +4,28 @@
 
 Strategy Lab should feel like an interactive research canvas, not a four-part data-entry form. Users should spend most of their time expressing an idea, seeing how it behaves on a chart, and examining evidence. Ticker, costs, validation settings, and provider details remain available without dominating the primary workflow.
 
+## Release 0.4.3 Status
+
+The first complete React vertical slice now implements this direction:
+
+- Vite, React, TypeScript, Tailwind, and editable shadcn/ui components live under `app/web/`.
+- Command search combines validated templates, saved catalogue strategies, and natural-language entry.
+- A single reducer makes instruction, template, and catalogue selections mutually exclusive.
+- Rule parameters are editable chips inside readable sentences; search ranges stay inside each chip popover.
+- Test assumptions use a side sheet and default to zero commission and slippage.
+- The market chart remains visible before and after research and updates rule overlays immediately.
+- Wide screens support correctly constrained percentage resizing plus a persistent stacked-layout alternative; narrow screens stack automatically.
+- Evidence uses tabs for overview, equity/drawdown, trades, robustness, and assumptions.
+- Natural-language translation requires a readable confirmation step and hides YAML from the common path.
+- FastAPI serves the React build when available and retains `/legacy` during panel-by-panel migration.
+
+Option Lab, Stock Observatory, and Market Pulse remain in the vanilla fallback for this release. Removing that fallback is explicitly out of scope until those panels reach functional parity.
+
 ## Recommended Experience
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ AAPL  ·  1 Year  ·  SMA Crossover                         Run Research →    │
+│ NVDA  ·  1 Year  ·  SMA Crossover                         Run Research →    │
 ├───────────────────────────────┬─────────────────────────────────────────────┤
 │ Strategy Composer             │ Live Market Preview                         │
 │                               │                                             │
@@ -77,12 +94,12 @@ Use TradingView Lightweight Charts for candlesticks, volume, linked panes, cross
 
 ## Delivery Sequence
 
-1. Define design tokens, frontend types, and API contracts in a dedicated migration branch.
-2. Build the React shell, command palette, context bar, and responsive resizable workspace.
-3. Port Strategy Lab as the first complete vertical slice, including browser contract tests.
-4. Add Lightweight Charts with candles, volume, indicators, markers, and linked hover details.
-5. Port Option Lab, Stock Observatory, and Market Pulse after Strategy Lab reaches parity.
-6. Remove the vanilla implementation only after every primary workflow passes browser tests.
+1. **Complete:** define design tokens, frontend types, and API contracts in a dedicated migration branch.
+2. **Complete:** build the React shell, command palette, context bar, and responsive resizable workspace.
+3. **Complete:** port Strategy Lab as the first vertical slice, including component and browser contract tests.
+4. **Complete:** add Lightweight Charts with candles, volume, indicators, markers, and linked hover details.
+5. **Next:** complete manual browser and accessibility review, then port Option Lab, Stock Observatory, and Market Pulse.
+6. **Later:** remove the vanilla implementation only after every primary workflow passes browser tests.
 
 ## Acceptance Criteria
 

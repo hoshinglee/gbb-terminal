@@ -11,19 +11,25 @@ GBB Terminal is a free, open-source research and simulation workbench for hobbyi
 
 ## Run locally
 
-Python 3.11 or newer is required.
+Python 3.11 or newer and a Vite-compatible Node.js runtime are required for the React interface.
 
 ```bash
 conda activate gbbterminal
 pip install -e ".[dev]"
+cd app/web
+npm install
+npm run build
+cd ../..
 uvicorn gbb_terminal.api.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000`. The command works from any directory after editable installation because frontend, database, and log paths resolve through `gbb_terminal.settings`.
+Open `http://127.0.0.1:8000`. FastAPI serves the built React Strategy Lab when `app/static/react/index.html` exists and otherwise falls back to the vanilla application. The legacy interface remains available at `http://127.0.0.1:8000/legacy`. Python commands work from any directory after editable installation because frontend, database, and log paths resolve through `gbb_terminal.settings`.
+
+For frontend development, run `npm run dev` from `app/web`; Vite proxies `/api` requests to FastAPI on port 8000. Generated assets under `app/static/react/` are intentionally ignored and must be built in release or deployment workflows.
 
 ## Configuration
 
-Copy `.env.example` to `.env`, then copy `conf/app.example.yaml` to ignored `conf/app.yaml`. Select Google AI Studio, OpenAI, or Anthropic Claude in `conf/app.yaml` and keep its API key only in `.env`. Without a configured provider, a deterministic moving-average parser remains available. External instructions are interpreted only through a constrained strategy schema. GBB Terminal never calls `eval` or `exec` on strategy input.
+Copy `.env.example` to `.env`, then copy `conf/app.example.yaml` to ignored `conf/app.yaml`. Select Google AI Studio, OpenAI, or Anthropic Claude in `conf/app.yaml` and keep its API key only in `.env`. Without a configured provider, explicit built-in technical rules and risk controls still have a deterministic local translator. Provider output is constrained JSON, validated before use, and never becomes executable code. GBB Terminal never calls `eval` or `exec` on strategy input.
 
 Runtime data belongs in ignored `data/` and `log/` directories. Existing `data/gbb_terminal.duckdb` files are migrated in place.
 

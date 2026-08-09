@@ -16,7 +16,7 @@ The strategy engine converts a validated trading definition into positions, trad
 | `StrategyFactory.validate` | Rejects unsupported indicators, invalid aliases, directions, criteria, risk settings, and operators. |
 | `StrategyFactory.strategy_key` | Produces a stable semantic identity independent of names, wording, YAML formatting, and indicator aliases. |
 | `moving_average_configuration` | Creates the built-in MA crossover YAML structure. |
-| `parse_strategy` | Deterministic MA parser used when no LLM key is configured. |
+| `parse_strategy` | Deterministic parser for explicit built-in technical rules and risk controls when an LLM is unavailable. |
 | `run_research_backtest` | Cost-aware evidence engine in `backtesting/engine.py`. |
 | `run_parameter_search` | Guarded walk-forward parameter evaluation in `backtesting/parameter_search.py`. |
 
@@ -43,6 +43,8 @@ risk:
 Each comparison may include `right_multiplier`. For example, `{left: daily_volume, operator: greater_or_equal, right: average_volume, right_multiplier: 1.5}` means current volume must be at least 150% of its configured average.
 
 `risk` supports fixed stop/profit percentages, trailing stops, ATR-multiple stops, and maximum holding sessions. Strategy names use title format while preserving trading acronyms such as MA, SMA, EMA, MACD, RSI, ATR, OBV, and SPY.
+
+Trailing stops use closing observations to avoid making assumptions about intraday price order. The strategy records the actual next-session open as its entry price, tracks the most favorable close from that fill onward, emits a target exit after the configured percentage retreat, and fills that exit at the following session open. This timing matches the trade ledger and execution model.
 
 ## Trade ledger semantics
 

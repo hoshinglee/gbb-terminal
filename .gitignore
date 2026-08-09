@@ -9,3 +9,5 @@ data/
 *.duckdb.wal
 .DS_Store
 log/
+app/web/node_modules/
+app/static/react/

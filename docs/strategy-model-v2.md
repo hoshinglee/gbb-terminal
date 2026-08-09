@@ -13,7 +13,7 @@ A strategy is a reusable, reproducible research hypothesis. Its identity include
 - `DataSnapshot`: symbol, start/end date, row count, canonical OHLCV columns, and deterministic SHA-256 data fingerprint.
 - `ResearchRun`: frozen strategy configuration and research design, canonical strategy key, data snapshots, engine version, validation design, tested settings, results, and self-verifying reproducibility key.
 
-Unknown fields are rejected by V2 models rather than silently ignored. Canonical JSON is the system format. YAML v1 remains available only for advanced import/export and legacy natural-language proposals.
+Unknown fields are rejected by V2 models rather than silently ignored. Canonical JSON is the system format. LLM providers propose JSON only; YAML v1 remains available for advanced import/export and as a server-generated compatibility payload for legacy backtests.
 
 ## Reproducibility
 
@@ -25,4 +25,11 @@ Every built-in single-stock template is tested to produce identical positions be
 
 ## Built-in families
 
-Built-in families cover SMA, EMA, MACD, RSI, Bollinger Bands, Donchian channels, confirmed Darvas boxes, deterministic Fibonacci rolling swings, benchmark-relative strength, volume filters, and ranked peer portfolios. `StrategyCatalogue.build()` rejects stale template versions and invalid parameter relationships before a strategy reaches the engine.
+Built-in families cover SMA, EMA, MACD, RSI, Bollinger Bands, Donchian channels, confirmed Darvas boxes, deterministic Fibonacci rolling swings, single-stock relative strength, volume filters, and ranked relative-strength portfolios. `StrategyCatalogue.build()` rejects stale template versions and invalid parameter relationships before a strategy reaches the engine.
+
+The catalogue uses two deliberately distinct relative-strength templates:
+
+- **Stock Relative Strength** tests one selected stock against SPY, its detected sector ETF, or an explicit comparison symbol.
+- **Relative Strength Portfolio** ranks only the explicit user-entered universe and rebalances into the strongest equal-weight names.
+
+The stable template IDs remain `benchmark-relative-strength` and `relative-strength-rotation` so saved configurations and API contracts continue to load.

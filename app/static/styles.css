@@ -37,7 +37,9 @@ aside { position: fixed; inset: 0 auto 0 0; width: 242px; padding: 30px 20px; bo
 .brand { font-size: 16px; font-weight: 800; letter-spacing: .12em; }
 .brand span { color: var(--lime); }
 .brand small { display: block; margin-top: 7px; color: var(--mute); font: 9px "DM Mono", monospace; letter-spacing: .07em; }
-nav { display: grid; gap: 7px; margin-top: 65px; }
+.canvas-return { display: block; margin-top: 26px; padding: 9px 10px; color: var(--cyan); border: 1px solid var(--line); font: 9px "DM Mono", monospace; letter-spacing: .03em; text-decoration: none; }
+.canvas-return:hover { color: var(--lime); border-color: #607c4b; background: #17211e; }
+nav { display: grid; gap: 7px; margin-top: 28px; }
 .nav-item { padding: 14px 10px; color: #9eaca5; background: transparent; border-left: 2px solid transparent; text-align: left; }
 .nav-item b { margin-right: 13px; color: var(--mute); font: 10px "DM Mono", monospace; }
 .nav-item.active { color: var(--lime); background: #17211e; border-left-color: var(--lime); }
