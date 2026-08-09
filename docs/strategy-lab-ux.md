@@ -19,7 +19,7 @@ The first complete React vertical slice now implements this direction:
 - Natural-language translation requires a readable confirmation step and hides YAML from the common path.
 - FastAPI serves the React build when available and retains `/legacy` during panel-by-panel migration.
 
-At the 0.4.3 release boundary, Option Lab, Stock Observatory, and Market Pulse remained in the vanilla fallback. Release 0.5 ports Option Lab; Stock Observatory and Market Pulse still require functional parity before the fallback can be retired.
+At the 0.4.3 release boundary, Option Lab, Stock Observatory, and Market Pulse remained in the vanilla fallback. Release 0.5 ports Option Lab, and release 0.6 ports Stock Observatory and Market Pulse. The fallback remains until connected-browser parity checks are complete.
 
 ## Recommended Experience
 
@@ -98,8 +98,9 @@ Use TradingView Lightweight Charts for candlesticks, volume, linked panes, cross
 2. **Complete:** build the React shell, command palette, context bar, and responsive resizable workspace.
 3. **Complete:** port Strategy Lab as the first vertical slice, including component and browser contract tests.
 4. **Complete:** add Lightweight Charts with candles, volume, indicators, markers, and linked hover details.
-5. **Next:** complete manual browser and accessibility review, then port Stock Observatory and Market Pulse. Option Lab is handled by the 0.5 lifecycle canvas.
-6. **Later:** remove the vanilla implementation only after every primary workflow passes browser tests.
+5. **Complete in source:** port Option Lab in 0.5 and Stock Observatory/Market Pulse in 0.6.
+6. **Next:** complete connected-browser, narrow-layout, and keyboard review before retiring the vanilla fallback.
+7. **Later:** remove the vanilla implementation only after every primary workflow passes browser tests.
 
 ## Acceptance Criteria
 

@@ -6,9 +6,9 @@ GBB Terminal is an educational research workbench, not an execution system, brok
 
 ## Runtime layout
 
-- `app/web/`: Vite, React, TypeScript, shadcn/ui source for the Strategy Lab and Option Lab canvases.
+- `app/web/`: Vite, React, TypeScript, shadcn/ui source for all four research canvases.
 - `app/static/react/`: ignored production build output served by FastAPI when present.
-- `app/index.html` and `app/static/*.js`: vanilla fallback plus Stock Observatory and Market Pulse during the incremental migration.
+- `app/index.html` and `app/static/*.js`: retained vanilla migration fallback; primary navigation no longer depends on it.
 - `src/gbb_terminal/api/`: FastAPI application, schemas, and route groups.
 - `src/gbb_terminal/strategy/`: strategy contracts, templates, safe factory, and indicators.
 - `src/gbb_terminal/backtesting/`: signal execution, costs, metrics, parameter search, and portfolio ranking. Option-specific scenario paths remain under `options/`.
@@ -32,7 +32,9 @@ The root route selects `app/static/react/index.html` only when a production fron
 5. Immutable research or ledger records are persisted.
 6. The API returns data plus assumptions and provenance for browser rendering.
 
-The React Strategy Lab keeps one reducer-backed research workspace. Natural-language, template, and catalogue selections are mutually exclusive, preventing stale template parameters from surviving a selection change. The React Option Lab keeps position-draft, chain-snapshot, simulation, and persisted-ledger state separate so editing an assumption cannot silently mutate an earlier journal state. Lightweight Charts owns market series; accessible SVG owns numeric option scenarios; shadcn/ui owns interaction components, progressive disclosure, and evidence navigation.
+The React Strategy Lab keeps one reducer-backed research workspace. Natural-language, template, and catalogue selections are mutually exclusive, preventing stale template parameters from surviving a selection change. The React Option Lab keeps position-draft, chain-snapshot, simulation, and persisted-ledger state separate so editing an assumption cannot silently mutate an earlier journal state. Stock Observatory separates selected symbol/window, OHLCV evidence, and current option-chain context. Market Pulse accepts partial rows so one public-symbol outage cannot erase every available sector or macro observation. Lightweight Charts owns market series; accessible SVG owns numeric option scenarios; shadcn/ui owns interaction components, progressive disclosure, and evidence navigation.
+
+Cross-lab links carry only a validated ticker in the URL. Strategy rules, option legs, model assumptions, and research results are never encoded into navigation state. The Stock watchlist is browser-local navigation metadata and is not an authenticated portfolio or DuckDB research record.
 
 Hosted authentication is intentionally absent. Storage tables allow nullable `owner_id` so repository logic can later support users without contaminating domain models.
 

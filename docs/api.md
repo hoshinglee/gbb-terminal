@@ -16,6 +16,17 @@ FastAPI is the orchestration boundary. Routes validate requests, call market/dom
 | `POST /api/v2/parameter-searches` | Run exhaustive or seeded Optuna walk-forward search, evaluate an untouched final window, and persist the selected run. |
 | `GET /api/v2/chart-data` | Return date-aligned OHLCV, indicators, and source metadata. |
 
+## V2 observability endpoints
+
+| Endpoint | Definition |
+| --- | --- |
+| `GET /api/v2/stocks/{ticker}?period=1y` | Return quote evidence and day/week/month/year OHLCV with technical indicators and provenance. |
+| `GET /api/v2/market-overview` | Return SPY context, sector breadth inputs, three-month relative strength, cross-asset proxies, provider status, and generation time. |
+| `GET /api/v2/data-providers` | Return configured free-provider adapter status. |
+| `GET /api/v2/public-data/*` | Return SEC, FINRA, FRED, or OCC payloads with provider metadata and stale-cache fallback where available. |
+
+Market overview rows are independently available or unavailable. A failed Yahoo symbol returns a visible row-level warning without discarding successful sector and macro rows. Fresh DuckDB price snapshots are labelled `Cached Snapshot`; they retain source, observation, known-at, retrieval, and quality-warning fields.
+
 ## V2 option endpoints
 
 | Endpoint | Definition |

@@ -55,8 +55,22 @@ class MarketData:
             raise ValueError("Ticker contains unsupported characters.")
         cached = self.store.load_history(symbol, period)
         if cached is not None:
+            retrieved_at = datetime.now(timezone.utc)
+            observation = pd.Timestamp(cached.index[-1]).to_pydatetime().replace(tzinfo=timezone.utc)
             self.history_cache[symbol] = cached
-            self.updated_at[symbol] = datetime.now(timezone.utc)
+            self.updated_at[symbol] = retrieved_at
+            self.metadata[symbol] = {
+                "dataset": "daily_prices",
+                "symbol": symbol,
+                "source": "Yahoo Finance",
+                "status": "Cached Snapshot",
+                "knownAt": observation.isoformat(),
+                "observationTimestamp": observation.isoformat(),
+                "retrievedAt": retrieved_at.isoformat(),
+                "qualityWarnings": ["Serving a fresh local DuckDB snapshot from a delayed public-data source."],
+                "remainingQuota": None,
+                "cached": True,
+            }
             return cached.copy()
         try:
             envelope = await asyncio.to_thread(self.yahoo.history, symbol, period)
@@ -117,14 +131,61 @@ class MarketData:
     def provider_statuses(self) -> list[dict]:
         return [provider.status() for provider in self.providers]
 
+    async def _dashboard_row(self, symbol: str, name: str, period: str, benchmark_return: float | None = None) -> dict:
+        try:
+            history = await self.history(symbol, period)
+            close = history["Close"].dropna()
+            if len(close) < 2:
+                raise ValueError(f"Not enough observations are available for {symbol}.")
+            last, previous = float(close.iloc[-1]), float(close.iloc[-2])
+            period_return = float(last / close.iloc[0] - 1)
+            return {
+                "symbol": symbol,
+                "name": name,
+                "price": round(last, 2),
+                "change": round(last - previous, 2),
+                "changePercent": round((last / previous - 1) * 100, 2),
+                "periodReturn": round(period_return * 100, 2),
+                "relativeStrength": round((period_return - benchmark_return) * 100, 2) if benchmark_return is not None else None,
+                "dataStatus": self.metadata.get(symbol, {}),
+                "available": True,
+            }
+        except ValueError as error:
+            retrieved_at = datetime.now(timezone.utc).isoformat()
+            return {
+                "symbol": symbol,
+                "name": name,
+                "price": None,
+                "change": None,
+                "changePercent": None,
+                "periodReturn": None,
+                "relativeStrength": None,
+                "dataStatus": {
+                    "dataset": "daily_prices",
+                    "symbol": symbol,
+                    "source": "Yahoo Finance",
+                    "status": "Unavailable",
+                    "retrievedAt": retrieved_at,
+                    "qualityWarnings": [str(error)],
+                    "cached": False,
+                },
+                "available": False,
+            }
+
     async def dashboard(self) -> dict:
-        sector_quotes = await asyncio.gather(*(self.quote(symbol) for symbol in SECTORS))
-        sector_rows = [{"symbol": symbol, "name": SECTORS[symbol], **quote} for symbol, quote in zip(SECTORS, sector_quotes)]
-        spy = await self.history("SPY", "3mo")
-        spy_return = spy.Close.iloc[-1] / spy.Close.iloc[0] - 1
-        macro_quotes = await asyncio.gather(*(self.quote(symbol) for symbol in MACRO))
-        macro_rows = [{"name": MACRO[symbol], **quote} for symbol, quote in zip(MACRO, macro_quotes)]
-        sector_history = await asyncio.gather(*(self.history(row["symbol"], "3mo") for row in sector_rows))
-        for row, series in zip(sector_rows, sector_history):
-            row["relativeStrength"] = round(((series.Close.iloc[-1] / series.Close.iloc[0] - 1) - spy_return) * 100, 2)
-        return {"sectors": sorted(sector_rows, key=lambda row: row["changePercent"], reverse=True), "macro": macro_rows}
+        benchmark = await self._dashboard_row("SPY", "S&P 500 ETF", "3mo")
+        benchmark_return = benchmark["periodReturn"] / 100 if benchmark["periodReturn"] is not None else None
+        sector_rows = await asyncio.gather(*(
+            self._dashboard_row(symbol, name, "3mo", benchmark_return)
+            for symbol, name in SECTORS.items()
+        ))
+        macro_rows = await asyncio.gather(*(
+            self._dashboard_row(symbol, name, "3mo")
+            for symbol, name in MACRO.items()
+        ))
+        ordered_sectors = sorted(
+            sector_rows,
+            key=lambda row: (row["changePercent"] is not None, row["changePercent"] if row["changePercent"] is not None else float("-inf")),
+            reverse=True,
+        )
+        return {"benchmark": benchmark, "sectors": ordered_sectors, "macro": macro_rows}

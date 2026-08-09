@@ -9,11 +9,11 @@ flowchart LR
     Investor[Hobbyist Investor]
 
     subgraph Browser[Browser]
-        ReactUI[React Research App<br/>Strategy Lab + Option Lab]
-        LegacyUI[Legacy Panels<br/>Stock + Market + Migration Fallback]
+        ReactUI[React Research App<br/>Strategy + Options + Stock + Market]
+        LegacyUI[Explicit Vanilla Migration Fallback]
         Charts[Lightweight Charts]
         Scenarios[Accessible Scenario SVG]
-        Workspace[Strategy + Option Workspace State]
+        Workspace[Domain-Isolated Workspace State]
         ReactUI --> Workspace
         Workspace --> Charts
         Workspace --> Scenarios
@@ -238,6 +238,53 @@ sequenceDiagram
     DB-->>UI: Reconciled ledger
 ```
 
+## Frontend Observability Canvases
+
+```mermaid
+flowchart LR
+    subgraph Stock[React Stock Observatory]
+        StockContext[Ticker + Window]
+        Watchlist[Browser-Local Watchlist]
+        Quote[Quote + Provenance]
+        Replay[Day/Week/Month/Year OHLCV<br/>Volume + RSI + MACD]
+        OptionContext[Expiry-Aware Current Chain]
+        StockContext --> Quote
+        StockContext --> Replay
+        StockContext --> OptionContext
+        Watchlist --> StockContext
+    end
+
+    subgraph Market[React Market Pulse]
+        Benchmark[SPY Context]
+        Breadth[Sector Breadth]
+        Relative[3M Relative Strength]
+        Macro[Cross-Asset Proxies]
+        Providers[Provider Readiness]
+        Benchmark --> Breadth
+        Benchmark --> Relative
+    end
+
+    StockAPI[GET /api/v2/stocks/:ticker] --> Quote
+    StockAPI --> Replay
+    ChainAPI[GET /api/v2/options/chains/:ticker] --> OptionContext
+    MarketAPI[GET /api/v2/market-overview] --> Benchmark
+    MarketAPI --> Breadth
+    MarketAPI --> Relative
+    MarketAPI --> Macro
+    MarketAPI --> Providers
+    DuckDB[(DuckDB Cache)] --> StockAPI
+    DuckDB --> ChainAPI
+    DuckDB --> MarketAPI
+    Yahoo[Yahoo Finance] --> StockAPI
+    Yahoo --> ChainAPI
+    Yahoo --> MarketAPI
+    Relative -->|Validated ticker link| StockContext
+    StockContext -->|Ticker only| Strategy[Strategy Lab]
+    StockContext -->|Ticker only| Options[Option Lab]
+```
+
+Stock and market state never becomes strategy identity or option-position state. Cross-lab navigation carries only a validated symbol. Market overview rows fail independently, so an unavailable ETF or macro proxy remains visible with warnings while successful current or cached rows continue rendering.
+
 ## Research Run And Data Retrieval
 
 ```mermaid
@@ -417,4 +464,4 @@ flowchart LR
     LegacyRoute --> Legacy
 ```
 
-When the React build exists, `/` serves Strategy Lab and `/?lab=options` selects Option Lab from the same generated application. Without generated assets, `/` falls back to the vanilla application. `/legacy` always remains available during the panel-by-panel migration.
+When the React build exists, `/` serves Strategy Lab while `/?lab=options`, `/?lab=stock`, and `/?lab=market` select the other lazy-loaded canvases from the same generated application. Without generated assets, `/` falls back to the vanilla application. `/legacy` remains available until connected-browser parity gates allow explicit retirement.

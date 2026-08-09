@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 import pandas as pd
@@ -17,6 +17,14 @@ def create_market_router(data: MarketData) -> APIRouter:
     @router.get("/data-providers")
     async def providers():
         return {"providers": data.provider_statuses()}
+
+    @router.get("/market-overview")
+    async def market_overview():
+        try:
+            payload = await data.dashboard()
+            return {**payload, "providers": data.provider_statuses(), "generatedAt": datetime.now(timezone.utc).isoformat()}
+        except ValueError as error:
+            raise bad_request(error) from error
 
     async def public_payload(dataset: str, symbol: str, loader, transform=lambda value: value) -> dict[str, Any]:
         try:

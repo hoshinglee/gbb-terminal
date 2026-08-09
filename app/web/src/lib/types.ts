@@ -219,11 +219,58 @@ export interface LegacyProposal {
 }
 
 export interface DataStatus {
+  dataset?: string
+  symbol?: string
   source?: string
   status?: string
   observationTimestamp?: string
   knownAt?: string
+  retrievedAt?: string
   qualityWarnings?: string[]
+  remainingQuota?: number | null
+  cached?: boolean
+}
+
+export interface StockQuote {
+  symbol: string
+  price: number
+  change: number
+  changePercent: number
+  periodReturn: number
+  updatedAt?: string | null
+  dataStatus: DataStatus
+}
+
+export interface StockOverviewResponse {
+  quote: StockQuote
+  marketChart: MarketChartPayload
+  period: string
+}
+
+export interface MarketOverviewRow {
+  symbol: string
+  name: string
+  price: number | null
+  change: number | null
+  changePercent: number | null
+  periodReturn: number | null
+  relativeStrength: number | null
+  dataStatus: DataStatus
+  available: boolean
+}
+
+export interface DataProviderStatus {
+  provider: string
+  configured: boolean
+  status: string
+}
+
+export interface MarketOverviewResponse {
+  benchmark: MarketOverviewRow
+  sectors: MarketOverviewRow[]
+  macro: MarketOverviewRow[]
+  providers: DataProviderStatus[]
+  generatedAt: string
 }
 
 export type OptionType = "call" | "put"

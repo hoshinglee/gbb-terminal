@@ -56,10 +56,10 @@ function OptionJourney({ simulation, ledger }: { simulation: OptionSimulationRes
   return <ol aria-label="Option Lab progress" className="grid overflow-hidden rounded-lg border sm:grid-cols-3">{stages.map((stage) => { const complete = stage.number < currentStage; const active = stage.number === currentStage; return <li key={stage.number} aria-current={active ? "step" : undefined} className={cn("flex items-center gap-3 border-b p-3 last:border-0 sm:border-b-0 sm:border-r sm:last:border-r-0", active && "bg-primary/8", complete && "bg-muted/35")}><span className={cn("grid size-7 shrink-0 place-items-center rounded-full border font-mono text-xs text-muted-foreground", active && "border-primary bg-primary text-primary-foreground", complete && "border-primary/50 text-primary")}>{complete ? <Check className="size-3.5" /> : active ? stage.number : <Circle className="size-3" />}</span><span><strong className={cn("block text-sm", active && "text-primary")}>{stage.title}</strong><small className="text-[10px] text-muted-foreground">{stage.note}</small></span></li> })}</ol>
 }
 
-export function OptionLab() {
+export function OptionLab({ initialTicker = "NVDA" }: { initialTicker?: string }) {
   const [templates, setTemplates] = useState<OptionPositionTemplate[]>(FALLBACK_OPTION_TEMPLATES)
   const [templateError, setTemplateError] = useState("")
-  const [draft, setDraft] = useState<OptionPositionCreate>(() => createOptionDraft(FALLBACK_OPTION_TEMPLATES[0]))
+  const [draft, setDraft] = useState<OptionPositionCreate>(() => createOptionDraft(FALLBACK_OPTION_TEMPLATES[0], { ticker: initialTicker }))
   const [chain, setChain] = useState<OptionChainResponse | null>(null)
   const [chainLoading, setChainLoading] = useState(false)
   const [chainError, setChainError] = useState("")

@@ -129,8 +129,8 @@ function workspaceReducer(state: WorkspaceState, action: WorkspaceAction): Works
 
 const WorkspaceContext = createContext<{ state: WorkspaceState; dispatch: Dispatch<WorkspaceAction> } | null>(null)
 
-export function ResearchWorkspaceProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(workspaceReducer, initialState)
+export function ResearchWorkspaceProvider({ children, initialTicker = "NVDA" }: { children: ReactNode; initialTicker?: string }) {
+  const [state, dispatch] = useReducer(workspaceReducer, { ...initialState, ticker: initialTicker })
   const value = useMemo(() => ({ state, dispatch }), [state])
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>
 }
