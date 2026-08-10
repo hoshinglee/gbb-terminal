@@ -1,6 +1,23 @@
 from .identity import IdentityConflictError, normalize_cik, normalize_exchange, normalize_fiscal_year_end, normalize_ticker
 from .company_service import CompanyFinancialHistory, CompanyIntelligenceService
 from .fact_models import FinancialFact, FinancialFactQuery
+from .earnings import EarningsIntelligenceService, EarningsReactionEngine
+from .earnings_models import (
+    EARNINGS_MODEL_VERSION,
+    REACTION_ENGINE_VERSION,
+    EarningsAggregate,
+    EarningsEvent,
+    EarningsEventAnalysis,
+    EarningsEvidence,
+    EarningsHistory,
+    EarningsReaction,
+    EarningsReactionPathPoint,
+    EarningsReactionWindow,
+    EarningsSession,
+    EventTimingQuality,
+    ReportedMetric,
+)
+from .earnings_repository import EarningsRepository
 from .fact_repository import FinancialFactRepository
 from .fact_service import FactIngestionResult, FinancialFactService
 from .models import CompanyIdentity, CompanyProvenance, CompanyRegistration, CompanyStatus, SecurityMapping
@@ -30,6 +47,21 @@ __all__ = [
     "CompanyRegistration",
     "CompanyStatus",
     "FactIngestionResult",
+    "EARNINGS_MODEL_VERSION",
+    "REACTION_ENGINE_VERSION",
+    "EarningsAggregate",
+    "EarningsEvent",
+    "EarningsEventAnalysis",
+    "EarningsEvidence",
+    "EarningsHistory",
+    "EarningsIntelligenceService",
+    "EarningsReaction",
+    "EarningsReactionEngine",
+    "EarningsReactionPathPoint",
+    "EarningsReactionWindow",
+    "EarningsRepository",
+    "EarningsSession",
+    "EventTimingQuality",
     "FinancialFact",
     "FinancialFactQuery",
     "FinancialFactRepository",
@@ -42,6 +74,7 @@ __all__ = [
     "NormalizedMetric",
     "NormalizedMetricSet",
     "NormalizedMetricsService",
+    "ReportedMetric",
     "SecurityMapping",
     "UnitNormalizer",
     "HistoricalValuationService",

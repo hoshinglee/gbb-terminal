@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from ...intelligence.earnings_models import EarningsSession, EventTimingQuality
 from ...intelligence.metric_models import MetricPeriodKind
 from ...intelligence.valuation_models import ValuationFrequency, ValuationStatus
 
@@ -57,6 +58,24 @@ class ValuationQuery(V3QueryModel):
     frequency: ValuationFrequency = ValuationFrequency.WEEKLY
     metrics: str | None = Field(default=None, max_length=500)
     as_of: datetime | None = None
+
+    @field_validator("as_of")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("as_of must include a timezone offset.")
+        return value
+
+
+class EarningsQuery(V3QueryModel):
+    benchmark: str = Field(default="SPY", min_length=1, max_length=12, pattern=r"^[A-Za-z0-9.^=-]+$")
+    as_of: datetime | None = None
+    limit: int = Field(default=40, ge=1, le=100)
+
+    @field_validator("benchmark")
+    @classmethod
+    def normalize_benchmark(cls, value: str) -> str:
+        return value.strip().upper()
 
     @field_validator("as_of")
     @classmethod
@@ -231,3 +250,112 @@ class HistoricalValuationResponse(V3ResponseModel):
     statistics: dict[str, ValuationStatisticsResponse]
     warnings: list[str]
     provenance: ValuationProvenanceResponse
+
+
+class ReportedMetricResponse(V3ResponseModel):
+    metric_id: str
+    label: str
+    value: float | None
+    unit: str
+    period_end: date
+    source_fact_ids: list[str]
+    warnings: list[str]
+
+
+class EarningsEvidenceResponse(V3ResponseModel):
+    source: str
+    dataset: str
+    accession_number: str
+    filing_form: str
+    filing_url: str
+    filed_date: date
+    known_at: datetime
+    source_fact_ids: list[str]
+
+
+class EarningsEventResponse(V3ResponseModel):
+    event_id: str
+    company_id: str
+    cik: str
+    ticker: str
+    fiscal_year: int | None = None
+    fiscal_period: str | None = None
+    period_end: date
+    announcement_at: datetime | None = None
+    announcement_date: date
+    session: EarningsSession
+    timing_quality: EventTimingQuality
+    evidence: EarningsEvidenceResponse
+    reported_metrics: dict[str, ReportedMetricResponse]
+    guidance_metadata: dict
+    model_version: str
+    warnings: list[str]
+
+
+class EarningsReactionWindowResponse(V3ResponseModel):
+    window: str
+    end_session: date | None = None
+    stock_return: float | None = None
+    benchmark_return: float | None = None
+    benchmark_adjusted_return: float | None = None
+    status: str
+
+
+class EarningsReactionPathPointResponse(V3ResponseModel):
+    relative_session: int
+    session_date: date
+    close: float
+    cumulative_return: float
+    benchmark_adjusted_return: float | None = None
+    volume: float | None = None
+
+
+class EarningsReactionResponse(V3ResponseModel):
+    event_id: str
+    benchmark_ticker: str
+    anchor_session: date | None = None
+    prior_session: date | None = None
+    opening_gap: float | None = None
+    abnormal_volume: float | None = None
+    volume_percentile: float | None = None
+    windows: dict[str, EarningsReactionWindowResponse]
+    path: list[EarningsReactionPathPointResponse]
+    engine_version: str
+    warnings: list[str]
+
+
+class EarningsEventAnalysisResponse(V3ResponseModel):
+    event: EarningsEventResponse
+    reaction: EarningsReactionResponse
+
+
+class EarningsAggregateResponse(V3ResponseModel):
+    sample_size: int
+    typical_absolute_event_move: float | None = None
+    positive_reaction_frequency: float | None = None
+    median_d5_return: float | None = None
+    median_d20_return: float | None = None
+    event_move_minimum: float | None = None
+    event_move_maximum: float | None = None
+    excluded_events: int
+
+
+class EarningsProvenanceResponse(V3ResponseModel):
+    event_source: Literal["SEC EDGAR"] = "SEC EDGAR"
+    event_dataset: Literal["sec_company_facts"] = "sec_company_facts"
+    price_source: Literal["Yahoo Finance"] = "Yahoo Finance"
+    as_of: datetime
+    event_model_version: str
+    reaction_engine_version: str
+    source_fact_ids: list[str]
+
+
+class EarningsHistoryResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    company: CompanyReferenceResponse
+    benchmark_ticker: str
+    as_of: datetime
+    events: list[EarningsEventAnalysisResponse]
+    aggregate: EarningsAggregateResponse
+    warnings: list[str]
+    provenance: EarningsProvenanceResponse

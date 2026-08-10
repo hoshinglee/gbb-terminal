@@ -15,6 +15,8 @@ DuckDB is the local system of record and analytical cache. `LocalMarketStore` cr
 | `company_security_mappings` | Time-bounded ticker/exchange mappings, primary-security state, and mapping-level provenance. |
 | `sec_financial_facts` | Append-safe SEC/XBRL observations with accession identity, economic periods, `known_at`, and complete provider context. |
 | `valuation_series` | Versioned daily/weekly trailing valuation points with price, denominator, point-in-time fact lineage, status, and warnings. |
+| `earnings_events` | Stable fiscal events with announcement timing, SEC evidence, reported metrics, and quality warnings. |
+| `earnings_reactions` | Deterministic benchmark-specific event windows, reaction paths, volume context, and engine version. |
 | `strategy_catalogue` | Canonical JSON/legacy YAML, family, template version, and hidden semantic key. |
 | `backtest_runs`, `backtest_trades` | Legacy run summaries and closed trade records. |
 | `research_runs` | Immutable Strategy V2, data snapshot, validation, tested settings, and results. |
@@ -31,6 +33,8 @@ Company identity is independent of market-data symbol caches. `companies` retain
 Schema version 7 adds `sec_financial_facts`. Stable accession-based identities deduplicate repeated downloads while preserving later restatements as separate rows. Historical reads filter `known_at`; source accession, filing, period, frame, raw unit/value, retrieval status, and quality warnings remain inspectable. Raw SEC payloads continue using `provider_cache` for stale-data fallback.
 
 Schema version 8 adds `valuation_series`. Historical points are replaceable only within the same company, ticker, date, frequency, metric, and engine version. Recalculation under a newer engine version remains distinguishable, and source fact IDs preserve the point-in-time denominator lineage.
+
+Schema version 9 adds `earnings_events` and `earnings_reactions`. Event identity is stable across repeated ingestion; reaction identity includes benchmark and engine version. Source evidence, reported metrics, calculated paths, warnings, and computation timestamps remain inspectable.
 
 Runtime `data/` is excluded from Git.
 

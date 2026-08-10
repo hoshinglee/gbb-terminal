@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import asyncio
 from datetime import date, datetime, timezone
 from typing import TYPE_CHECKING
 
 from .fact_models import FinancialFact, FinancialFactQuery
+from .earnings import EarningsIntelligenceService
+from .earnings_models import EarningsHistory
 from .fact_service import FinancialFactService
 from .metric_models import MetricPeriodKind, NormalizedMetricSet
 from .metrics import NormalizedMetricsService
@@ -34,12 +37,14 @@ class CompanyIntelligenceService:
         metrics: NormalizedMetricsService,
         valuation: HistoricalValuationService | None = None,
         market_data: MarketData | None = None,
+        earnings: EarningsIntelligenceService | None = None,
     ) -> None:
         self.identities = identities
         self.facts = facts
         self.metrics = metrics
         self.valuation = valuation
         self.market_data = market_data
+        self.earnings = earnings
 
     def company_overview(self, ticker: str, as_of: date | None = None) -> CompanyIdentity:
         company = self.identities.resolve_ticker(ticker, as_of=as_of)
@@ -100,3 +105,32 @@ class CompanyIntelligenceService:
             price_source=metadata.get("source", "Yahoo Finance"),
             price_warnings=metadata.get("qualityWarnings", []),
         )
+
+    async def earnings_history(
+        self,
+        ticker: str,
+        benchmark: str,
+        as_of: datetime | None,
+        limit: int,
+    ) -> EarningsHistory:
+        self.company_overview(ticker)
+        if self.earnings is None or self.market_data is None:
+            raise RuntimeError("Earnings intelligence is not configured for this application instance.")
+        stock_prices, benchmark_prices = await asyncio.gather(
+            self.market_data.history(ticker, "10y"),
+            self.market_data.history(benchmark, "10y"),
+        )
+        result = self.earnings.analyze(
+            ticker,
+            stock_prices,
+            benchmark_prices,
+            benchmark_ticker=benchmark,
+            as_of=as_of,
+            limit=limit,
+        )
+        provider_warnings = [
+            warning
+            for symbol in (ticker.upper(), benchmark.upper())
+            for warning in self.market_data.metadata.get(symbol, {}).get("qualityWarnings", [])
+        ]
+        return result.model_copy(update={"warnings": list(dict.fromkeys([*result.warnings, *provider_warnings]))})

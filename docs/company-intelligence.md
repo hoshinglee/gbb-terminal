@@ -68,6 +68,12 @@ INT-05 adds daily or weekly historical trailing valuation using adjusted securit
 
 See [Historical Point-In-Time Valuation](historical-valuation.md) for deterministic alignment, formulas, statistics, and DuckDB cache behavior.
 
+## Earnings Events
+
+INT-06 persists first-class fiscal events with stable identity, SEC filing evidence, timing quality, normalized reported metrics, and session-aware market reactions. Before-open, after-close, weekend/holiday, intraday, and unknown-time events have deterministic anchor rules. D0 through D+60, benchmark adjustment, abnormal volume, reaction paths, and aggregate sample sizes remain reproducible and warning-rich.
+
+See [Earnings Events And Reaction Analytics](earnings-intelligence.md) for window definitions and limitations.
+
 ## SEC Directory Sync
 
 The SEC publishes a periodically updated CIK, company-name, ticker, and exchange association file. The SEC states that its accuracy and scope are not guaranteed, so GBB preserves that warning in every ingested mapping and does not treat the retrieval date as a proven historical listing date.

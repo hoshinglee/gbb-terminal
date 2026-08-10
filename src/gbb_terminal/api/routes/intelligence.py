@@ -14,6 +14,11 @@ from ..schemas.v3 import (
     FinancialFactResponse,
     FinancialHistoryQuery,
     FinancialHistoryResponse,
+    EarningsAggregateResponse,
+    EarningsEventAnalysisResponse,
+    EarningsHistoryResponse,
+    EarningsProvenanceResponse,
+    EarningsQuery,
     HistoricalValuationResponse,
     MetricsProvenanceResponse,
     MetricsQuery,
@@ -151,6 +156,53 @@ def create_intelligence_router(service: CompanyIntelligenceService) -> APIRouter
                     price_source=price_source,
                     as_of=result.as_of,
                     engine_version=result.engine_version,
+                    source_fact_ids=source_fact_ids,
+                ),
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get("/companies/{ticker}/earnings", response_model=EarningsHistoryResponse)
+    async def earnings_history(
+        ticker: str,
+        query: Annotated[EarningsQuery, Query()],
+    ) -> EarningsHistoryResponse:
+        try:
+            result = await service.earnings_history(ticker, query.benchmark, query.as_of, query.limit)
+            company = service.company_overview(ticker)
+            source_fact_ids = list(
+                dict.fromkeys(
+                    source
+                    for analysis in result.events
+                    for source in analysis.event.evidence.source_fact_ids
+                )
+            )
+            event_model_version = next(
+                (analysis.event.model_version for analysis in result.events),
+                "1.0.0",
+            )
+            reaction_engine_version = next(
+                (analysis.reaction.engine_version for analysis in result.events),
+                "1.0.0",
+            )
+            return EarningsHistoryResponse(
+                company=_company_reference(company),
+                benchmark_ticker=result.benchmark_ticker,
+                as_of=result.as_of,
+                events=[
+                    EarningsEventAnalysisResponse.model_validate(analysis.model_dump())
+                    for analysis in result.events
+                ],
+                aggregate=EarningsAggregateResponse.model_validate(result.aggregate.model_dump()),
+                warnings=result.warnings,
+                provenance=EarningsProvenanceResponse(
+                    as_of=result.as_of,
+                    event_model_version=event_model_version,
+                    reaction_engine_version=reaction_engine_version,
                     source_fact_ids=source_fact_ids,
                 ),
             )

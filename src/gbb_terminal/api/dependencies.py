@@ -8,6 +8,8 @@ from ..intelligence.fact_repository import FinancialFactRepository
 from ..intelligence.fact_service import FinancialFactService
 from ..intelligence.metrics import NormalizedMetricsService
 from ..intelligence.company_service import CompanyIntelligenceService
+from ..intelligence.earnings import EarningsIntelligenceService
+from ..intelligence.earnings_repository import EarningsRepository
 from ..intelligence.valuation import HistoricalValuationService
 from ..intelligence.valuation_repository import ValuationRepository
 from ..llm.translator import StrategyTranslator
@@ -27,6 +29,7 @@ class ApplicationServices:
     financial_facts: FinancialFactService
     normalized_metrics: NormalizedMetricsService
     historical_valuation: HistoricalValuationService
+    earnings_intelligence: EarningsIntelligenceService
     company_intelligence: CompanyIntelligenceService
 
 
@@ -45,6 +48,10 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
         normalized_metrics,
         ValuationRepository(store.connection),
     )
+    earnings_intelligence = EarningsIntelligenceService(
+        normalized_metrics,
+        EarningsRepository(store.connection),
+    )
     return ApplicationServices(
         store=store,
         market_data=market_data,
@@ -54,11 +61,13 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
         financial_facts=financial_facts,
         normalized_metrics=normalized_metrics,
         historical_valuation=historical_valuation,
+        earnings_intelligence=earnings_intelligence,
         company_intelligence=CompanyIntelligenceService(
             company_identity,
             financial_facts,
             normalized_metrics,
             historical_valuation,
             market_data,
+            earnings_intelligence,
         ),
     )
