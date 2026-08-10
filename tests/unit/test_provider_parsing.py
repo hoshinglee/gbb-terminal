@@ -1,6 +1,7 @@
 from xml.etree import ElementTree
 
 import pandas as pd
+import pytest
 
 from gbb_terminal.market_data.providers.sec import SECProvider
 from gbb_terminal.market_data.providers.yahoo import YahooProvider
@@ -24,6 +25,41 @@ def test_sec_number_handles_missing_and_invalid_values():
     assert SECProvider._number("12.5") == 12.5
     assert SECProvider._number(None) is None
     assert SECProvider._number("not-a-number") is None
+
+
+def test_sec_company_ticker_directory_parser_uses_named_fields():
+    payload = {
+        "fields": ["name", "exchange", "ticker", "cik"],
+        "data": [
+            ["NVIDIA CORP", "Nasdaq", "NVDA", 1045810],
+            ["Missing Ticker", "NYSE", "", 1234],
+        ],
+    }
+
+    assert SECProvider.company_ticker_rows(payload) == [
+        {"cik": 1045810, "legalName": "NVIDIA CORP", "ticker": "NVDA", "exchange": "Nasdaq"}
+    ]
+
+
+def test_sec_company_ticker_directory_rejects_unknown_shape():
+    with pytest.raises(ValueError, match="expected fields"):
+        SECProvider.company_ticker_rows({"fields": ["name", "ticker"], "data": []})
+
+
+def test_sec_acceptance_times_are_keyed_by_accession():
+    payload = {
+        "filings": {
+            "recent": {
+                "accessionNumber": ["0001-24-000001", "0001-24-000002"],
+                "acceptanceDateTime": ["2024-02-01T20:30:00Z", ""],
+            }
+        }
+    }
+
+    result = SECProvider.acceptance_times(payload)
+
+    assert result["0001-24-000001"].isoformat() == "2024-02-01T20:30:00+00:00"
+    assert "0001-24-000002" not in result
 
 
 def test_yahoo_option_chain_uses_requested_expiry_and_keeps_all_contracts(monkeypatch):

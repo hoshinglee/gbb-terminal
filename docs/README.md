@@ -9,7 +9,9 @@ GBB Terminal is a local-first US equity research and option lifecycle applicatio
 | Architecture | Boundaries, data flow, path resolution, and deployment seams | [Architecture](architecture.md) |
 | System diagrams | Runtime, frontend state, research sequence, DuckDB model, and build fallback | [System Diagrams](system-diagrams.md) |
 | Configuration | Local YAML preferences, environment overrides, and provider keys | [`conf/README.md`](../conf/README.md) |
-| API | Legacy-compatible and V2 HTTP contracts | [API](api.md) |
+| API | Legacy-compatible V2 research contracts and strict V3 Company Intelligence contracts | [API](api.md) |
+| Company Intelligence | Canonical company identity, security history, resolution, and SEC directory sync | [Company Intelligence](company-intelligence.md) |
+| Financial metrics | Versioned SEC concept mappings, units, annual/quarterly/TTM views, derivations, warnings, and lineage | [Financial Metrics](financial-metrics.md) |
 | Strategy Model V2 | Templates, instances, parameters, rule graphs, and research runs | [Strategy Model V2](strategy-model-v2.md) |
 | Strategy engine | Safe declarative rule evaluation and semantic identity | [Strategy engine](strategy-engine.md) |
 | Backtesting | Execution assumptions, metrics, benchmarks, search, and portfolios | [Backtesting](backtesting.md) |
@@ -23,7 +25,7 @@ GBB Terminal is a local-first US equity research and option lifecycle applicatio
 | Market replay | Candles, interval aggregation, overlays, volume, RSI, and MACD | [Market Replay](market-replay.md) |
 | Strategy Lab UX | Implemented research-canvas interaction model and remaining panel migration | [Strategy Lab UX](strategy-lab-ux.md) |
 | Release readiness | Completed research gates and deferred launch-stability checks | [Release Checklist](release-checklist.md) |
-| Product backlog | Prioritized Option Lab completion, React migration, and post-0.6 usefulness work | [Product Backlog](product-backlog.md) |
+| Product backlog | Completed laboratory foundations and the 0.7–0.9 Company Intelligence direction | [Product Backlog](product-backlog.md) |
 | Community extensions | Adding indicators and strategy templates safely | [Strategy Plugin Guide](strategy-plugin-guide.md) |
 
 ## Safety invariants

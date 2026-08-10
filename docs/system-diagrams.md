@@ -326,6 +326,24 @@ sequenceDiagram
     UI-->>User: Render charts, trade ledger, robustness, assumptions
 ```
 
+## Company Intelligence Metric Pipeline
+
+```mermaid
+flowchart LR
+    SEC[SEC Company Facts + Submissions] --> FactService[FinancialFactService]
+    Identity[Canonical company_id + CIK] --> FactService
+    FactService --> RawCache[(provider_cache)]
+    FactService --> Facts[(sec_financial_facts<br/>accession + known_at)]
+    Facts --> AsOf{as_of filter}
+    AsOf --> Definitions[Versioned Concept Precedence]
+    Definitions --> Units[Explicit Unit Normalization]
+    Units --> Periods[Annual / Discrete Quarter / TTM]
+    Periods --> Derived[Growth / Margins / FCF / ROE / ROIC / Net Debt]
+    Derived --> Evidence[Typed Values + Warnings + Source Fact IDs]
+```
+
+Provider extraction does not choose business metrics. The intelligence engine can be rerun deterministically against the same `as_of` boundary and definition version, while every result retains source-fact lineage.
+
 ## DuckDB Logical Model
 
 ```mermaid
@@ -437,10 +455,49 @@ erDiagram
         boolean cancel_requested
     }
 
+    COMPANIES {
+        string company_id PK
+        string cik UK
+        string legal_name
+        string status
+        string sector
+        string industry
+        string fiscal_year_end
+        json provenance
+    }
+
+    COMPANY_SECURITY_MAPPINGS {
+        string security_id PK
+        string company_id FK
+        string ticker
+        string exchange
+        date valid_from
+        date valid_to
+        boolean is_primary
+        string status
+        json provenance
+    }
+
+    SEC_FINANCIAL_FACTS {
+        string fact_id PK
+        string company_id FK
+        string taxonomy
+        string concept
+        double value
+        string unit
+        date period_end
+        timestamp known_at
+        string accession_number
+        string form
+        json source_metadata
+    }
+
     STRATEGY_CATALOGUE ||--o{ BACKTEST_RUNS : defines
     BACKTEST_RUNS ||--o{ BACKTEST_TRADES : contains
     STRATEGY_CATALOGUE o|--o{ RESEARCH_RUNS : catalogues
     OPTION_POSITIONS ||--o{ OPTION_POSITION_EVENTS : journals
+    COMPANIES ||--o{ COMPANY_SECURITY_MAPPINGS : identifies
+    COMPANIES ||--o{ SEC_FINANCIAL_FACTS : reports
 ```
 
 The relationships shown are logical domain relationships; DuckDB does not currently declare every one as a foreign-key constraint. Cache tables are intentionally independent so provider outages and schema evolution do not block research records.

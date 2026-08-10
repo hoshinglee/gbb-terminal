@@ -101,7 +101,25 @@ Implementation status: P0.6 and P0.7 are implemented on the release 0.6 branch. 
 - Keep `/legacy` until Strategy Lab, Option Lab, Stock Observatory, and Market Pulse have API, interaction, accessibility, and narrow-layout parity.
 - Remove legacy navigation labels only after browser-contract and connected-browser acceptance tests pass.
 
-## Post-0.6 — Usefulness Enhancements
+## Release 0.7 — Company Intelligence Foundation
+
+Implementation status: INT-01 through INT-04 are implemented on the Release 0.7 branch. The backend foundation exit criteria are complete; a Company Intelligence browser canvas remains a later product milestone.
+
+### INT-01 — Canonical Company Identity
+
+- Persist stable company identity by `company_id` and normalized CIK.
+- Resolve active or historical ticker mappings to the same company.
+- Preserve ticker changes, alternate share classes, and delistings as dated security mappings.
+- Ingest the official SEC ticker/CIK/exchange directory with explicit source limitations and retrieval context.
+
+### INT-04 — V3 Company Intelligence APIs
+
+- Resolve ticker paths through canonical company identity rather than storing business data under ticker keys.
+- Expose company overview, point-in-time source facts, and normalized annual/quarterly/TTM metrics.
+- Keep provenance, as-of context, schema versions, warnings, and source lineage visible.
+- Preserve every V2 Stock Observatory, Strategy Lab, and Option Lab contract.
+
+## Cross-Release Usefulness Enhancements
 
 1. Compare saved stock and option research runs in one project workspace.
 2. Build prospective historical option-chain datasets from scheduled local snapshots.

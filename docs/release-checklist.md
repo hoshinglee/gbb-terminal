@@ -91,6 +91,20 @@ This checklist separates research correctness from launch-environment stabilizat
 - [ ] Complete connected-browser review across desktop, narrow, high-DPI, keyboard, chain-table, and provider-failure states.
 - [ ] Retire the vanilla fallback only after the connected-browser parity gate is signed off.
 
+## Release 0.7 — Company Intelligence Foundation
+
+- [x] Add a stable company model keyed by `company_id` and normalized SEC CIK.
+- [x] Separate time-bounded ticker/exchange mappings from company-business identity.
+- [x] Resolve ticker and CIK lookups to the same canonical company record.
+- [x] Persist companies and security mappings in backward-compatible DuckDB schema version 6.
+- [x] Preserve prior mappings through explicit ticker changes and delisting transitions.
+- [x] Persist source, observation, `known_at`, retrieval, cache, status, and warning context with identity records.
+- [x] Add idempotent SEC ticker/CIK/exchange directory ingestion without claiming complete historical coverage.
+- [x] Cover normalization, duplicate conflicts, metadata updates, history, delisting, SEC parsing, and database reopen behavior.
+- [x] Complete INT-02 point-in-time SEC facts with accession deduplication, restatement retention, acceptance-aware `known_at`, as-of reads, and provider-cache fallback.
+- [x] Complete INT-03 versioned concept precedence, unit normalization, annual/quarterly/TTM metrics, derivations, warnings, and source-fact lineage.
+- [x] Complete INT-04 strict V3 company overview, fact-history, and normalized-metric contracts with canonical identity, provenance, as-of context, documentation, and contract tests.
+
 ## Deferred Launch Stability — Former Release 0.3 Gates
 
 Run these when preparing an actual public release candidate:

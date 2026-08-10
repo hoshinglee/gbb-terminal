@@ -19,6 +19,7 @@ from ..strategy.models import ExecutionAssumptions, StrategyInstance
 from .dependencies import build_services
 from .routes.backtests import create_backtest_router
 from .routes.market import create_market_router
+from .routes.intelligence import create_intelligence_router
 from .routes.options import create_option_router
 from .routes.stocks import create_stock_router
 from .routes.strategies import create_strategy_router
@@ -82,6 +83,7 @@ app.include_router(create_backtest_router(store, data, catalogue))
 app.include_router(create_option_router(store, data))
 app.include_router(create_stock_router(data))
 app.include_router(create_market_router(data))
+app.include_router(create_intelligence_router(services.company_intelligence))
 
 
 @app.middleware("http")

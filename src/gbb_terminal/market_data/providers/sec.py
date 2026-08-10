@@ -10,6 +10,23 @@ from .base import BaseProvider
 class SECProvider(BaseProvider):
     name = "SEC EDGAR"
 
+    def company_tickers(self) -> DataEnvelope[list[dict]]:
+        payload = self.request_json("https://www.sec.gov/files/company_tickers_exchange.json")
+        retrieved_at = datetime.now(timezone.utc)
+        return DataEnvelope(
+            "sec_company_tickers",
+            "US",
+            self.company_ticker_rows(payload),
+            retrieved_at,
+            retrieved_at,
+            retrieved_at,
+            self.delayed_status,
+            self.name,
+            [
+                "SEC ticker, CIK, and exchange associations are periodically updated and do not guarantee accuracy, scope, or historical effective dates."
+            ],
+        )
+
     def submissions(self, cik: str) -> DataEnvelope[dict]:
         normalized = "".join(character for character in cik if character.isdigit()).zfill(10)
         payload = self.request_json(f"https://data.sec.gov/submissions/CIK{normalized}.json")
@@ -56,6 +73,44 @@ class SECProvider(BaseProvider):
         keys = ("accessionNumber", "filingDate", "reportDate", "acceptanceDateTime", "form", "primaryDocument")
         rows = [dict(zip(keys, values)) for values in zip(*(recent.get(key, []) for key in keys))]
         return [row for row in rows if row["form"] in forms]
+
+    @staticmethod
+    def acceptance_times(payload: dict) -> dict[str, datetime]:
+        recent = payload.get("filings", {}).get("recent", {})
+        result = {}
+        for accession, accepted in zip(
+            recent.get("accessionNumber", []),
+            recent.get("acceptanceDateTime", []),
+        ):
+            if accession and accepted:
+                timestamp = datetime.fromisoformat(accepted.replace("Z", "+00:00"))
+                result[accession] = timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=timezone.utc)
+        return result
+
+    @staticmethod
+    def company_ticker_rows(payload: dict) -> list[dict]:
+        fields = payload.get("fields", [])
+        required = {"cik", "name", "ticker", "exchange"}
+        if not required.issubset(fields):
+            raise ValueError("The SEC company-ticker directory does not contain its expected fields.")
+        indexes = {field: fields.index(field) for field in required}
+        rows = []
+        for values in payload.get("data", []):
+            if not isinstance(values, list) or len(values) < len(fields):
+                continue
+            ticker = values[indexes["ticker"]]
+            name = values[indexes["name"]]
+            cik = values[indexes["cik"]]
+            if ticker and name and cik is not None:
+                rows.append(
+                    {
+                        "cik": cik,
+                        "legalName": name,
+                        "ticker": ticker,
+                        "exchange": values[indexes["exchange"]] or None,
+                    }
+                )
+        return rows
 
     @staticmethod
     def _local_name(tag: str) -> str:

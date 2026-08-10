@@ -4,6 +4,24 @@ Sources: `src/gbb_terminal/api/main.py`, `src/gbb_terminal/api/routes/`, and `sr
 
 FastAPI is the orchestration boundary. Routes validate requests, call market/domain services, persist immutable records, and return browser-ready data. Calculation logic remains outside the route layer.
 
+## V3 Company Intelligence endpoints
+
+V3 separates company-business research from V2 security-market observability. A ticker in the path is first resolved through the canonical company registry; business facts and metrics are then queried by stable `company_id`.
+
+| Endpoint | Definition |
+| --- | --- |
+| `GET /api/v3/companies/{ticker}` | Return canonical company metadata, active/latest primary security, complete dated security mappings, and company/mapping provenance. Optional `as_of=YYYY-MM-DD` resolves a historical ticker association. |
+| `GET /api/v3/companies/{ticker}/financials` | Return point-in-time SEC fact observations. Optional `concepts`, `forms`, timezone-aware `as_of`, and `limit` filters are applied before serialization. |
+| `GET /api/v3/companies/{ticker}/metrics` | Return normalized annual, quarterly, or TTM metrics using `period=annual|quarterly|ttm` and optional timezone-aware `as_of`. |
+
+All V3 responses include `apiVersion: "v3"`. Response fields use camelCase; internal Python domain models remain snake_case. V3 query and response schemas reject unknown fields. A missing canonical company returns `404`; invalid filters or domain inputs return `400`; invalid/unknown query parameters return `422`.
+
+Company overview provenance includes source, dataset, observation, `knownAt`, retrieval, provider status, cache state, quota, and quality warnings. Every raw financial fact includes accession, filing, frame, economic period, exact/fallback `knownAt` semantics, raw unit/value, provider context, and source metadata. Metric responses expose `asOf`, definition version, warnings, and the complete set of source fact IDs used by their non-null values.
+
+`matchingFactCount` reports all rows matching the financial-history filters; `returnedFactCount` reports rows included under `limit`. Truncation adds an explicit warning rather than silently implying complete history.
+
+V3 does not extend `/api/v2/stocks/{ticker}` with fundamentals. V2 remains the contract for quotes, OHLCV, technical context, and current option-market context. Company Intelligence has no brokerage execution and does not reinterpret a ticker as durable business identity.
+
 ## V2 research endpoints
 
 | Endpoint | Definition |

@@ -13,6 +13,7 @@ GBB Terminal is an educational research workbench, not an execution system, brok
 - `src/gbb_terminal/strategy/`: strategy contracts, templates, safe factory, and indicators.
 - `src/gbb_terminal/backtesting/`: signal execution, costs, metrics, parameter search, and portfolio ranking. Option-specific scenario paths remain under `options/`.
 - `src/gbb_terminal/options/`: option contracts, American pricing, scenario simulation, strategy templates, and lifecycle transitions.
+- `src/gbb_terminal/intelligence/`: canonical company identity, historical security mappings, and future business-intelligence services.
 - `src/gbb_terminal/market_data/`: provider-neutral service and public provider adapters.
 - `src/gbb_terminal/storage/`: DuckDB system of record.
 - `src/gbb_terminal/llm/`: optional language-model translation only.
@@ -35,6 +36,12 @@ The root route selects `app/static/react/index.html` only when a production fron
 The React Strategy Lab keeps one reducer-backed research workspace. Natural-language, template, and catalogue selections are mutually exclusive, preventing stale template parameters from surviving a selection change. The React Option Lab keeps position-draft, chain-snapshot, simulation, and persisted-ledger state separate so editing an assumption cannot silently mutate an earlier journal state. Stock Observatory separates selected symbol/window, OHLCV evidence, and current option-chain context. Market Pulse accepts partial rows so one public-symbol outage cannot erase every available sector or macro observation. Lightweight Charts owns market series; accessible SVG owns numeric option scenarios; shadcn/ui owns interaction components, progressive disclosure, and evidence navigation.
 
 Cross-lab links carry only a validated ticker in the URL. Strategy rules, option legs, model assumptions, and research results are never encoded into navigation state. The Stock watchlist is browser-local navigation metadata and is not an authenticated portfolio or DuckDB research record.
+
+Company Intelligence has a separate identity boundary. Price and option requests continue using normalized tickers, while business-data consumers resolve that security through `CompanyIdentityService` into a stable `company_id`. CIK identifies the SEC filer; ticker/exchange mappings carry validity periods so ticker changes, alternate share classes, and delistings cannot rewrite company history. See [Company Intelligence](company-intelligence.md).
+
+Point-in-time Company Facts are persisted independently from normalized metrics. `FinancialFactService` owns SEC ingestion, source identity, acceptance-aware `known_at`, and as-of retrieval. `NormalizedMetricsService` owns versioned concept precedence, unit conversion, annual/quarterly/TTM construction, derived calculations, warnings, and source-fact lineage. API routes do not perform financial normalization.
+
+`CompanyIntelligenceService` is the V3 orchestration boundary. The router only validates strict query models, maps typed domain results to explicit camelCase response schemas, and translates lookup/validation failures into HTTP semantics. No Company Intelligence calculation is implemented inside API routes, and V2 stock/option route contracts remain unchanged.
 
 Hosted authentication is intentionally absent. Storage tables allow nullable `owner_id` so repository logic can later support users without contaminating domain models.
 

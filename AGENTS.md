@@ -15,6 +15,9 @@
 - A research design contains ticker or selection universe, timeframe, benchmarks, validation split, and execution assumptions.
 - A research run is immutable and records a strategy configuration, research design, data snapshots, engine version, and results.
 - Catalogue deduplication is based on canonical strategy configuration, not display names or research scope. Keep semantic keys internal.
+- Key Company Intelligence by stable `company_id` and normalized CIK, never by ticker alone.
+- Treat ticker and exchange as time-bounded security mappings. Ticker changes, additional share classes, and delistings must not overwrite company history.
+- Keep V2 stock-price and option workflows ticker-based; resolve into `company_id` only when entering the Company Intelligence domain.
 
 ## Research Integrity
 

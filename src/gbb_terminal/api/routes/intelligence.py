@@ -1,0 +1,140 @@
+from __future__ import annotations
+
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, Query
+
+from ...intelligence.company_service import CompanyIntelligenceService
+from ...intelligence.fact_models import FinancialFactQuery
+from ...intelligence.models import CompanyIdentity, CompanyProvenance
+from ..schemas.v3 import (
+    CompanyLookupQuery,
+    CompanyOverviewResponse,
+    CompanyReferenceResponse,
+    FinancialFactResponse,
+    FinancialHistoryQuery,
+    FinancialHistoryResponse,
+    MetricsProvenanceResponse,
+    MetricsQuery,
+    NormalizedMetricResponse,
+    NormalizedMetricsResponse,
+    ProvenanceResponse,
+    SecurityMappingResponse,
+)
+
+
+def create_intelligence_router(service: CompanyIntelligenceService) -> APIRouter:
+    router = APIRouter(prefix="/api/v3", tags=["Company Intelligence"])
+
+    @router.get("/companies/{ticker}", response_model=CompanyOverviewResponse)
+    async def company_overview(
+        ticker: str,
+        query: Annotated[CompanyLookupQuery, Query()],
+    ) -> CompanyOverviewResponse:
+        try:
+            return _company_overview(service.company_overview(ticker, as_of=query.as_of), query.as_of)
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get("/companies/{ticker}/financials", response_model=FinancialHistoryResponse)
+    async def financial_history(
+        ticker: str,
+        query: Annotated[FinancialHistoryQuery, Query()],
+    ) -> FinancialHistoryResponse:
+        try:
+            concepts = [value.strip() for value in (query.concepts or "").split(",") if value.strip()]
+            forms = [value.strip().upper() for value in (query.forms or "").split(",") if value.strip()]
+            result = service.financial_history(
+                ticker,
+                FinancialFactQuery(concepts=concepts, forms=forms, as_of=query.as_of),
+                query.limit,
+            )
+            return FinancialHistoryResponse(
+                company=_company_reference(result.company),
+                as_of=result.as_of,
+                matching_fact_count=result.matching_fact_count,
+                returned_fact_count=len(result.facts),
+                facts=[
+                    FinancialFactResponse.model_validate(
+                        fact.model_dump(exclude={"company_id", "cik"})
+                    )
+                    for fact in result.facts
+                ],
+                warnings=result.warnings,
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get("/companies/{ticker}/metrics", response_model=NormalizedMetricsResponse)
+    async def normalized_metrics(
+        ticker: str,
+        query: Annotated[MetricsQuery, Query()],
+    ) -> NormalizedMetricsResponse:
+        try:
+            result = service.normalized_metrics(ticker, query.period, query.as_of)
+            company = service.company_overview(ticker)
+            source_fact_ids = list(
+                dict.fromkeys(source for metric in result.metrics for source in metric.source_fact_ids)
+            )
+            return NormalizedMetricsResponse(
+                company=_company_reference(company),
+                period_kind=result.period_kind,
+                as_of=result.as_of,
+                definition_version=result.definition_version,
+                metrics=[NormalizedMetricResponse.model_validate(metric.model_dump()) for metric in result.metrics],
+                warnings=result.warnings,
+                provenance=MetricsProvenanceResponse(
+                    as_of=result.as_of,
+                    definition_version=result.definition_version,
+                    source_fact_ids=source_fact_ids,
+                ),
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    return router
+
+
+def _provenance(value: CompanyProvenance) -> ProvenanceResponse:
+    return ProvenanceResponse.model_validate(value.model_dump())
+
+
+def _company_reference(company: CompanyIdentity) -> CompanyReferenceResponse:
+    return CompanyReferenceResponse(
+        company_id=company.company_id,
+        cik=company.cik,
+        legal_name=company.legal_name,
+        primary_ticker=company.primary_ticker,
+        exchange=company.exchange,
+        status=company.status.value,
+    )
+
+
+def _company_overview(company: CompanyIdentity, as_of=None) -> CompanyOverviewResponse:
+    return CompanyOverviewResponse(
+        **_company_reference(company).model_dump(),
+        as_of=as_of,
+        sector=company.sector,
+        industry=company.industry,
+        fiscal_year_end=company.fiscal_year_end,
+        securities=[
+            SecurityMappingResponse(
+                security_id=security.security_id,
+                ticker=security.ticker,
+                exchange=security.exchange,
+                valid_from=security.valid_from,
+                valid_to=security.valid_to,
+                is_primary=security.is_primary,
+                status=security.status.value,
+                provenance=_provenance(security.provenance),
+            )
+            for security in company.securities
+        ],
+        provenance=_provenance(company.provenance),
+    )

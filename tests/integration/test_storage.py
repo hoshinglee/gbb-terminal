@@ -1,7 +1,8 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import duckdb
 
+from gbb_terminal.intelligence import CompanyIdentityRepository, CompanyProvenance, CompanyRegistration
 from gbb_terminal.options.lifecycle import apply_event, initial_state
 from gbb_terminal.options.models import OptionLifecycleEvent, OptionPositionCreate
 from gbb_terminal.storage.database import LocalMarketStore
@@ -17,11 +18,48 @@ def test_existing_database_migrates_without_losing_prices(tmp_path):
     store = LocalMarketStore(path)
     assert store.connection.execute("SELECT close FROM price_history WHERE symbol = 'AAPL'").fetchone()[0] == 101
     tables = {row[0] for row in store.connection.execute("SHOW TABLES").fetchall()}
-    assert {"research_runs", "option_positions", "option_position_events", "provider_cache", "schema_migrations"} <= tables
-    assert store.connection.execute("SELECT max(version) FROM schema_migrations").fetchone()[0] == 5
+    assert {
+        "research_runs",
+        "option_positions",
+        "option_position_events",
+        "provider_cache",
+        "schema_migrations",
+        "companies",
+        "company_security_mappings",
+        "sec_financial_facts",
+    } <= tables
+    assert store.connection.execute("SELECT max(version) FROM schema_migrations").fetchone()[0] == 7
     research_columns = {row[1] for row in store.connection.execute("PRAGMA table_info('research_runs')").fetchall()}
     assert {"strategy_key", "reproducibility_key"} <= research_columns
     assert "option_simulation_runs" in tables
+
+
+def test_company_identity_persists_across_database_reopen(tmp_path):
+    path = tmp_path / "company-identity.duckdb"
+    first_store = LocalMarketStore(path)
+    identities = CompanyIdentityRepository(first_store.connection)
+    observed = datetime(2026, 8, 10, 12, tzinfo=timezone.utc)
+    identity = identities.upsert_company(
+        CompanyRegistration(
+            cik="1045810",
+            legal_name="NVIDIA CORP",
+            primary_ticker="nvda",
+            exchange="Nasdaq",
+            effective_from=date(1999, 1, 22),
+            provenance=CompanyProvenance(
+                source="SEC EDGAR",
+                dataset="sec_company_tickers",
+                observation_timestamp=observed,
+                known_at=observed,
+                retrieved_at=observed,
+            ),
+        )
+    )
+    first_store.connection.close()
+
+    reopened = CompanyIdentityRepository(LocalMarketStore(path).connection)
+    assert reopened.resolve_ticker("NVDA").company_id == identity.company_id
+    assert reopened.resolve_cik("0001045810").company_id == identity.company_id
 
 
 def test_strategy_deduplication_and_option_event_persistence(tmp_path):
