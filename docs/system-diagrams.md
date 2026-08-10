@@ -437,10 +437,34 @@ erDiagram
         boolean cancel_requested
     }
 
+    COMPANIES {
+        string company_id PK
+        string cik UK
+        string legal_name
+        string status
+        string sector
+        string industry
+        string fiscal_year_end
+        json provenance
+    }
+
+    COMPANY_SECURITY_MAPPINGS {
+        string security_id PK
+        string company_id FK
+        string ticker
+        string exchange
+        date valid_from
+        date valid_to
+        boolean is_primary
+        string status
+        json provenance
+    }
+
     STRATEGY_CATALOGUE ||--o{ BACKTEST_RUNS : defines
     BACKTEST_RUNS ||--o{ BACKTEST_TRADES : contains
     STRATEGY_CATALOGUE o|--o{ RESEARCH_RUNS : catalogues
     OPTION_POSITIONS ||--o{ OPTION_POSITION_EVENTS : journals
+    COMPANIES ||--o{ COMPANY_SECURITY_MAPPINGS : identifies
 ```
 
 The relationships shown are logical domain relationships; DuckDB does not currently declare every one as a foreign-key constraint. Cache tables are intentionally independent so provider outages and schema evolution do not block research records.

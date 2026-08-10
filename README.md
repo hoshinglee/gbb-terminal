@@ -7,7 +7,8 @@ GBB Terminal is a free, open-source research and simulation workbench for hobbyi
 - **Strategy Lab:** natural-language rules, validated templates, reusable strategy catalogue configurations, next-open execution, cost-aware backtests, fingerprinted research runs, SPY/automatic-sector/risk-matched benchmarks, walk-forward and Optuna parameter search, trade ledgers, multi-interval candlestick replay, and evidence verdicts.
 - **Option Lab:** current Yahoo chain snapshots, American-option pricing, Greeks, price/time P&L surfaces, Monte Carlo paths, core single- and multi-leg positions, and an auditable paper lifecycle ledger.
 - **Stock and Market:** OHLCV observability, current option open interest, sector performance, relative strength, and macro market proxies.
-- **Local persistence:** DuckDB caches requested public data, strategies, research runs, option snapshots, paper positions, and lifecycle events.
+- **Company Intelligence foundation:** canonical company IDs, CIK resolution, and historical ticker/exchange mappings ready for point-in-time fundamentals.
+- **Local persistence:** DuckDB caches requested public data, company identities, strategies, research runs, option snapshots, paper positions, and lifecycle events.
 
 ## Run locally
 
@@ -32,6 +33,8 @@ For frontend development, run `npm run dev` from `app/web`; Vite proxies `/api` 
 Copy `.env.example` to `.env`, then copy `conf/app.example.yaml` to ignored `conf/app.yaml`. Select Google AI Studio, OpenAI, or Anthropic Claude in `conf/app.yaml` and keep its API key only in `.env`. Without a configured provider, explicit built-in technical rules and risk controls still have a deterministic local translator. Provider output is constrained JSON, validated before use, and never becomes executable code. GBB Terminal never calls `eval` or `exec` on strategy input.
 
 Runtime data belongs in ignored `data/` and `log/` directories. Existing `data/gbb_terminal.duckdb` files are migrated in place.
+
+To populate the Release 0.7 company registry from the official SEC ticker/CIK directory, run `python scripts/sync_company_identities.py`. The SEC directory is current-association evidence, not a complete historical listing database; its limitations are persisted with the records.
 
 ## Data and model limits
 
