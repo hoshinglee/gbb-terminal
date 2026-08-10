@@ -286,6 +286,133 @@ def test_annual_quarterly_and_ttm_metrics_are_reproducible_and_traceable(tmp_pat
     assert all(item.source_fact_ids for item in ttm.metrics if item.value is not None)
 
 
+def test_missing_standalone_q4_is_inferred_from_fiscal_year_and_prior_quarters(tmp_path):
+    companies, repository, service = setup_metrics(tmp_path, [("1045810", "NVDA", "NVIDIA CORP")])
+    company = companies["NVDA"]
+    facts = []
+    quarter_dates = [
+        (date(2024, 1, 1), date(2024, 3, 31), "Q1", 10, 100, 10, 2),
+        (date(2024, 4, 1), date(2024, 6, 30), "Q2", 20, 101, 25, 5),
+        (date(2024, 7, 1), date(2024, 9, 30), "Q3", 30, 102, 45, 9),
+    ]
+    for index, (start, end, fiscal_period, revenue, shares, operating_cash, capital_expenditure) in enumerate(
+        quarter_dates
+    ):
+        facts.extend(
+            [
+                fact(
+                    company,
+                    "RevenueFromContractWithCustomerExcludingAssessedTax",
+                    revenue,
+                    "USD",
+                    start,
+                    end,
+                    2024,
+                    fiscal_period,
+                    f"24-Q{index + 1}",
+                    form="10-Q",
+                ),
+                fact(
+                    company,
+                    "WeightedAverageNumberOfDilutedSharesOutstanding",
+                    shares,
+                    "shares",
+                    start,
+                    end,
+                    2024,
+                    fiscal_period,
+                    f"24-Q{index + 1}-shares",
+                    form="10-Q",
+                ),
+                fact(
+                    company,
+                    "NetCashProvidedByUsedInOperatingActivities",
+                    operating_cash,
+                    "USD",
+                    date(2024, 1, 1),
+                    end,
+                    2024,
+                    fiscal_period,
+                    f"24-Q{index + 1}-cash",
+                    form="10-Q",
+                ),
+                fact(
+                    company,
+                    "PaymentsToAcquireProductiveAssets",
+                    capital_expenditure,
+                    "USD",
+                    date(2024, 1, 1),
+                    end,
+                    2024,
+                    fiscal_period,
+                    f"24-Q{index + 1}-capex",
+                    form="10-Q",
+                ),
+            ]
+        )
+    facts.extend(
+        [
+            fact(
+                company,
+                "RevenueFromContractWithCustomerExcludingAssessedTax",
+                100,
+                "USD",
+                date(2024, 1, 1),
+                date(2024, 12, 31),
+                2024,
+                "FY",
+                "24-FY",
+            ),
+            fact(
+                company,
+                "WeightedAverageNumberOfDilutedSharesOutstanding",
+                103,
+                "shares",
+                date(2024, 1, 1),
+                date(2024, 12, 31),
+                2024,
+                "FY",
+                "24-FY-shares",
+            ),
+            fact(
+                company,
+                "NetCashProvidedByUsedInOperatingActivities",
+                70,
+                "USD",
+                date(2024, 1, 1),
+                date(2024, 12, 31),
+                2024,
+                "FY",
+                "24-FY-cash",
+            ),
+            fact(
+                company,
+                "PaymentsToAcquireProductiveAssets",
+                14,
+                "USD",
+                date(2024, 1, 1),
+                date(2024, 12, 31),
+                2024,
+                "FY",
+                "24-FY-capex",
+            ),
+        ]
+    )
+    repository.save_facts(facts)
+
+    quarterly = service.calculate("NVDA", MetricPeriodKind.QUARTERLY, OBSERVED)
+    ttm = service.calculate("NVDA", MetricPeriodKind.TTM, OBSERVED)
+
+    inferred_revenue = metric(quarterly, "revenue", date(2024, 12, 31))
+    assert inferred_revenue.value == 40
+    assert "fiscal-year value less Q1-Q3" in " ".join(inferred_revenue.warnings)
+    assert metric(quarterly, "operating_cash_flow", date(2024, 6, 30)).value == 15
+    assert metric(quarterly, "capital_expenditure", date(2024, 6, 30)).value == 3
+    assert metric(ttm, "revenue", date(2024, 12, 31)).value == 100
+    assert metric(ttm, "diluted_shares", date(2024, 12, 31)).value == 103
+    assert metric(ttm, "free_cash_flow", date(2024, 12, 31)).value == 56
+
+
 def test_missing_inputs_return_explicit_warnings_instead_of_fabricated_values(tmp_path):
     companies, repository, service = setup_metrics(tmp_path, [("1045810", "NVDA", "NVIDIA CORP")])
     company = companies["NVDA"]

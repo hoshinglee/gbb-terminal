@@ -58,7 +58,9 @@ The stable fact identity includes company, taxonomy/concept/unit, accession, eco
 
 ## Normalized Metrics
 
-INT-03 adds a versioned metrics engine over the point-in-time fact store. It supports annual, discrete-quarterly, and rolling TTM views; deterministic concept precedence; explicit USD/share scaling; missing-input and ambiguity warnings; and source-fact lineage for every non-null result. Derived evidence includes growth, margins, free cash flow, ROE, ROIC, net debt, and share dilution when the required observations exist.
+INT-03 adds a versioned metrics engine over the point-in-time fact store. Definition version `1.2.0` supports annual, discrete-quarterly, and rolling TTM views; deterministic concept precedence; explicit USD/share scaling; missing-input and ambiguity warnings; and source-fact lineage for every non-null result. Derived evidence includes growth, margins, free cash flow, ROE, ROIC, net debt, and share dilution when the required observations exist.
+
+SEC cash-flow statements commonly report Q2 and Q3 as cumulative year-to-date values and omit a standalone Q4. The engine converts consecutive cumulative observations into discrete quarters, infers Q4 flow/per-share values as fiscal year less Q1-Q3, and retains every contributing fact ID. Fiscal-year-end balance observations are reused at Q4, while a TTM share count uses the latest available quarterly weighted-average observation. Every derivation is labelled in metric warnings and remains constrained by the requested `as_of` boundary.
 
 See [Normalized Financial Metrics](financial-metrics.md) for business definitions and function contracts.
 

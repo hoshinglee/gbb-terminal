@@ -4,6 +4,8 @@ Source: `src/gbb_terminal/storage/database.py`
 
 DuckDB is the local system of record and analytical cache. `LocalMarketStore` creates missing tables and adds backward-compatible columns without deleting existing `data/gbb_terminal.duckdb` records.
 
+Price-history writes merge observations by `(symbol, price_date)` instead of deleting older rows. This preserves a previously collected maximum-history series when a later short-window request refreshes recent sessions. `period=max` accepts the complete locally observed listing history without assuming the security existed for an arbitrary 100-year window.
+
 | Table | Purpose |
 | --- | --- |
 | `price_history` | Cached daily OHLCV by symbol and observation date. |

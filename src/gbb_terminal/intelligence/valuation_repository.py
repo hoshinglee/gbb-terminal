@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from uuid import uuid4
 
 import duckdb
+import pandas as pd
 
 from .valuation_models import ValuationPoint
 
@@ -51,13 +53,37 @@ class ValuationRepository:
             ]
             for point in points
         ]
-        self.connection.executemany(
-            """INSERT OR REPLACE INTO valuation_series
-               (company_id, ticker, valuation_date, frequency, metric_id, label, value, unit, status,
-                price, market_cap, enterprise_value, denominator_value, denominator_metric,
-                fundamental_period_end, fundamental_known_at, source_fact_ids, price_source, warnings,
-                engine_version, computed_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            rows,
-        )
+        columns = [
+            "company_id",
+            "ticker",
+            "valuation_date",
+            "frequency",
+            "metric_id",
+            "label",
+            "value",
+            "unit",
+            "status",
+            "price",
+            "market_cap",
+            "enterprise_value",
+            "denominator_value",
+            "denominator_metric",
+            "fundamental_period_end",
+            "fundamental_known_at",
+            "source_fact_ids",
+            "price_source",
+            "warnings",
+            "engine_version",
+            "computed_at",
+        ]
+        relation_name = f"incoming_valuation_{uuid4().hex}"
+        self.connection.register(relation_name, pd.DataFrame(rows, columns=columns))
+        try:
+            self.connection.execute(
+                f"""INSERT OR REPLACE INTO valuation_series
+                    ({", ".join(columns)})
+                    SELECT {", ".join(columns)} FROM {relation_name}"""
+            )
+        finally:
+            self.connection.unregister(relation_name)
         return len(rows)

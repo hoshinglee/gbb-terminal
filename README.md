@@ -7,7 +7,7 @@ GBB Terminal is a free, open-source research and simulation workbench for hobbyi
 - **Strategy Lab:** natural-language rules, validated templates, reusable strategy catalogue configurations, next-open execution, cost-aware backtests, fingerprinted research runs, SPY/automatic-sector/risk-matched benchmarks, walk-forward and Optuna parameter search, trade ledgers, multi-interval candlestick replay, and evidence verdicts.
 - **Option Lab:** current Yahoo chain snapshots, American-option pricing, Greeks, price/time P&L surfaces, Monte Carlo paths, core single- and multi-leg positions, and an auditable paper lifecycle ledger.
 - **Stock and Market:** OHLCV observability, current option open interest, sector performance, relative strength, and macro market proxies.
-- **Company Intelligence foundation:** canonical company IDs, historical security mappings, point-in-time SEC facts, and versioned annual/quarterly/TTM financial metrics with source lineage.
+- **Company Intelligence:** canonical company IDs, point-in-time SEC facts, normalized financial history, historical trailing valuation, source-backed earnings events, session-aware reaction analytics, and an optional provider-neutral estimates boundary.
 - **Local persistence:** DuckDB caches requested public data, company identities, strategies, research runs, option snapshots, paper positions, and lifecycle events.
 
 ## Run locally
@@ -24,7 +24,7 @@ cd ../..
 uvicorn gbb_terminal.api.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000` for Strategy Lab, then use the shared navigation for Option Lab, Stock Observatory, and Market Pulse. Direct routes are `/?lab=options`, `/?lab=stock`, and `/?lab=market`; `ticker=NVDA` can be carried among stock, strategy, and option workflows. FastAPI serves the built React research application when `app/static/react/index.html` exists and otherwise falls back to the vanilla application. The migration fallback remains available at `http://127.0.0.1:8000/legacy`. Python commands work from any directory after editable installation because frontend, database, and log paths resolve through `gbb_terminal.settings`.
+Open `http://127.0.0.1:8000` for Strategy Lab, then use the shared navigation for Option Lab, Stock Observatory, Market Pulse, and Company Intelligence. Direct routes are `/?lab=options`, `/?lab=stock`, `/?lab=market`, and `/?lab=intelligence`; `ticker=NVDA` can be carried among company, stock, strategy, and option workflows. FastAPI serves the built React research application when `app/static/react/index.html` exists and otherwise falls back to the vanilla application. The migration fallback remains available at `http://127.0.0.1:8000/legacy`. Python commands work from any directory after editable installation because frontend, database, and log paths resolve through `gbb_terminal.settings`.
 
 For frontend development, run `npm run dev` from `app/web`; Vite proxies `/api` requests to FastAPI on port 8000. Generated assets under `app/static/react/` are intentionally ignored and must be built in release or deployment workflows.
 
@@ -36,7 +36,7 @@ Runtime data belongs in ignored `data/` and `log/` directories. Existing `data/g
 
 To populate the Release 0.7 company registry from the official SEC ticker/CIK directory, run `python scripts/sync_company_identities.py`. The SEC directory is current-association evidence, not a complete historical listing database; its limitations are persisted with the records.
 
-After synchronizing one company's SEC facts with `python scripts/sync_company_facts.py NVDA`, inspect the Company Intelligence V3 contracts at `/api/v3/companies/NVDA`, `/api/v3/companies/NVDA/financials`, and `/api/v3/companies/NVDA/metrics?period=annual`. These business-research APIs are intentionally separate from the existing V2 stock-market endpoint.
+After synchronizing one company's SEC facts with `python scripts/sync_company_facts.py NVDA`, open `/?lab=intelligence&ticker=NVDA` or inspect the V3 contracts under `/api/v3/companies/NVDA`. Financials, metrics, historical valuation, earnings reactions, and optional manual estimates remain separate from the existing V2 stock-market endpoint.
 
 ## Data and model limits
 

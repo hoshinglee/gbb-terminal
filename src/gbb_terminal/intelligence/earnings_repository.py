@@ -17,12 +17,12 @@ class EarningsRepository:
             return 0
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         self.connection.executemany(
-            """INSERT OR REPLACE INTO earnings_events
+            """INSERT INTO earnings_events
                (event_id, company_id, cik, ticker, fiscal_year, fiscal_period, period_end,
                 announcement_at, announcement_date, session, timing_quality, evidence,
                 reported_metrics, guidance_metadata, model_version, warnings, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                       COALESCE((SELECT created_at FROM earnings_events WHERE event_id = ?), ?), ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT (event_id) DO NOTHING""",
             [
                 [
                     event.event_id,
@@ -48,7 +48,6 @@ class EarningsRepository:
                     json.dumps(event.guidance_metadata),
                     event.model_version,
                     json.dumps(event.warnings),
-                    event.event_id,
                     now,
                     now,
                 ]

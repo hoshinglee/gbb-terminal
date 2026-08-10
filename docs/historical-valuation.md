@@ -10,8 +10,9 @@ Historical valuation combines adjusted security prices with normalized SEC funda
 - The fundamental boundary is 4:00 p.m. `America/New_York`, converted to UTC with daylight-saving rules.
 - A filing accepted after that close cannot affect that session's valuation. It first becomes eligible for the next available trading session.
 - Weekly history uses the last observed trading session in each Friday-ending week; it never invents a Friday observation for a holiday.
-- TTM flow denominators come from four contiguous normalized quarters available under that session's `known_at` boundary.
+- TTM flow denominators come from four contiguous normalized quarters available under that session's `known_at` boundary. Cumulative Q2/Q3 cash-flow facts are differenced into discrete quarters, and an omitted Q4 is derived from the fiscal-year value less Q1-Q3.
 - Balance-sheet inputs use the latest normalized period available inside the same TTM snapshot.
+- Share-count treatment uses the latest quarterly diluted weighted-average observation, with the documented basic-share fallback when diluted shares are absent.
 - Later amendments and restatements remain stored, but cannot alter an earlier as-of valuation because every historical snapshot re-applies the fact `known_at` boundary.
 
 ## Metric Definitions
@@ -35,7 +36,7 @@ Non-positive multiple denominators return `nm` rather than a misleading multiple
 
 For each selected history window, the service returns the latest available value, empirical percentile, median, minimum, maximum, z-score when dispersion exists, and usable sample size. Statistics exclude `nm` and unavailable observations.
 
-DuckDB schema version 8 adds `valuation_series`. Its key includes company, ticker, actual valuation date, daily/weekly frequency, metric, and engine version. Cached rows retain price, numerator context, denominator, fundamental period, fundamental `known_at`, source fact IDs, warnings, and computation time.
+DuckDB schema version 8 adds `valuation_series`. Its key includes company, ticker, actual valuation date, daily/weekly frequency, metric, and engine version. Cached rows retain price, numerator context, denominator, fundamental period, fundamental `known_at`, source fact IDs, warnings, and computation time. A valuation run loads the supported point-in-time fact set once and persists the computed series through a bulk DuckDB relation rather than row-by-row inserts.
 
 ## API
 

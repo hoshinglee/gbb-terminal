@@ -208,3 +208,27 @@ def test_weekly_series_uses_actual_last_session_and_reports_statistics(tmp_path)
     ]
     assert result.statistics["trailing_pe"].sample_size == 3
     assert result.statistics["trailing_pe"].median == 5.5
+
+
+def test_valuation_loads_point_in_time_facts_once_per_run(tmp_path, monkeypatch):
+    company, repository, service, _ = build_valuation_service(tmp_path)
+    seed_four_quarters(company, repository, datetime(2024, 2, 1, 20, tzinfo=timezone.utc))
+    original_query = service.metrics.facts.repository.query_facts
+    calls = 0
+
+    def counted_query(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original_query(*args, **kwargs)
+
+    monkeypatch.setattr(service.metrics.facts.repository, "query_facts", counted_query)
+
+    service.calculate(
+        "NVDA",
+        price_frame("2024-02-02", "2024-02-09"),
+        ValuationFrequency.WEEKLY,
+        datetime(2024, 12, 31, tzinfo=timezone.utc),
+        ["trailing_pe"],
+    )
+
+    assert calls == 1

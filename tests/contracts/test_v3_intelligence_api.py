@@ -178,7 +178,7 @@ def test_metrics_endpoint_returns_versioned_lineage_under_as_of_boundary(tmp_pat
     payload = response.json()
     revenue = next(metric for metric in payload["metrics"] if metric["metricId"] == "revenue")
     assert revenue["value"] == 100
-    assert revenue["definitionVersion"] == "1.1.0"
+    assert revenue["definitionVersion"] == "1.2.0"
     assert revenue["sourceFactIds"] == payload["provenance"]["sourceFactIds"]
     assert payload["periodKind"] == "annual"
     assert payload["provenance"]["dataset"] == "normalized_financial_metrics"

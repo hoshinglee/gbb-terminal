@@ -3,6 +3,7 @@ from __future__ import annotations
 from bisect import bisect_right
 from dataclasses import dataclass
 from datetime import date, datetime, time, timezone
+from itertools import groupby
 from math import sqrt
 from statistics import fmean, median, pstdev
 from zoneinfo import ZoneInfo
@@ -70,7 +71,7 @@ class HistoricalValuationService:
             raise ValueError(f"No price observations are available for {ticker.upper()} within the requested as-of boundary.")
         price_dates = [timestamp.date() for timestamp in frame.index]
         close_times = [self.market_close(day) for day in price_dates]
-        snapshots = self._snapshots(ticker, company.company_id, close_times[-1])
+        snapshots = self._snapshots(company, close_times[-1])
         snapshot_times = [snapshot.known_at for snapshot in snapshots]
         grouped: dict[str, list[ValuationPoint]] = {metric_id: [] for metric_id in selected_metrics}
         common_warnings = list(price_warnings or [])
@@ -135,18 +136,33 @@ class HistoricalValuationService:
 
     def _snapshots(
         self,
-        ticker: str,
-        company_id: str,
+        company,
         maximum_known_at: datetime,
     ) -> list[_FundamentalSnapshot]:
         facts = self.metrics.facts.repository.query_facts(
-            company_id,
-            FinancialFactQuery(as_of=maximum_known_at),
+            company.company_id,
+            FinancialFactQuery(
+                concepts=self.metrics.supported_concepts(),
+                as_of=maximum_known_at,
+            ),
         )
-        event_times = sorted({fact.provenance.known_at for fact in facts})
         snapshots = []
-        for known_at in event_times:
-            result = self.metrics.calculate(ticker, MetricPeriodKind.TTM, known_at)
+        visible_facts = []
+        ordered_facts = sorted(
+            facts,
+            key=lambda fact: (fact.provenance.known_at, fact.fact_id),
+        )
+        for known_at, new_facts in groupby(
+            ordered_facts,
+            key=lambda fact: fact.provenance.known_at,
+        ):
+            visible_facts.extend(new_facts)
+            result = self.metrics._calculate_from_facts(
+                company,
+                visible_facts,
+                MetricPeriodKind.TTM,
+                known_at,
+            )
             latest_period_end = max((metric.period_end for metric in result.metrics), default=None)
             values = {
                 metric.metric_id: metric

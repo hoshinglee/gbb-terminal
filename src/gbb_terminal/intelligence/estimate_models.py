@@ -5,6 +5,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .identity import normalize_cik
+
 
 ESTIMATE_CONTRACT_VERSION = "1.0.0"
 
@@ -44,6 +46,11 @@ class EstimateObservation(BaseModel):
         if not normalized or len(normalized) > 12:
             raise ValueError("Estimate symbols must contain 1 to 12 characters.")
         return normalized
+
+    @field_validator("cik", mode="before")
+    @classmethod
+    def normalize_optional_cik(cls, value: str | int | None) -> str | None:
+        return normalize_cik(value) if value is not None else None
 
     @field_validator("fiscal_period")
     @classmethod

@@ -105,8 +105,8 @@ describe("Company Intelligence earnings explorer", () => {
       company: earnings.company,
       periodKind: "ttm",
       asOf: "2026-08-10T00:00:00Z",
-      definitionVersion: "1.1.0",
-      metrics: [{ metricId: "revenue", label: "Revenue", value: 120_000_000_000, unit: "USD", periodKind: "ttm", periodStart: "2025-01-01", periodEnd: "2025-12-31", fiscalYear: 2025, fiscalPeriod: "TTM", definitionVersion: "1.1.0", derived: false, sourceFactIds: ["revenue-fact"], warnings: [] }],
+      definitionVersion: "1.2.0",
+      metrics: [{ metricId: "revenue", label: "Revenue", value: 120_000_000_000, unit: "USD", periodKind: "ttm", periodStart: "2025-01-01", periodEnd: "2025-12-31", fiscalYear: 2025, fiscalPeriod: "TTM", definitionVersion: "1.2.0", derived: false, sourceFactIds: ["revenue-fact"], warnings: [] }],
       warnings: [],
     })
     vi.mocked(loadCompanyValuation).mockResolvedValue({

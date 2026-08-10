@@ -182,9 +182,27 @@ def event_fact(company, concept, value, unit, known_at):
 def test_event_discovery_has_stable_identity_source_evidence_and_idempotent_persistence(tmp_path):
     company, repository, service, store = build_event_service(tmp_path)
     accepted = datetime(2024, 5, 22, 20, 30, tzinfo=timezone.utc)
+    current_revenue = event_fact(
+        company,
+        "RevenueFromContractWithCustomerExcludingAssessedTax",
+        26_000,
+        "USD",
+        accepted,
+    )
+    comparative_revenue = current_revenue.model_copy(
+        update={
+            "fact_id": hashlib.sha256(b"comparative-revenue").hexdigest(),
+            "period_start": date(2023, 1, 1),
+            "period_end": date(2023, 3, 31),
+            "value": 20_000,
+            "raw_value": "20000",
+            "frame": "CY2023Q1",
+        }
+    )
     repository.save_facts(
         [
-            event_fact(company, "RevenueFromContractWithCustomerExcludingAssessedTax", 26_000, "USD", accepted),
+            comparative_revenue,
+            current_revenue,
             event_fact(company, "EarningsPerShareDiluted", 6.12, "USD/shares", accepted),
         ]
     )
@@ -196,5 +214,11 @@ def test_event_discovery_has_stable_identity_source_evidence_and_idempotent_pers
     assert first[0].session == EarningsSession.AFTER_CLOSE
     assert first[0].evidence.accession_number == "0001045810-24-000001"
     assert first[0].evidence.source_fact_ids
+    assert first[0].period_end == date(2024, 3, 31)
     assert first[0].reported_metrics["revenue"].value == 26_000
     assert store.connection.execute("SELECT count(*) FROM earnings_events").fetchone()[0] == 1
+
+    service.analyze("NVDA", market_frame(), market_frame(), as_of=datetime(2024, 12, 31, tzinfo=timezone.utc))
+    service.analyze("NVDA", market_frame(), market_frame(), as_of=datetime(2024, 12, 31, tzinfo=timezone.utc))
+    assert store.connection.execute("SELECT count(*) FROM earnings_events").fetchone()[0] == 1
+    assert store.connection.execute("SELECT count(*) FROM earnings_reactions").fetchone()[0] == 1

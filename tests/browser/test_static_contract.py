@@ -73,6 +73,7 @@ def test_react_research_canvas_sources_are_present():
     assert "summarizeSectors" in market_pulse
     assert "Provider Readiness" in market_pulse
     assert "Historical Earnings Reaction" in company_intelligence
+    assert "TTM Financial Progression" in company_intelligence
     assert "Reported Facts" in company_intelligence
     assert "Calculated Market Reaction" in company_intelligence
     assert "Historical Evidence, Not A Forecast" in company_intelligence

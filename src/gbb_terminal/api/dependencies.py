@@ -15,7 +15,7 @@ from ..intelligence.valuation import HistoricalValuationService
 from ..intelligence.valuation_repository import ValuationRepository
 from ..llm.translator import StrategyTranslator
 from ..market_data.service import MarketData
-from ..market_data.providers.estimates import ManualEstimateProvider
+from ..market_data.providers.estimates import EmptyEstimateProvider, ManualEstimateProvider
 from ..settings import Settings, settings
 from ..storage.database import LocalMarketStore
 from ..strategy.catalogue import StrategyCatalogue, catalogue
@@ -55,9 +55,14 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
         normalized_metrics,
         EarningsRepository(store.connection),
     )
+    estimate_provider = (
+        ManualEstimateProvider.from_path(configuration.estimate_fixture_path)
+        if configuration.estimate_fixture_path.exists()
+        else EmptyEstimateProvider()
+    )
     estimate_intelligence = EstimateIntelligenceService(
         normalized_metrics,
-        ManualEstimateProvider.from_path(configuration.estimate_fixture_path),
+        estimate_provider,
     )
     return ApplicationServices(
         store=store,

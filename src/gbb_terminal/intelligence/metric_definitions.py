@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 
-METRIC_DEFINITION_VERSION = "1.1.0"
+METRIC_DEFINITION_VERSION = "1.2.0"
 
 
 class MetricBehavior(StrEnum):
@@ -82,6 +82,7 @@ METRIC_DEFINITIONS = {
         MetricBehavior.FLOW,
         (
             "PaymentsToAcquirePropertyPlantAndEquipment",
+            "PaymentsToAcquireProductiveAssets",
             "PaymentsForAdditionsToPropertyPlantAndEquipment",
         ),
         absolute_value=True,

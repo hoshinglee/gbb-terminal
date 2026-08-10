@@ -49,9 +49,10 @@ class EarningsReactionEngine:
         prices: pd.DataFrame,
         benchmark_prices: pd.DataFrame,
         benchmark_ticker: str,
+        prepared: bool = False,
     ) -> EarningsReaction:
-        stock = self._prepare(prices)
-        benchmark = self._prepare(benchmark_prices)
+        stock = prices if prepared else self._prepare(prices)
+        benchmark = benchmark_prices if prepared else self._prepare(benchmark_prices)
         warnings = []
         if stock.empty:
             return self._unavailable(event, benchmark_ticker, "No stock price history is available for this event.")
@@ -166,13 +167,14 @@ class EarningsReactionEngine:
     def _benchmark_return(benchmark: pd.DataFrame, start: date, end: date) -> float | None:
         if benchmark.empty:
             return None
-        start_rows = benchmark[benchmark.index.date == start]
-        end_rows = benchmark[benchmark.index.date == end]
-        if start_rows.empty or end_rows.empty:
+        try:
+            start_close = benchmark.at[pd.Timestamp(start), "Close"]
+            end_close = benchmark.at[pd.Timestamp(end), "Close"]
+        except KeyError:
             return None
         return EarningsReactionEngine._percent(
-            float(end_rows.iloc[-1]["Close"]),
-            float(start_rows.iloc[-1]["Close"]),
+            float(end_close),
+            float(start_close),
         )
 
     @staticmethod
@@ -229,7 +231,11 @@ class EarningsIntelligenceService:
         company = self.metrics._resolve_company(ticker)
         facts = self.metrics.facts.repository.query_facts(
             company.company_id,
-            FinancialFactQuery(forms=["10-Q", "10-K"], as_of=effective_as_of),
+            FinancialFactQuery(
+                concepts=sorted(set(self.metrics.supported_concepts()) | EVENT_CONCEPTS),
+                forms=["10-Q", "10-K"],
+                as_of=effective_as_of,
+            ),
         )
         accession_groups = defaultdict(list)
         for fact in facts:
@@ -237,14 +243,35 @@ class EarningsIntelligenceService:
                 accession_groups[fact.accession_number].append(fact)
         candidates = []
         for accession, group in accession_groups.items():
-            representative = min(group, key=lambda fact: (fact.provenance.known_at, fact.fact_id))
-            candidates.append((representative.period_end, representative.fiscal_period or "", representative.provenance.known_at, accession, group))
+            current_period_end = max(fact.period_end for fact in group)
+            current_period_facts = [fact for fact in group if fact.period_end == current_period_end]
+            representative = min(
+                current_period_facts,
+                key=lambda fact: (fact.provenance.known_at, fact.fact_id),
+            )
+            candidates.append(
+                (
+                    representative.period_end,
+                    representative.fiscal_period or "",
+                    representative.provenance.known_at,
+                    accession,
+                    current_period_facts,
+                )
+            )
         selected = {}
         for period_end, fiscal_period, known_at, accession, group in sorted(candidates):
             key = (period_end, fiscal_period)
             selected.setdefault(key, (known_at, accession, group))
         events = [
-            self._event(company, period_end, fiscal_period or None, known_at, accession, group)
+            self._event(
+                company,
+                period_end,
+                fiscal_period or None,
+                known_at,
+                accession,
+                group,
+                facts,
+            )
             for (period_end, fiscal_period), (known_at, accession, group) in selected.items()
         ]
         events.sort(key=lambda event: (event.announcement_date, event.event_id), reverse=True)
@@ -268,10 +295,18 @@ class EarningsIntelligenceService:
         benchmark_prices = benchmark_prices[pd.to_datetime(benchmark_prices.index).date <= boundary]
         company = self.metrics._resolve_company(ticker)
         events = self.discover_events(ticker, effective_as_of)[:limit]
+        prepared_prices = self.reaction_engine._prepare(prices)
+        prepared_benchmark = self.reaction_engine._prepare(benchmark_prices)
         analyses = [
             EarningsEventAnalysis(
                 event=event,
-                reaction=self.reaction_engine.calculate(event, prices, benchmark_prices, benchmark_ticker),
+                reaction=self.reaction_engine.calculate(
+                    event,
+                    prepared_prices,
+                    prepared_benchmark,
+                    benchmark_ticker,
+                    prepared=True,
+                ),
             )
             for event in events
         ]
@@ -291,7 +326,16 @@ class EarningsIntelligenceService:
             ],
         )
 
-    def _event(self, company, period_end, fiscal_period, known_at, accession, facts):
+    def _event(
+        self,
+        company,
+        period_end,
+        fiscal_period,
+        known_at,
+        accession,
+        facts,
+        metric_facts,
+    ):
         representative = min(facts, key=lambda fact: (fact.provenance.known_at, fact.fact_id))
         accepted = representative.accepted_at
         session = self.classify_session(accepted)
@@ -299,7 +343,12 @@ class EarningsIntelligenceService:
             accepted.astimezone(NEW_YORK).date() if accepted else representative.filed_date
         )
         kind = MetricPeriodKind.ANNUAL if representative.form == "10-K" else MetricPeriodKind.QUARTERLY
-        metric_set = self.metrics.calculate(company.cik, kind, known_at)
+        metric_set = self.metrics._calculate_from_facts(
+            company,
+            [fact for fact in metric_facts if fact.provenance.known_at <= known_at],
+            kind,
+            known_at,
+        )
         reported = {
             metric.metric_id: ReportedMetric(
                 metric_id=metric.metric_id,
