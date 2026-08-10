@@ -8,8 +8,14 @@ from ..intelligence.fact_repository import FinancialFactRepository
 from ..intelligence.fact_service import FinancialFactService
 from ..intelligence.metrics import NormalizedMetricsService
 from ..intelligence.company_service import CompanyIntelligenceService
+from ..intelligence.earnings import EarningsIntelligenceService
+from ..intelligence.earnings_repository import EarningsRepository
+from ..intelligence.estimates import EstimateIntelligenceService
+from ..intelligence.valuation import HistoricalValuationService
+from ..intelligence.valuation_repository import ValuationRepository
 from ..llm.translator import StrategyTranslator
 from ..market_data.service import MarketData
+from ..market_data.providers.estimates import EmptyEstimateProvider, ManualEstimateProvider
 from ..settings import Settings, settings
 from ..storage.database import LocalMarketStore
 from ..strategy.catalogue import StrategyCatalogue, catalogue
@@ -24,6 +30,9 @@ class ApplicationServices:
     company_identity: CompanyIdentityService
     financial_facts: FinancialFactService
     normalized_metrics: NormalizedMetricsService
+    historical_valuation: HistoricalValuationService
+    earnings_intelligence: EarningsIntelligenceService
+    estimate_intelligence: EstimateIntelligenceService
     company_intelligence: CompanyIntelligenceService
 
 
@@ -38,6 +47,23 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
         market_data.sec,
     )
     normalized_metrics = NormalizedMetricsService(financial_facts, company_identity)
+    historical_valuation = HistoricalValuationService(
+        normalized_metrics,
+        ValuationRepository(store.connection),
+    )
+    earnings_intelligence = EarningsIntelligenceService(
+        normalized_metrics,
+        EarningsRepository(store.connection),
+    )
+    estimate_provider = (
+        ManualEstimateProvider.from_path(configuration.estimate_fixture_path)
+        if configuration.estimate_fixture_path.exists()
+        else EmptyEstimateProvider()
+    )
+    estimate_intelligence = EstimateIntelligenceService(
+        normalized_metrics,
+        estimate_provider,
+    )
     return ApplicationServices(
         store=store,
         market_data=market_data,
@@ -46,5 +72,16 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
         company_identity=company_identity,
         financial_facts=financial_facts,
         normalized_metrics=normalized_metrics,
-        company_intelligence=CompanyIntelligenceService(company_identity, financial_facts, normalized_metrics),
+        historical_valuation=historical_valuation,
+        earnings_intelligence=earnings_intelligence,
+        estimate_intelligence=estimate_intelligence,
+        company_intelligence=CompanyIntelligenceService(
+            company_identity,
+            financial_facts,
+            normalized_metrics,
+            historical_valuation,
+            market_data,
+            earnings_intelligence,
+            estimate_intelligence,
+        ),
     )

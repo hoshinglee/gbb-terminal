@@ -2,6 +2,7 @@ import hashlib
 from datetime import date, datetime, timezone
 
 import pytest
+import pandas as pd
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -18,8 +19,14 @@ from gbb_terminal.intelligence import (
     FinancialFactRepository,
     FinancialFactService,
     NormalizedMetricsService,
+    HistoricalValuationService,
+    ValuationRepository,
+    EarningsIntelligenceService,
+    EarningsRepository,
 )
+from gbb_terminal.intelligence.estimates import EstimateIntelligenceService
 from gbb_terminal.market_data.providers.sec import SECProvider
+from gbb_terminal.market_data.providers.estimates import EmptyEstimateProvider
 from gbb_terminal.storage.database import LocalMarketStore
 
 
@@ -92,7 +99,33 @@ def build_client(tmp_path):
         )
     facts = FinancialFactService(fact_repository, identities, store, sec)
     metrics = NormalizedMetricsService(facts, identities)
-    service = CompanyIntelligenceService(identities, facts, metrics)
+    valuation = HistoricalValuationService(metrics, ValuationRepository(store.connection))
+    earnings = EarningsIntelligenceService(metrics, EarningsRepository(store.connection))
+    estimates = EstimateIntelligenceService(metrics, EmptyEstimateProvider())
+
+    class FixtureMarketData:
+        metadata = {
+            "NVDA": {
+                "source": "Yahoo Finance",
+                "qualityWarnings": ["Fixture delayed prices."],
+            }
+        }
+
+        async def history(self, ticker, period):
+            return pd.DataFrame(
+                {"Close": [100.0, 105.0]},
+                index=pd.to_datetime(["2024-03-01", "2024-03-08"]),
+            )
+
+    service = CompanyIntelligenceService(
+        identities,
+        facts,
+        metrics,
+        valuation,
+        FixtureMarketData(),
+        earnings,
+        estimates,
+    )
     app = FastAPI()
     app.include_router(create_intelligence_router(service))
     return TestClient(app), company
@@ -145,7 +178,7 @@ def test_metrics_endpoint_returns_versioned_lineage_under_as_of_boundary(tmp_pat
     payload = response.json()
     revenue = next(metric for metric in payload["metrics"] if metric["metricId"] == "revenue")
     assert revenue["value"] == 100
-    assert revenue["definitionVersion"] == "1.0.0"
+    assert revenue["definitionVersion"] == "1.2.0"
     assert revenue["sourceFactIds"] == payload["provenance"]["sourceFactIds"]
     assert payload["periodKind"] == "annual"
     assert payload["provenance"]["dataset"] == "normalized_financial_metrics"
@@ -180,3 +213,55 @@ def test_unknown_company_returns_not_found(tmp_path):
     response = client.get("/api/v3/companies/UNKNOWN")
 
     assert response.status_code == 404
+
+
+def test_valuation_endpoint_returns_versioned_history_statistics_and_provenance(tmp_path):
+    client, _ = build_client(tmp_path)
+
+    response = client.get(
+        "/api/v3/companies/NVDA/valuation",
+        params={"period": "1y", "frequency": "weekly", "metrics": "trailing_pe"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["apiVersion"] == "v3"
+    assert payload["frequency"] == "weekly"
+    assert len(payload["history"]["trailing_pe"]) == 2
+    assert payload["statistics"]["trailing_pe"]["status"] == "unavailable"
+    assert payload["provenance"]["priceSource"] == "Yahoo Finance"
+    assert payload["provenance"]["fundamentalSource"] == "SEC EDGAR"
+    assert payload["provenance"]["engineVersion"] == "1.0.0"
+
+
+def test_earnings_endpoint_returns_event_evidence_reactions_and_sample_size(tmp_path):
+    client, _ = build_client(tmp_path)
+
+    response = client.get("/api/v3/companies/NVDA/earnings", params={"benchmark": "spy"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["apiVersion"] == "v3"
+    assert payload["benchmarkTicker"] == "SPY"
+    assert len(payload["events"]) == 1
+    assert payload["events"][0]["event"]["evidence"]["source"] == "SEC EDGAR"
+    assert payload["events"][0]["reaction"]["windows"]["d20"]["status"] == "insufficient_data"
+    assert payload["aggregate"]["sampleSize"] == 0
+    assert payload["aggregate"]["excludedEvents"] == 1
+    assert payload["provenance"]["eventModelVersion"] == "1.0.0"
+    assert "do not predict" in " ".join(payload["warnings"])
+
+
+def test_estimates_endpoint_is_empty_safe_and_distinguishes_expectations_from_reported_facts(tmp_path):
+    client, _ = build_client(tmp_path)
+
+    response = client.get("/api/v3/companies/NVDA/estimates")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["apiVersion"] == "v3"
+    assert payload["comparisons"] == []
+    assert payload["providerKey"] == "none"
+    assert payload["provenance"]["expectationDataset"] == "analyst_estimates"
+    assert payload["provenance"]["reportedDataset"] == "normalized_financial_metrics"
+    assert "not SEC-reported facts" in payload["provenance"]["distinction"]

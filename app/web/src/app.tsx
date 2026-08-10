@@ -10,11 +10,14 @@ const MarketPulse = lazy(() => import("@/features/market-pulse/market-pulse").th
 const OptionLab = lazy(() => import("@/features/option-lab/option-lab").then((module) => ({ default: module.OptionLab })))
 const StockObservatory = lazy(() => import("@/features/stock-observatory/stock-observatory").then((module) => ({ default: module.StockObservatory })))
 const StrategyLab = lazy(() => import("@/features/strategy-lab/strategy-lab").then((module) => ({ default: module.StrategyLab })))
+const CompanyIntelligence = lazy(() => import("@/features/company-intelligence/company-intelligence").then((module) => ({ default: module.CompanyIntelligence })))
 
 export function App() {
   const activeLab = labFromSearch(window.location.search)
   const initialTicker = tickerFromSearch(window.location.search)
-  const canvas = activeLab === "options"
+  const canvas = activeLab === "intelligence"
+    ? <CompanyIntelligence initialTicker={initialTicker} />
+    : activeLab === "options"
     ? <OptionLab initialTicker={initialTicker} />
     : activeLab === "stock"
       ? <StockObservatory initialTicker={initialTicker} />

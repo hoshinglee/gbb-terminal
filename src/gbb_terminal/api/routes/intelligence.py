@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ...intelligence.company_service import CompanyIntelligenceService
 from ...intelligence.fact_models import FinancialFactQuery
+from ...intelligence.estimate_models import EstimateMetric
 from ...intelligence.models import CompanyIdentity, CompanyProvenance
 from ..schemas.v3 import (
     CompanyLookupQuery,
@@ -14,13 +15,28 @@ from ..schemas.v3 import (
     FinancialFactResponse,
     FinancialHistoryQuery,
     FinancialHistoryResponse,
+    EarningsAggregateResponse,
+    EarningsEventAnalysisResponse,
+    EarningsHistoryResponse,
+    EarningsProvenanceResponse,
+    EarningsQuery,
+    EstimateComparisonResponse,
+    EstimateHistoryResponse,
+    EstimateProvenanceResponse,
+    EstimatesQuery,
+    HistoricalValuationResponse,
     MetricsProvenanceResponse,
     MetricsQuery,
     NormalizedMetricResponse,
     NormalizedMetricsResponse,
     ProvenanceResponse,
     SecurityMappingResponse,
+    ValuationPointResponse,
+    ValuationProvenanceResponse,
+    ValuationQuery,
+    ValuationStatisticsResponse,
 )
+from ...intelligence.valuation_definitions import VALUATION_DEFINITIONS
 
 
 def create_intelligence_router(service: CompanyIntelligenceService) -> APIRouter:
@@ -95,6 +111,145 @@ def create_intelligence_router(service: CompanyIntelligenceService) -> APIRouter
             )
         except LookupError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get("/companies/{ticker}/valuation", response_model=HistoricalValuationResponse)
+    async def historical_valuation(
+        ticker: str,
+        query: Annotated[ValuationQuery, Query()],
+    ) -> HistoricalValuationResponse:
+        try:
+            metric_ids = [value.strip() for value in (query.metrics or "").split(",") if value.strip()]
+            result = await service.historical_valuation(
+                ticker,
+                query.period,
+                query.frequency,
+                query.as_of,
+                metric_ids or list(VALUATION_DEFINITIONS),
+            )
+            company = service.company_overview(ticker)
+            source_fact_ids = list(
+                dict.fromkeys(
+                    source
+                    for points in result.points.values()
+                    for point in points
+                    for source in point.source_fact_ids
+                )
+            )
+            price_source = next(
+                (point.price_source for points in result.points.values() for point in points),
+                "Yahoo Finance",
+            )
+            return HistoricalValuationResponse(
+                company=_company_reference(company),
+                frequency=result.frequency,
+                start_date=result.start_date,
+                end_date=result.end_date,
+                as_of=result.as_of,
+                engine_version=result.engine_version,
+                history={
+                    metric_id: [ValuationPointResponse.model_validate(point.model_dump()) for point in points]
+                    for metric_id, points in result.points.items()
+                },
+                statistics={
+                    metric_id: ValuationStatisticsResponse.model_validate(statistics.model_dump())
+                    for metric_id, statistics in result.statistics.items()
+                },
+                warnings=result.warnings,
+                provenance=ValuationProvenanceResponse(
+                    price_source=price_source,
+                    as_of=result.as_of,
+                    engine_version=result.engine_version,
+                    source_fact_ids=source_fact_ids,
+                ),
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get("/companies/{ticker}/earnings", response_model=EarningsHistoryResponse)
+    async def earnings_history(
+        ticker: str,
+        query: Annotated[EarningsQuery, Query()],
+    ) -> EarningsHistoryResponse:
+        try:
+            result = await service.earnings_history(ticker, query.benchmark, query.as_of, query.limit)
+            company = service.company_overview(ticker)
+            source_fact_ids = list(
+                dict.fromkeys(
+                    source
+                    for analysis in result.events
+                    for source in analysis.event.evidence.source_fact_ids
+                )
+            )
+            event_model_version = next(
+                (analysis.event.model_version for analysis in result.events),
+                "1.0.0",
+            )
+            reaction_engine_version = next(
+                (analysis.reaction.engine_version for analysis in result.events),
+                "1.0.0",
+            )
+            return EarningsHistoryResponse(
+                company=_company_reference(company),
+                benchmark_ticker=result.benchmark_ticker,
+                as_of=result.as_of,
+                events=[
+                    EarningsEventAnalysisResponse.model_validate(analysis.model_dump())
+                    for analysis in result.events
+                ],
+                aggregate=EarningsAggregateResponse.model_validate(result.aggregate.model_dump()),
+                warnings=result.warnings,
+                provenance=EarningsProvenanceResponse(
+                    as_of=result.as_of,
+                    event_model_version=event_model_version,
+                    reaction_engine_version=reaction_engine_version,
+                    source_fact_ids=source_fact_ids,
+                ),
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get("/companies/{ticker}/estimates", response_model=EstimateHistoryResponse)
+    async def estimate_history(
+        ticker: str,
+        query: Annotated[EstimatesQuery, Query()],
+    ) -> EstimateHistoryResponse:
+        try:
+            raw_metrics = [value.strip() for value in (query.metrics or "").split(",") if value.strip()]
+            metric_ids = [EstimateMetric(value) for value in raw_metrics] if raw_metrics else list(EstimateMetric)
+            result = service.estimate_history(ticker, query.as_of, metric_ids)
+            company = service.company_overview(ticker)
+            return EstimateHistoryResponse(
+                company=_company_reference(company),
+                as_of=result.as_of,
+                contract_version=result.contract_version,
+                provider_key=result.provider_key,
+                provider_name=result.provider_name,
+                comparisons=[
+                    EstimateComparisonResponse.model_validate(comparison.model_dump())
+                    for comparison in result.comparisons
+                ],
+                warnings=result.warnings,
+                provenance=EstimateProvenanceResponse(
+                    provider_key=result.provider_key,
+                    provider_name=result.provider_name,
+                    as_of=result.as_of,
+                    contract_version=result.contract_version,
+                ),
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 

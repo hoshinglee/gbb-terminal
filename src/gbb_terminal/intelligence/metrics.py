@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from .fact_models import FinancialFactQuery
 from .fact_service import FinancialFactService
@@ -63,7 +63,15 @@ class NormalizedMetricsService:
         if effective_as_of.tzinfo is None or effective_as_of.utcoffset() is None:
             raise ValueError("Metric as-of timestamps must include a timezone.")
         company = self._resolve_company(ticker_or_cik)
-        concepts = sorted(
+        facts = self.facts.history(
+            company.cik,
+            FinancialFactQuery(concepts=self.supported_concepts(), as_of=effective_as_of),
+        )
+        return self._calculate_from_facts(company, facts, period_kind, effective_as_of)
+
+    @staticmethod
+    def supported_concepts() -> list[str]:
+        return sorted(
             {
                 concept
                 for definition in METRIC_DEFINITIONS.values()
@@ -71,10 +79,14 @@ class NormalizedMetricsService:
             }
             | set(DEBT_COMPONENT_CONCEPTS)
         )
-        facts = self.facts.history(
-            company.cik,
-            FinancialFactQuery(concepts=concepts, as_of=effective_as_of),
-        )
+
+    def _calculate_from_facts(
+        self,
+        company,
+        facts,
+        period_kind: MetricPeriodKind,
+        effective_as_of: datetime,
+    ) -> NormalizedMetricSet:
         base_kind = MetricPeriodKind.QUARTERLY if period_kind == MetricPeriodKind.TTM else period_kind
         periods, warnings = self._base_periods(facts, base_kind)
         if period_kind == MetricPeriodKind.TTM:
@@ -115,10 +127,17 @@ class NormalizedMetricsService:
 
     def _base_periods(self, facts, kind: MetricPeriodKind) -> tuple[list[_Period], list[str]]:
         anchors = sorted({fact.period_end for fact in facts if self._flow_matches_kind(fact, kind)})
+        facts_by_period_end = {}
+        for fact in facts:
+            facts_by_period_end.setdefault(fact.period_end, []).append(fact)
         periods = []
         warnings = []
         for period_end in anchors:
-            period_facts = [fact for fact in facts if fact.period_end == period_end and self._fact_matches_kind(fact, kind)]
+            period_facts = [
+                fact
+                for fact in facts_by_period_end.get(period_end, [])
+                if self._fact_matches_kind(fact, kind)
+            ]
             flow_facts = [fact for fact in period_facts if fact.period_start is not None]
             if not flow_facts:
                 continue
@@ -126,15 +145,128 @@ class NormalizedMetricsService:
             fiscal_year = next((fact.fiscal_year for fact in reversed(flow_facts) if fact.fiscal_year is not None), None)
             fiscal_period = next((fact.fiscal_period for fact in reversed(flow_facts) if fact.fiscal_period), None)
             metrics = {
-                metric_id: self._select_metric(definition, period_facts, kind, period_start, period_end, fiscal_year, fiscal_period)
+                metric_id: self._select_metric(
+                    definition,
+                    period_facts,
+                    kind,
+                    period_start,
+                    period_end,
+                    fiscal_year,
+                    fiscal_period,
+                    facts,
+                )
                 for metric_id, definition in METRIC_DEFINITIONS.items()
             }
             if metrics["debt"].value is None:
                 metrics["debt"] = self._compose_debt(period_facts, kind, period_start, period_end, fiscal_year, fiscal_period)
             periods.append(_Period(kind, period_start, period_end, fiscal_year, fiscal_period, metrics))
+        if kind == MetricPeriodKind.QUARTERLY:
+            annual_periods, _ = self._base_periods(facts, MetricPeriodKind.ANNUAL)
+            inferred, inferred_warnings = self._infer_fourth_quarters(periods, annual_periods)
+            periods.extend(inferred)
+            periods.sort(key=lambda period: period.end)
+            warnings.extend(inferred_warnings)
         if kind == MetricPeriodKind.QUARTERLY and len(periods) < 4:
             warnings.append("Fewer than four discrete quarterly periods are available; TTM output may be unavailable.")
         return periods, warnings
+
+    def _infer_fourth_quarters(
+        self,
+        quarters: list[_Period],
+        annual_periods: list[_Period],
+    ) -> tuple[list[_Period], list[str]]:
+        existing_ends = {period.end for period in quarters}
+        inferred = []
+        warnings = []
+        for annual in annual_periods:
+            if annual.end in existing_ends or annual.start is None:
+                continue
+            prior = [
+                period
+                for period in quarters
+                if period.start is not None
+                and annual.start <= period.start
+                and period.end < annual.end
+            ][-3:]
+            if len(prior) != 3:
+                continue
+            if abs((prior[0].start - annual.start).days) > 14:
+                continue
+            if any((prior[index].end - prior[index - 1].end).days > 130 for index in range(1, 3)):
+                continue
+            fourth_start = prior[-1].end + timedelta(days=1)
+            if not 60 <= (annual.end - fourth_start).days + 1 <= 120:
+                continue
+            metrics = {
+                metric_id: self._infer_fourth_quarter_metric(
+                    definition,
+                    annual,
+                    prior,
+                    fourth_start,
+                )
+                for metric_id, definition in METRIC_DEFINITIONS.items()
+            }
+            inferred.append(
+                _Period(
+                    MetricPeriodKind.QUARTERLY,
+                    fourth_start,
+                    annual.end,
+                    annual.fiscal_year,
+                    "Q4",
+                    metrics,
+                )
+            )
+            warnings.append(
+                f"Inferred discrete Q4 ending {annual.end.isoformat()} from the reported fiscal year less Q1-Q3."
+            )
+        return inferred, warnings
+
+    def _infer_fourth_quarter_metric(
+        self,
+        definition: MetricDefinition,
+        annual: _Period,
+        prior: list[_Period],
+        fourth_start: date,
+    ) -> NormalizedMetric:
+        annual_metric = annual.metrics[definition.metric_id]
+        prior_metrics = [period.metrics[definition.metric_id] for period in prior]
+        sources = list(
+            dict.fromkeys(
+                source
+                for metric in [annual_metric, *prior_metrics]
+                for source in metric.source_fact_ids
+            )
+        )
+        metric_warnings = [warning for metric in [annual_metric, *prior_metrics] for warning in metric.warnings]
+        if definition.behavior in {MetricBehavior.FLOW, MetricBehavior.PER_SHARE}:
+            if annual_metric.value is None or any(metric.value is None for metric in prior_metrics):
+                value = None
+                metric_warnings.append(
+                    f"{definition.label} Q4 inference requires the fiscal-year value and all three preceding quarters."
+                )
+            else:
+                value = annual_metric.value - sum(metric.value for metric in prior_metrics)
+                metric_warnings.append(
+                    f"{definition.label} Q4 is inferred from the fiscal-year value less Q1-Q3."
+                )
+        else:
+            value = annual_metric.value
+            metric_warnings.append(
+                f"{definition.label} uses the reported fiscal-year-end observation for Q4."
+            )
+        return self._metric(
+            definition.metric_id,
+            definition.label,
+            value,
+            definition.unit,
+            MetricPeriodKind.QUARTERLY,
+            fourth_start,
+            annual.end,
+            annual.fiscal_year,
+            "Q4",
+            sources,
+            metric_warnings,
+        )
 
     def _select_metric(
         self,
@@ -145,6 +277,7 @@ class NormalizedMetricsService:
         period_end: date,
         fiscal_year: int | None,
         fiscal_period: str | None,
+        all_facts,
     ) -> NormalizedMetric:
         warnings = []
         for concept in definition.concepts:
@@ -191,6 +324,22 @@ class NormalizedMetricsService:
                     [selected.fact_id],
                     warnings,
                 )
+            if kind == MetricPeriodKind.QUARTERLY and definition.behavior in {
+                MetricBehavior.FLOW,
+                MetricBehavior.PER_SHARE,
+            }:
+                cumulative = self._derive_cumulative_quarter(
+                    definition,
+                    concept,
+                    all_facts,
+                    period_start,
+                    period_end,
+                    fiscal_year,
+                    fiscal_period,
+                    warnings,
+                )
+                if cumulative is not None:
+                    return cumulative
         return self._metric(
             definition.metric_id,
             definition.label,
@@ -203,6 +352,80 @@ class NormalizedMetricsService:
             fiscal_period,
             [],
             [f"{definition.label} is unavailable from the supported SEC concepts for this period.", *warnings],
+        )
+
+    def _derive_cumulative_quarter(
+        self,
+        definition: MetricDefinition,
+        concept: str,
+        facts,
+        period_start: date,
+        period_end: date,
+        fiscal_year: int | None,
+        fiscal_period: str | None,
+        warnings: list[str],
+    ) -> NormalizedMetric | None:
+        current_candidates = [
+            fact
+            for fact in facts
+            if fact.taxonomy == "us-gaap"
+            and fact.concept == concept
+            and fact.period_end == period_end
+            and fact.period_start is not None
+            and fact.period_start < period_start
+            and fact.form.startswith("10-Q")
+        ]
+        current = self._latest_normalized_fact(current_candidates, definition, warnings)
+        if current is None:
+            return None
+        current_fact, current_value = current
+        prior_candidates = [
+            fact
+            for fact in facts
+            if fact.taxonomy == "us-gaap"
+            and fact.concept == concept
+            and fact.period_start == current_fact.period_start
+            and fact.period_end < period_end
+            and 60 <= (period_end - fact.period_end).days <= 130
+        ]
+        prior = self._latest_normalized_fact(prior_candidates, definition, warnings)
+        if prior is None:
+            return None
+        prior_fact, prior_value = prior
+        value = current_value - prior_value
+        if definition.absolute_value:
+            value = abs(value)
+        return self._metric(
+            definition.metric_id,
+            definition.label,
+            value,
+            definition.unit,
+            MetricPeriodKind.QUARTERLY,
+            period_start,
+            period_end,
+            fiscal_year,
+            fiscal_period,
+            [current_fact.fact_id, prior_fact.fact_id],
+            [
+                *warnings,
+                f"{definition.label} is derived from consecutive cumulative year-to-date SEC facts.",
+            ],
+        )
+
+    @staticmethod
+    def _latest_normalized_fact(candidates, definition: MetricDefinition, warnings: list[str]):
+        normalized = []
+        for fact in candidates:
+            value, unit_warning = UnitNormalizer.normalize(fact.value, fact.unit, definition.unit)
+            if unit_warning:
+                warnings.append(f"{definition.label}: {unit_warning}")
+            else:
+                normalized.append((fact, value))
+        if not normalized:
+            return None
+        return max(
+            normalized,
+            key=lambda item: (item[0].provenance.known_at, item[0].filed_date, item[0].fact_id),
         )
 
     def _compose_debt(
@@ -281,9 +504,16 @@ class NormalizedMetricsService:
                     if value is None:
                         metric_warnings.append(f"{definition.label} TTM requires all four quarterly values.")
                 elif definition.behavior == MetricBehavior.AVERAGE:
-                    value = sum(metric.value for metric in available) / len(available) if len(available) == 4 else None
+                    latest = next((metric for metric in reversed(values) if metric.value is not None), None)
+                    value = latest.value if latest else None
+                    sources = latest.source_fact_ids if latest else []
+                    metric_warnings = list(latest.warnings) if latest else metric_warnings
                     if value is None:
-                        metric_warnings.append(f"{definition.label} TTM requires all four quarterly values.")
+                        metric_warnings.append(f"{definition.label} TTM requires a current quarterly observation.")
+                    else:
+                        metric_warnings.append(
+                            f"{definition.label} TTM uses the latest quarterly weighted-average observation."
+                        )
                 else:
                     value = values[-1].value
                     sources = values[-1].source_fact_ids
@@ -316,6 +546,13 @@ class NormalizedMetricsService:
     def _add_derived_metrics(self, periods: list[_Period]) -> None:
         for index, period in enumerate(periods):
             metrics = period.metrics
+            metrics["ebitda"] = self._binary_metric(
+                period,
+                "ebitda",
+                "operating_income",
+                "depreciation_amortization",
+                lambda left, right: left + right,
+            )
             metrics["free_cash_flow"] = self._binary_metric(period, "free_cash_flow", "operating_cash_flow", "capital_expenditure", lambda left, right: left - right)
             metrics["gross_margin"] = self._ratio_metric(period, "gross_margin", "gross_profit", "revenue")
             metrics["operating_margin"] = self._ratio_metric(period, "operating_margin", "operating_income", "revenue")
@@ -406,7 +643,12 @@ class NormalizedMetricsService:
             return cls._flow_matches_kind(fact, kind)
         if kind == MetricPeriodKind.ANNUAL:
             return fact.fiscal_period == "FY" or fact.form.startswith("10-K")
-        return fact.form.startswith("10-Q") or (fact.fiscal_period or "").startswith("Q")
+        return (
+            fact.form.startswith("10-Q")
+            or (fact.fiscal_period or "").startswith("Q")
+            or "Q" in (fact.frame or "")
+            or fact.form.startswith("10-K")
+        )
 
     @staticmethod
     def _metric(metric_id, label, value, unit, kind, start, end, fiscal_year, fiscal_period, sources, warnings):

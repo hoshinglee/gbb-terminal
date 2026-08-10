@@ -62,6 +62,7 @@ class Settings:
     frontend_directory: Path
     database_path: Path
     log_directory: Path
+    estimate_fixture_path: Path
     refresh_interval_seconds: int
     data_contact: str
     llm: LLMSettings
@@ -120,6 +121,18 @@ class Settings:
             frontend_directory=_resolve_path(str(_value(source_environment, "GBB_FRONTEND_DIRECTORY", configuration, "paths.frontend_directory", "app")), root),
             database_path=_resolve_path(str(_value(source_environment, "GBB_DATABASE_PATH", configuration, "paths.database_path", "data/gbb_terminal.duckdb")), root),
             log_directory=_resolve_path(str(_value(source_environment, "GBB_LOG_DIRECTORY", configuration, "paths.log_directory", "log")), root),
+            estimate_fixture_path=_resolve_path(
+                str(
+                    _value(
+                        source_environment,
+                        "GBB_ESTIMATE_FIXTURE_PATH",
+                        configuration,
+                        "paths.estimate_fixture_path",
+                        "conf/estimates.json",
+                    )
+                ),
+                root,
+            ),
             refresh_interval_seconds=int(_value(source_environment, "GBB_REFRESH_INTERVAL_SECONDS", configuration, "app.refresh_interval_seconds", 900)),
             data_contact=str(_value(source_environment, "GBB_DATA_CONTACT", configuration, "app.data_contact", "your-email@example.com")),
             llm=LLMSettings(

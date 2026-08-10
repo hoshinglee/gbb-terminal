@@ -184,7 +184,17 @@ class LocalMarketStore:
         ).fetchone()[0]
         if newest is None or (max_age_minutes is not None and datetime.now(timezone.utc).replace(tzinfo=None) - newest > timedelta(minutes=max_age_minutes)):
             return None
-        days = {"1mo": 40, "3mo": 110, "6mo": 200, "1y": 370, "2y": 740}.get(period, 740)
+        days = {
+            "1mo": 40,
+            "3mo": 110,
+            "6mo": 200,
+            "1y": 370,
+            "2y": 740,
+            "3y": 1_110,
+            "5y": 1_850,
+            "10y": 3_700,
+            "max": 36_500,
+        }.get(period, 740)
         start_date = (datetime.now(timezone.utc) - timedelta(days=days)).date()
         frame = self.connection.execute(
             """SELECT price_date AS Date, open AS Open, high AS High, low AS Low,
@@ -192,7 +202,9 @@ class LocalMarketStore:
                FROM price_history WHERE symbol = ? AND price_date >= ? ORDER BY price_date""",
             [symbol, start_date],
         ).df()
-        if frame.empty or len(frame) < 20 or frame["Date"].min().date() > start_date:
+        if frame.empty or len(frame) < 20:
+            return None
+        if period != "max" and frame["Date"].min().date() > start_date:
             return None
         frame["Date"] = pd.to_datetime(frame["Date"])
         return frame.set_index("Date")
@@ -204,8 +216,7 @@ class LocalMarketStore:
         rows["fetched_at"] = datetime.now(timezone.utc).replace(tzinfo=None)
         rows = rows.rename(columns={"Open": "open", "High": "high", "Low": "low", "Close": "close", "Volume": "volume"})
         self.connection.register("incoming_prices", rows[["symbol", "price_date", "open", "high", "low", "close", "volume", "fetched_at"]])
-        self.connection.execute("DELETE FROM price_history WHERE symbol = ?", [symbol])
-        self.connection.execute("INSERT INTO price_history SELECT * FROM incoming_prices")
+        self.connection.execute("INSERT OR REPLACE INTO price_history SELECT * FROM incoming_prices")
         self.connection.unregister("incoming_prices")
 
     def load_options(self, symbol: str, expiration: str | None = None, max_age_minutes: int | None = 15) -> dict | None:

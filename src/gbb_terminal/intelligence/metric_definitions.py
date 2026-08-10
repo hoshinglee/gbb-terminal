@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 
-METRIC_DEFINITION_VERSION = "1.0.0"
+METRIC_DEFINITION_VERSION = "1.2.0"
 
 
 class MetricBehavior(StrEnum):
@@ -82,6 +82,7 @@ METRIC_DEFINITIONS = {
         MetricBehavior.FLOW,
         (
             "PaymentsToAcquirePropertyPlantAndEquipment",
+            "PaymentsToAcquireProductiveAssets",
             "PaymentsForAdditionsToPropertyPlantAndEquipment",
         ),
         absolute_value=True,
@@ -118,6 +119,17 @@ METRIC_DEFINITIONS = {
         (
             "StockholdersEquity",
             "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+        ),
+    ),
+    "depreciation_amortization": MetricDefinition(
+        "depreciation_amortization",
+        "Depreciation And Amortization",
+        "USD",
+        MetricBehavior.FLOW,
+        (
+            "DepreciationDepletionAndAmortization",
+            "DepreciationDepletionAndAmortizationPropertyPlantAndEquipment",
+            "DepreciationDepletionAndAmortizationPropertyPlantAndEquipmentAndIntangibleAssets",
         ),
         exposed=False,
     ),
@@ -159,6 +171,7 @@ DEBT_COMPONENT_GROUPS = (
 
 
 DERIVED_METRICS = {
+    "ebitda": ("EBITDA", "USD"),
     "free_cash_flow": ("Free Cash Flow", "USD"),
     "revenue_growth": ("Revenue Growth", "%"),
     "eps_growth": ("EPS Growth", "%"),

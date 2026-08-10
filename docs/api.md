@@ -13,10 +13,17 @@ V3 separates company-business research from V2 security-market observability. A 
 | `GET /api/v3/companies/{ticker}` | Return canonical company metadata, active/latest primary security, complete dated security mappings, and company/mapping provenance. Optional `as_of=YYYY-MM-DD` resolves a historical ticker association. |
 | `GET /api/v3/companies/{ticker}/financials` | Return point-in-time SEC fact observations. Optional `concepts`, `forms`, timezone-aware `as_of`, and `limit` filters are applied before serialization. |
 | `GET /api/v3/companies/{ticker}/metrics` | Return normalized annual, quarterly, or TTM metrics using `period=annual|quarterly|ttm` and optional timezone-aware `as_of`. |
+| `GET /api/v3/companies/{ticker}/valuation` | Return daily or weekly trailing valuation history, statistics, point-in-time fact lineage, and price provenance. |
+| `GET /api/v3/companies/{ticker}/earnings` | Return source-backed fiscal events, session-aware D0/D+1/D+5/D+20/D+60 reactions, benchmark adjustment, volume context, and aggregate statistics. |
+| `GET /api/v3/companies/{ticker}/estimates` | Return timestamped provider-neutral revenue/EPS expectations, revision observations, exact reported-period mappings, and expectation/reporting provenance. Empty coverage remains a successful response. |
 
 All V3 responses include `apiVersion: "v3"`. Response fields use camelCase; internal Python domain models remain snake_case. V3 query and response schemas reject unknown fields. A missing canonical company returns `404`; invalid filters or domain inputs return `400`; invalid/unknown query parameters return `422`.
 
-Company overview provenance includes source, dataset, observation, `knownAt`, retrieval, provider status, cache state, quota, and quality warnings. Every raw financial fact includes accession, filing, frame, economic period, exact/fallback `knownAt` semantics, raw unit/value, provider context, and source metadata. Metric responses expose `asOf`, definition version, warnings, and the complete set of source fact IDs used by their non-null values.
+Company overview provenance includes source, dataset, observation, `knownAt`, retrieval, provider status, cache state, quota, and quality warnings. Every raw financial fact includes accession, filing, frame, economic period, exact/fallback `knownAt` semantics, raw unit/value, provider context, and source metadata. Metric responses expose `asOf`, definition version, warnings, and the complete set of source fact IDs used by their non-null values. Valuation aligns each adjusted close with only SEC facts known by that US market close; non-positive multiple denominators return `nm`, while missing inputs return `unavailable`. See [Historical Point-In-Time Valuation](historical-valuation.md).
+
+Earnings responses classify SEC acceptance time in New York market hours, align after-close/weekend/holiday events to the next observed session, and preserve date-only ambiguity. They distinguish normalized reported facts from calculated reactions and state that historical reactions do not predict the next event. See [Earnings Events And Reaction Analytics](earnings-intelligence.md).
+
+Estimate responses never represent expectations as SEC facts. Each observation has provider and `knownAt`; fiscal mapping requires exact metric, period end, fiscal year, and fiscal period. The default local provider returns empty coverage unless an ignored manual fixture is configured. See [Analyst Estimates Provider Contract](analyst-estimates.md).
 
 `matchingFactCount` reports all rows matching the financial-history filters; `returnedFactCount` reports rows included under `limit`. Truncation adds an explicit warning rather than silently implying complete history.
 

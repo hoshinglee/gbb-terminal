@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 
 import duckdb
+import pandas as pd
 
 from gbb_terminal.intelligence import CompanyIdentityRepository, CompanyProvenance, CompanyRegistration
 from gbb_terminal.options.lifecycle import apply_event, initial_state
@@ -26,12 +27,42 @@ def test_existing_database_migrates_without_losing_prices(tmp_path):
         "schema_migrations",
         "companies",
         "company_security_mappings",
-        "sec_financial_facts",
-    } <= tables
-    assert store.connection.execute("SELECT max(version) FROM schema_migrations").fetchone()[0] == 7
+            "sec_financial_facts",
+            "valuation_series",
+            "earnings_events",
+            "earnings_reactions",
+        } <= tables
+    assert store.connection.execute("SELECT max(version) FROM schema_migrations").fetchone()[0] == 9
     research_columns = {row[1] for row in store.connection.execute("PRAGMA table_info('research_runs')").fetchall()}
     assert {"strategy_key", "reproducibility_key"} <= research_columns
     assert "option_simulation_runs" in tables
+
+
+def test_max_price_cache_supports_newer_listings_and_preserves_long_history(tmp_path):
+    store = LocalMarketStore(tmp_path / "prices.duckdb")
+    dates = pd.bdate_range(end=date.today(), periods=30)
+    history = pd.DataFrame(
+        {
+            "Open": range(30),
+            "High": range(1, 31),
+            "Low": range(30),
+            "Close": range(1, 31),
+            "Volume": [1_000_000] * 30,
+        },
+        index=dates,
+    )
+    store.save_history("NEW", history)
+
+    cached = store.load_history("NEW", "max")
+    assert cached is not None
+    assert len(cached) == 30
+
+    store.save_history("NEW", history.tail(20).assign(Close=99))
+    preserved = store.load_history("NEW", "max")
+    assert preserved is not None
+    assert len(preserved) == 30
+    assert preserved.iloc[0]["Close"] == 1
+    assert preserved.iloc[-1]["Close"] == 99
 
 
 def test_company_identity_persists_across_database_reopen(tmp_path):

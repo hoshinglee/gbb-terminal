@@ -119,6 +119,34 @@ Implementation status: INT-01 through INT-04 are implemented on the Release 0.7 
 - Keep provenance, as-of context, schema versions, warnings, and source lineage visible.
 - Preserve every V2 Stock Observatory, Strategy Lab, and Option Lab contract.
 
+## Release 0.8 — Valuation And Earnings Intelligence
+
+Implementation status: INT-05 through INT-08 are implemented on the Release 0.8 branch. Company Intelligence now has an end-user React canvas in addition to its strict V3 domain contracts.
+
+### INT-05 — Historical Point-In-Time Valuation
+
+- Align adjusted security closes with only normalized SEC facts known by each New York market close.
+- Persist versioned daily/weekly P/E, P/S, P/B, EV/Revenue, EV/EBITDA, P/FCF, earnings-yield, and FCF-yield observations.
+- Return explicit `nm`/unavailable states, own-history percentiles, medians, ranges, z-scores, and lineage.
+
+### INT-06 — Earnings Events And Reactions
+
+- Persist stable, source-backed fiscal events using exact or date-only SEC filing evidence.
+- Align before-open, after-close, intraday, weekend/holiday, and unknown-time events to observed trading sessions.
+- Calculate D0 through D+60, benchmark-adjusted reaction, opening gap, abnormal volume, path evidence, and sample-aware aggregates.
+
+### INT-07 — Earnings Reaction Explorer
+
+- Add Company Intelligence as a fifth lazy-loaded React canvas with direct ticker navigation.
+- Keep reported facts separate from calculated reactions while preserving event source links and caveats.
+- Add selectable event history, accessible price/volume/reaction chart, normalized financial progression, and valuation context.
+
+### INT-08 — Analyst Estimates Boundary
+
+- Define strict provider-neutral revenue/EPS expectation models with observation and `known_at` timestamps.
+- Support revision history, exact fiscal mapping, empty coverage, and a Git-ignored manual fixture adapter.
+- Do not scrape or select a commercial estimates vendor and do not turn expectations into reported facts.
+
 ## Cross-Release Usefulness Enhancements
 
 1. Compare saved stock and option research runs in one project workspace.

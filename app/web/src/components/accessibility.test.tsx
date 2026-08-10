@@ -13,6 +13,7 @@ describe("research canvas accessibility", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "strategy-main")
     expect(screen.getAllByRole("link", { name: "Strategy Lab" })).toHaveLength(2)
     expect(screen.getAllByRole("link", { name: /^Option Lab/ })).toHaveLength(2)
+    expect(screen.getAllByRole("link", { name: "Company Intelligence" })).toHaveLength(2)
     expect(screen.getAllByRole("link", { name: "Strategy Lab" })[0]).toHaveAttribute("aria-current", "page")
   })
 
@@ -35,6 +36,14 @@ describe("research canvas accessibility", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "market-main")
     expect(screen.getAllByRole("link", { name: "Market Pulse" })[0]).toHaveAttribute("href", "/?lab=market")
     expect(screen.getAllByRole("link", { name: "Market Pulse" })[0]).toHaveAttribute("aria-current", "page")
+  })
+
+  it("exposes Company Intelligence as a first-class keyboard destination", () => {
+    render(<AppShell activeLab="intelligence"><div>Company evidence</div></AppShell>)
+
+    expect(screen.getByRole("main")).toHaveAttribute("id", "intelligence-main")
+    expect(screen.getAllByRole("link", { name: "Company Intelligence" })[0]).toHaveAttribute("href", "/?lab=intelligence")
+    expect(screen.getAllByRole("link", { name: "Company Intelligence" })[0]).toHaveAttribute("aria-current", "page")
   })
 
   it("labels the compact research controls without relying on placeholders", () => {

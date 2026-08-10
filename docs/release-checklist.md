@@ -105,6 +105,17 @@ This checklist separates research correctness from launch-environment stabilizat
 - [x] Complete INT-03 versioned concept precedence, unit normalization, annual/quarterly/TTM metrics, derivations, warnings, and source-fact lineage.
 - [x] Complete INT-04 strict V3 company overview, fact-history, and normalized-metric contracts with canonical identity, provenance, as-of context, documentation, and contract tests.
 
+## Release 0.8 — Valuation And Earnings Intelligence
+
+- [x] Complete INT-05 historical point-in-time valuation with deterministic market-close alignment, TTM denominators, explicit `nm`, statistics, provenance, DuckDB caching, and restatement tests.
+- [x] Complete INT-06 stable earnings events, source evidence, timing quality, trading-session windows, benchmark adjustment, volume context, deterministic persistence, and before/after/weekend/holiday/unknown tests.
+- [x] Complete INT-07 Company Intelligence navigation, historical earnings table, selectable evidence detail, reported-versus-calculated distinction, aggregate sample sizes, keyboard chart, responsive source contracts, and non-predictive language.
+- [x] Complete INT-08 provider-neutral revenue/EPS estimate observations, revision `known_at`, exact fiscal mapping, empty-safe API behavior, local fixtures, and expectation-versus-reported documentation.
+- [x] Preserve all existing V2 contracts and strict V3 unknown-field rejection.
+- [x] Reconcile synchronized NVIDIA evidence: 26,903 SEC facts produce 67 TTM periods, eight populated current valuation measures, and 40 source-backed earnings reactions.
+- [x] Reconcile representative maximum-history performance: 1,439 weekly observations across eight valuation measures return in 4.5 seconds; the warm-cache 40-event earnings response returns in 3.8 seconds on the development machine.
+- [ ] Complete connected-browser review using a locally synchronized supported company with live/cached Yahoo and SEC data.
+
 ## Deferred Launch Stability — Former Release 0.3 Gates
 
 Run these when preparing an actual public release candidate:

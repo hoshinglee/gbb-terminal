@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import duckdb
 
 
-CURRENT_SCHEMA_VERSION = 7
+CURRENT_SCHEMA_VERSION = 9
 
 
 def apply_company_identity_schema(connection: duckdb.DuckDBPyConnection) -> None:
@@ -95,9 +95,88 @@ def apply_financial_fact_schema(connection: duckdb.DuckDBPyConnection) -> None:
     )
 
 
+def apply_valuation_schema(connection: duckdb.DuckDBPyConnection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS valuation_series (
+            company_id VARCHAR NOT NULL REFERENCES companies(company_id),
+            ticker VARCHAR NOT NULL,
+            valuation_date DATE NOT NULL,
+            frequency VARCHAR NOT NULL CHECK (frequency IN ('daily', 'weekly')),
+            metric_id VARCHAR NOT NULL,
+            label VARCHAR NOT NULL,
+            value DOUBLE,
+            unit VARCHAR NOT NULL,
+            status VARCHAR NOT NULL CHECK (status IN ('available', 'nm', 'unavailable')),
+            price DOUBLE NOT NULL,
+            market_cap DOUBLE,
+            enterprise_value DOUBLE,
+            denominator_value DOUBLE,
+            denominator_metric VARCHAR NOT NULL,
+            fundamental_period_end DATE,
+            fundamental_known_at TIMESTAMP,
+            source_fact_ids JSON NOT NULL,
+            price_source VARCHAR NOT NULL,
+            warnings JSON NOT NULL,
+            engine_version VARCHAR NOT NULL,
+            computed_at TIMESTAMP NOT NULL,
+            PRIMARY KEY (company_id, ticker, valuation_date, frequency, metric_id, engine_version)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS valuation_company_date_index ON valuation_series(company_id, valuation_date)"
+    )
+
+
+def apply_earnings_schema(connection: duckdb.DuckDBPyConnection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS earnings_events (
+            event_id VARCHAR PRIMARY KEY,
+            company_id VARCHAR NOT NULL REFERENCES companies(company_id),
+            cik VARCHAR NOT NULL,
+            ticker VARCHAR NOT NULL,
+            fiscal_year INTEGER,
+            fiscal_period VARCHAR,
+            period_end DATE NOT NULL,
+            announcement_at TIMESTAMP,
+            announcement_date DATE NOT NULL,
+            session VARCHAR NOT NULL CHECK (session IN ('before_open', 'after_close', 'intraday', 'unknown')),
+            timing_quality VARCHAR NOT NULL CHECK (timing_quality IN ('exact', 'date_only')),
+            evidence JSON NOT NULL,
+            reported_metrics JSON NOT NULL,
+            guidance_metadata JSON NOT NULL,
+            model_version VARCHAR NOT NULL,
+            warnings JSON NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP NOT NULL
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS earnings_company_date_index ON earnings_events(company_id, announcement_date)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS earnings_reactions (
+            event_id VARCHAR NOT NULL REFERENCES earnings_events(event_id),
+            benchmark_ticker VARCHAR NOT NULL,
+            anchor_session DATE,
+            prior_session DATE,
+            opening_gap DOUBLE,
+            abnormal_volume DOUBLE,
+            volume_percentile DOUBLE,
+            windows JSON NOT NULL,
+            path JSON NOT NULL,
+            engine_version VARCHAR NOT NULL,
+            warnings JSON NOT NULL,
+            computed_at TIMESTAMP NOT NULL,
+            PRIMARY KEY (event_id, benchmark_ticker, engine_version)
+        )
+    """)
+
+
 def record_schema_version(connection: duckdb.DuckDBPyConnection) -> None:
     apply_company_identity_schema(connection)
     apply_financial_fact_schema(connection)
+    apply_valuation_schema(connection)
+    apply_earnings_schema(connection)
     connection.execute("""
         CREATE TABLE IF NOT EXISTS schema_migrations (
             version INTEGER PRIMARY KEY,

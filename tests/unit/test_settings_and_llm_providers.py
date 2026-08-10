@@ -26,6 +26,7 @@ llm:
     assert configuration.frontend_legacy_index == tmp_path / "app" / "index.html"
     assert configuration.frontend_react_index == tmp_path / "app" / "static" / "react" / "index.html"
     assert configuration.frontend_index == tmp_path / "app" / "index.html"
+    assert configuration.estimate_fixture_path == tmp_path / "conf" / "estimates.json"
     assert configuration.llm.provider == "anthropic"
     assert configuration.llm.model == "claude-test-model"
     assert configuration.llm.timeout_ms == 12000

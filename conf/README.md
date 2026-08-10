@@ -11,3 +11,5 @@ ANTHROPIC_API_KEY=
 ```
 
 Configuration precedence is: process environment variables, `.env`, `conf/app.yaml`, then built-in defaults. `GBB_CONFIG_PATH` can point to a different YAML file, and paths are always resolved relative to the project root.
+
+Optional analyst-estimate development data can be placed in ignored `conf/estimates.json` or selected with `GBB_ESTIMATE_FIXTURE_PATH`. The file must follow the provider-neutral contract documented in `docs/analyst-estimates.md`; it is manual local data, not scraped consensus coverage.

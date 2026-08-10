@@ -10,7 +10,7 @@ The normalized metrics engine converts point-in-time SEC/XBRL observations into 
 
 ## Versioned Definitions
 
-Every result carries `definition_version`. Version `1.0.0` centralizes ordered SEC concept candidates for:
+Every result carries `definition_version`. Version `1.2.0` centralizes ordered SEC concept candidates and point-in-time period construction for:
 
 | Metric | Preferred concept direction | Normalized unit |
 | --- | --- | --- |
@@ -40,10 +40,10 @@ Unit conversion is explicit and never performs currency conversion:
 ## Period Views
 
 - **Annual:** duration facts of at least 250 days associated with FY/10-K reporting, plus matching instant balances.
-- **Quarterly:** discrete duration facts between 60 and 120 days associated with quarterly frames/10-Q reporting, plus matching instant balances. Year-to-date durations are not silently treated as standalone quarters.
-- **TTM:** rolling groups of four contiguous discrete quarters. Flow and per-share metrics are summed, diluted shares are averaged, and instant balances use the latest quarter.
+- **Quarterly:** direct 60–120 day facts plus matching instant balances. Consecutive cumulative Q2/Q3 year-to-date facts are differenced, while a missing standalone Q4 is derived from the reported fiscal year less Q1-Q3. Every derivation retains both/all source facts and an explicit warning.
+- **TTM:** rolling groups of four contiguous discrete quarters. Flow and per-share metrics are summed, the latest quarterly diluted weighted-average share observation is used, and instant balances use the latest quarter.
 
-When four discrete quarters are unavailable, TTM remains unavailable with a visible warning. The engine does not invent a missing quarter from unrelated periods.
+When four contiguous quarters cannot be constructed from direct facts or the deterministic fiscal-year bridge, TTM remains unavailable with a visible warning. The engine never substitutes unrelated periods.
 
 ## Derived Metrics
 

@@ -58,9 +58,29 @@ The stable fact identity includes company, taxonomy/concept/unit, accession, eco
 
 ## Normalized Metrics
 
-INT-03 adds a versioned metrics engine over the point-in-time fact store. It supports annual, discrete-quarterly, and rolling TTM views; deterministic concept precedence; explicit USD/share scaling; missing-input and ambiguity warnings; and source-fact lineage for every non-null result. Derived evidence includes growth, margins, free cash flow, ROE, ROIC, net debt, and share dilution when the required observations exist.
+INT-03 adds a versioned metrics engine over the point-in-time fact store. Definition version `1.2.0` supports annual, discrete-quarterly, and rolling TTM views; deterministic concept precedence; explicit USD/share scaling; missing-input and ambiguity warnings; and source-fact lineage for every non-null result. Derived evidence includes growth, margins, free cash flow, ROE, ROIC, net debt, and share dilution when the required observations exist.
+
+SEC cash-flow statements commonly report Q2 and Q3 as cumulative year-to-date values and omit a standalone Q4. The engine converts consecutive cumulative observations into discrete quarters, infers Q4 flow/per-share values as fiscal year less Q1-Q3, and retains every contributing fact ID. Fiscal-year-end balance observations are reused at Q4, while a TTM share count uses the latest available quarterly weighted-average observation. Every derivation is labelled in metric warnings and remains constrained by the requested `as_of` boundary.
 
 See [Normalized Financial Metrics](financial-metrics.md) for business definitions and function contracts.
+
+## Historical Valuation
+
+INT-05 adds daily or weekly historical trailing valuation using adjusted security closes and normalized facts known at each US market close. The engine exposes P/E, P/S, P/B, EV/Revenue, EV/EBITDA when supported, P/FCF, earnings yield, and FCF yield with explicit `nm` and unavailable states. Every point retains the fundamental period, `known_at`, source fact IDs, and price source.
+
+See [Historical Point-In-Time Valuation](historical-valuation.md) for deterministic alignment, formulas, statistics, and DuckDB cache behavior.
+
+## Earnings Events
+
+INT-06 persists first-class fiscal events with stable identity, SEC filing evidence, timing quality, normalized reported metrics, and session-aware market reactions. Before-open, after-close, weekend/holiday, intraday, and unknown-time events have deterministic anchor rules. D0 through D+60, benchmark adjustment, abnormal volume, reaction paths, and aggregate sample sizes remain reproducible and warning-rich.
+
+See [Earnings Events And Reaction Analytics](earnings-intelligence.md) for window definitions and limitations.
+
+## Analyst Estimate Boundary
+
+INT-08 defines a vendor-neutral revenue/EPS estimate contract and optional local fixture adapter. Expectations retain provider and `known_at`, map to reported metrics only by exact fiscal identity, and remain visually/API-distinct from SEC facts. Missing coverage returns an empty, warning-rich result rather than breaking company, financial, valuation, or earnings workflows.
+
+See [Analyst Estimates Provider Contract](analyst-estimates.md) for fixture configuration, revision semantics, and mapping statuses.
 
 ## SEC Directory Sync
 
@@ -84,7 +104,7 @@ The raw Company Facts and submissions payloads also remain in `provider_cache`. 
 
 ## Current Boundary
 
-Release 0.7 INT-04 exposes strict V3 company overview, point-in-time financial fact history, and normalized metrics endpoints over `CompanyIntelligenceService`. It intentionally does not add a browser panel yet. Existing V2 stock, strategy, and option APIs continue accepting tickers unchanged.
+Release 0.8 extends the strict V3 boundary with historical valuation while preserving the Release 0.7 company overview, point-in-time facts, and normalized metrics contracts. Existing V2 stock, strategy, and option APIs continue accepting tickers unchanged.
 
 See [API Application](api.md) for exact V3 endpoints, filters, response counts, provenance, error semantics, and the company-versus-security boundary.
 
