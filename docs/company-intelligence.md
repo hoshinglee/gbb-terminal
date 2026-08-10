@@ -56,6 +56,12 @@ The stable fact identity includes company, taxonomy/concept/unit, accession, eco
 
 `FinancialFactQuery.as_of` filters on `known_at`. A query for a historical timestamp cannot see a later amendment or restatement even when the later row covers the same fiscal period.
 
+## Normalized Metrics
+
+INT-03 adds a versioned metrics engine over the point-in-time fact store. It supports annual, discrete-quarterly, and rolling TTM views; deterministic concept precedence; explicit USD/share scaling; missing-input and ambiguity warnings; and source-fact lineage for every non-null result. Derived evidence includes growth, margins, free cash flow, ROE, ROIC, net debt, and share dilution when the required observations exist.
+
+See [Normalized Financial Metrics](financial-metrics.md) for business definitions and function contracts.
+
 ## SEC Directory Sync
 
 The SEC publishes a periodically updated CIK, company-name, ticker, and exchange association file. The SEC states that its accuracy and scope are not guaranteed, so GBB preserves that warning in every ingested mapping and does not treat the retrieval date as a proven historical listing date.
@@ -78,6 +84,6 @@ The raw Company Facts and submissions payloads also remain in `provider_cache`. 
 
 ## Current Boundary
 
-Release 0.7 INT-01 and INT-02 are storage/domain infrastructure. They intentionally do not add a browser panel. V3 contracts arrive in INT-04 after normalized metrics are available. Existing V2 stock, strategy, and option APIs continue accepting tickers.
+Release 0.7 INT-01 through INT-03 are storage/domain infrastructure. They intentionally do not add a browser panel. V3 contracts arrive in INT-04. Existing V2 stock, strategy, and option APIs continue accepting tickers.
 
 Official source: [SEC Accessing EDGAR Data](https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data).

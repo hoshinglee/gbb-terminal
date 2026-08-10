@@ -102,7 +102,7 @@ This checklist separates research correctness from launch-environment stabilizat
 - [x] Add idempotent SEC ticker/CIK/exchange directory ingestion without claiming complete historical coverage.
 - [x] Cover normalization, duplicate conflicts, metadata updates, history, delisting, SEC parsing, and database reopen behavior.
 - [x] Complete INT-02 point-in-time SEC facts with accession deduplication, restatement retention, acceptance-aware `known_at`, as-of reads, and provider-cache fallback.
-- [ ] Complete INT-03 normalized financial metrics.
+- [x] Complete INT-03 versioned concept precedence, unit normalization, annual/quarterly/TTM metrics, derivations, warnings, and source-fact lineage.
 - [ ] Complete INT-04 V3 Company Intelligence contracts before adding the browser workflow.
 
 ## Deferred Launch Stability — Former Release 0.3 Gates

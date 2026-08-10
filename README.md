@@ -7,7 +7,7 @@ GBB Terminal is a free, open-source research and simulation workbench for hobbyi
 - **Strategy Lab:** natural-language rules, validated templates, reusable strategy catalogue configurations, next-open execution, cost-aware backtests, fingerprinted research runs, SPY/automatic-sector/risk-matched benchmarks, walk-forward and Optuna parameter search, trade ledgers, multi-interval candlestick replay, and evidence verdicts.
 - **Option Lab:** current Yahoo chain snapshots, American-option pricing, Greeks, price/time P&L surfaces, Monte Carlo paths, core single- and multi-leg positions, and an auditable paper lifecycle ledger.
 - **Stock and Market:** OHLCV observability, current option open interest, sector performance, relative strength, and macro market proxies.
-- **Company Intelligence foundation:** canonical company IDs, CIK resolution, and historical ticker/exchange mappings ready for point-in-time fundamentals.
+- **Company Intelligence foundation:** canonical company IDs, historical security mappings, point-in-time SEC facts, and versioned annual/quarterly/TTM financial metrics with source lineage.
 - **Local persistence:** DuckDB caches requested public data, company identities, strategies, research runs, option snapshots, paper positions, and lifecycle events.
 
 ## Run locally

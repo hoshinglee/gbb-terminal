@@ -326,6 +326,24 @@ sequenceDiagram
     UI-->>User: Render charts, trade ledger, robustness, assumptions
 ```
 
+## Company Intelligence Metric Pipeline
+
+```mermaid
+flowchart LR
+    SEC[SEC Company Facts + Submissions] --> FactService[FinancialFactService]
+    Identity[Canonical company_id + CIK] --> FactService
+    FactService --> RawCache[(provider_cache)]
+    FactService --> Facts[(sec_financial_facts<br/>accession + known_at)]
+    Facts --> AsOf{as_of filter}
+    AsOf --> Definitions[Versioned Concept Precedence]
+    Definitions --> Units[Explicit Unit Normalization]
+    Units --> Periods[Annual / Discrete Quarter / TTM]
+    Periods --> Derived[Growth / Margins / FCF / ROE / ROIC / Net Debt]
+    Derived --> Evidence[Typed Values + Warnings + Source Fact IDs]
+```
+
+Provider extraction does not choose business metrics. The intelligence engine can be rerun deterministically against the same `as_of` boundary and definition version, while every result retains source-fact lineage.
+
 ## DuckDB Logical Model
 
 ```mermaid

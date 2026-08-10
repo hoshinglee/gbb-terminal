@@ -39,6 +39,8 @@ Cross-lab links carry only a validated ticker in the URL. Strategy rules, option
 
 Company Intelligence has a separate identity boundary. Price and option requests continue using normalized tickers, while business-data consumers resolve that security through `CompanyIdentityService` into a stable `company_id`. CIK identifies the SEC filer; ticker/exchange mappings carry validity periods so ticker changes, alternate share classes, and delistings cannot rewrite company history. See [Company Intelligence](company-intelligence.md).
 
+Point-in-time Company Facts are persisted independently from normalized metrics. `FinancialFactService` owns SEC ingestion, source identity, acceptance-aware `known_at`, and as-of retrieval. `NormalizedMetricsService` owns versioned concept precedence, unit conversion, annual/quarterly/TTM construction, derived calculations, warnings, and source-fact lineage. API routes do not perform financial normalization.
+
 Hosted authentication is intentionally absent. Storage tables allow nullable `owner_id` so repository logic can later support users without contaminating domain models.
 
 See [System Diagrams](system-diagrams.md) for runtime, frontend state, request sequence, DuckDB, and build-fallback views.

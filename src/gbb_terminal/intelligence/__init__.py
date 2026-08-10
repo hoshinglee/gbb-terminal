@@ -3,6 +3,9 @@ from .fact_models import FinancialFact, FinancialFactQuery
 from .fact_repository import FinancialFactRepository
 from .fact_service import FactIngestionResult, FinancialFactService
 from .models import CompanyIdentity, CompanyProvenance, CompanyRegistration, CompanyStatus, SecurityMapping
+from .metric_definitions import METRIC_DEFINITION_VERSION, METRIC_DEFINITIONS
+from .metric_models import MetricPeriodKind, NormalizedMetric, NormalizedMetricSet
+from .metrics import NormalizedMetricsService, UnitNormalizer
 from .repository import CompanyIdentityRepository
 from .service import CompanyIdentityService, IdentitySyncResult
 
@@ -20,7 +23,14 @@ __all__ = [
     "FinancialFactService",
     "IdentityConflictError",
     "IdentitySyncResult",
+    "METRIC_DEFINITIONS",
+    "METRIC_DEFINITION_VERSION",
+    "MetricPeriodKind",
+    "NormalizedMetric",
+    "NormalizedMetricSet",
+    "NormalizedMetricsService",
     "SecurityMapping",
+    "UnitNormalizer",
     "normalize_cik",
     "normalize_exchange",
     "normalize_fiscal_year_end",
