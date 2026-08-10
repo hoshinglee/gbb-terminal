@@ -46,6 +46,22 @@ def test_sec_company_ticker_directory_rejects_unknown_shape():
         SECProvider.company_ticker_rows({"fields": ["name", "ticker"], "data": []})
 
 
+def test_sec_acceptance_times_are_keyed_by_accession():
+    payload = {
+        "filings": {
+            "recent": {
+                "accessionNumber": ["0001-24-000001", "0001-24-000002"],
+                "acceptanceDateTime": ["2024-02-01T20:30:00Z", ""],
+            }
+        }
+    }
+
+    result = SECProvider.acceptance_times(payload)
+
+    assert result["0001-24-000001"].isoformat() == "2024-02-01T20:30:00+00:00"
+    assert "0001-24-000002" not in result
+
+
 def test_yahoo_option_chain_uses_requested_expiry_and_keeps_all_contracts(monkeypatch):
     calls = pd.DataFrame([
         {"contractSymbol": "NVDA261218C00180000", "lastTradeDate": "2026-08-08T15:30:00Z", "strike": 180, "lastPrice": 12, "bid": 11.8, "ask": 12.2, "change": 0.5, "percentChange": 4.3, "volume": 120, "openInterest": 1500, "impliedVolatility": 0.32, "inTheMoney": True, "currency": "USD"},

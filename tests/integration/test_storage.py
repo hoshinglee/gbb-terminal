@@ -26,8 +26,9 @@ def test_existing_database_migrates_without_losing_prices(tmp_path):
         "schema_migrations",
         "companies",
         "company_security_mappings",
+        "sec_financial_facts",
     } <= tables
-    assert store.connection.execute("SELECT max(version) FROM schema_migrations").fetchone()[0] == 6
+    assert store.connection.execute("SELECT max(version) FROM schema_migrations").fetchone()[0] == 7
     research_columns = {row[1] for row in store.connection.execute("PRAGMA table_info('research_runs')").fetchall()}
     assert {"strategy_key", "reproducibility_key"} <= research_columns
     assert "option_simulation_runs" in tables

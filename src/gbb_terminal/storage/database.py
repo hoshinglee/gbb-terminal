@@ -545,9 +545,25 @@ class LocalMarketStore:
         if row is None:
             return None
         return {
-            "metadata": {"dataset": dataset, "symbol": symbol, "observationTimestamp": row[0].isoformat(), "knownAt": row[1].isoformat(), "retrievedAt": row[2].isoformat(), "status": row[3], "source": provider, "qualityWarnings": json.loads(row[4]), "cached": True},
+            "metadata": {
+                "dataset": dataset,
+                "symbol": symbol,
+                "observationTimestamp": self._utc_iso(row[0]),
+                "knownAt": self._utc_iso(row[1]),
+                "retrievedAt": self._utc_iso(row[2]),
+                "status": row[3],
+                "source": provider,
+                "qualityWarnings": json.loads(row[4]),
+                "remainingQuota": None,
+                "cached": True,
+            },
             "data": json.loads(row[5]),
         }
+
+    @staticmethod
+    def _utc_iso(value: datetime) -> str:
+        timestamp = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return timestamp.astimezone(timezone.utc).isoformat()
 
     def create_job(self, job_type: str, request: dict) -> str:
         job_id, now = str(uuid4()), datetime.now(timezone.utc).replace(tzinfo=None)

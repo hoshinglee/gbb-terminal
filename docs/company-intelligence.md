@@ -45,6 +45,17 @@ Schema version 6 adds:
 
 The identity repository uses transactions for registration, ticker changes, and delisting. Existing market-price, strategy, and option tables remain ticker-based and unchanged.
 
+Schema version 7 adds `sec_financial_facts`, an append-safe point-in-time observation store containing:
+
+- Canonical company/CIK, taxonomy, concept, value, raw value, and unit.
+- Period start/end, fiscal year/period, filing form, filed date, accession number, and SEC frame.
+- Exact acceptance timestamp when available and a conservative end-of-filed-date fallback otherwise.
+- Source, dataset, provider status, cache state, retrieval timestamp, quota, warnings, and source metadata.
+
+The stable fact identity includes company, taxonomy/concept/unit, accession, economic period, filing form, fiscal labels, and frame. Repeating the same source observation is idempotent. A later accession for the same economic period remains a separate restatement rather than replacing the earlier value. If acceptance metadata becomes available after initial ingestion, the existing source fact is enriched without creating another observation.
+
+`FinancialFactQuery.as_of` filters on `known_at`. A query for a historical timestamp cannot see a later amendment or restatement even when the later row covers the same fiscal period.
+
 ## SEC Directory Sync
 
 The SEC publishes a periodically updated CIK, company-name, ticker, and exchange association file. The SEC states that its accuracy and scope are not guaranteed, so GBB preserves that warning in every ingested mapping and does not treat the retrieval date as a proven historical listing date.
@@ -57,8 +68,16 @@ python scripts/sync_company_identities.py
 
 The command respects `GBB_DATABASE_PATH` and `GBB_DATA_CONTACT`. Repeated synchronization is idempotent for unchanged CIK/ticker/exchange associations.
 
+After the identity exists, synchronize complete SEC Company Facts and filing acceptance metadata with:
+
+```bash
+python scripts/sync_company_facts.py NVDA
+```
+
+The raw Company Facts and submissions payloads also remain in `provider_cache`. A provider outage can reuse that cache without deleting or rewriting already persisted fact observations.
+
 ## Current Boundary
 
-Release 0.7 INT-01 is storage and domain infrastructure. It intentionally does not add Company Intelligence HTTP endpoints or a browser panel. Those contracts belong to INT-04 after point-in-time SEC facts and normalized metrics are available. Existing V2 stock, strategy, and option APIs continue accepting tickers.
+Release 0.7 INT-01 and INT-02 are storage/domain infrastructure. They intentionally do not add a browser panel. V3 contracts arrive in INT-04 after normalized metrics are available. Existing V2 stock, strategy, and option APIs continue accepting tickers.
 
 Official source: [SEC Accessing EDGAR Data](https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data).

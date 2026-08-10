@@ -75,6 +75,19 @@ class SECProvider(BaseProvider):
         return [row for row in rows if row["form"] in forms]
 
     @staticmethod
+    def acceptance_times(payload: dict) -> dict[str, datetime]:
+        recent = payload.get("filings", {}).get("recent", {})
+        result = {}
+        for accession, accepted in zip(
+            recent.get("accessionNumber", []),
+            recent.get("acceptanceDateTime", []),
+        ):
+            if accession and accepted:
+                timestamp = datetime.fromisoformat(accepted.replace("Z", "+00:00"))
+                result[accession] = timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=timezone.utc)
+        return result
+
+    @staticmethod
     def company_ticker_rows(payload: dict) -> list[dict]:
         fields = payload.get("fields", [])
         required = {"cik", "name", "ticker", "exchange"}

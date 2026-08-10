@@ -460,11 +460,26 @@ erDiagram
         json provenance
     }
 
+    SEC_FINANCIAL_FACTS {
+        string fact_id PK
+        string company_id FK
+        string taxonomy
+        string concept
+        double value
+        string unit
+        date period_end
+        timestamp known_at
+        string accession_number
+        string form
+        json source_metadata
+    }
+
     STRATEGY_CATALOGUE ||--o{ BACKTEST_RUNS : defines
     BACKTEST_RUNS ||--o{ BACKTEST_TRADES : contains
     STRATEGY_CATALOGUE o|--o{ RESEARCH_RUNS : catalogues
     OPTION_POSITIONS ||--o{ OPTION_POSITION_EVENTS : journals
     COMPANIES ||--o{ COMPANY_SECURITY_MAPPINGS : identifies
+    COMPANIES ||--o{ SEC_FINANCIAL_FACTS : reports
 ```
 
 The relationships shown are logical domain relationships; DuckDB does not currently declare every one as a foreign-key constraint. Cache tables are intentionally independent so provider outages and schema evolution do not block research records.

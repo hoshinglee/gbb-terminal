@@ -14,4 +14,6 @@ Point-in-time consumers must filter on `known_at`, not report-period or observat
 
 The SEC company-ticker directory is periodically updated current-association data, not a historical security master. Company Identity persists its accuracy/scope warning and requires explicit effective dates for ticker-change history rather than backdating the latest directory snapshot.
 
+SEC Company Facts ingestion stores every numeric annual and quarterly observation instead of selecting only the latest concept value. Submission acceptance timestamps are joined by accession when available; otherwise the fact uses a visible, conservative end-of-filed-date `known_at` fallback. The raw Company Facts and submissions payloads remain in `provider_cache` alongside the normalized point-in-time rows.
+
 Public routes under `/api/v2/public-data` expose SEC filings/fundamentals/13F/Form 4, FINRA daily short-sale volume, FRED series, and OCC report context. Responses include metadata and fall back to the corresponding cached provider payload when retrieval fails.

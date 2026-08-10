@@ -103,7 +103,7 @@ Implementation status: P0.6 and P0.7 are implemented on the release 0.6 branch. 
 
 ## Release 0.7 — Company Intelligence Foundation
 
-Implementation status: INT-01 is implemented on the company-identity branch. INT-02 through INT-04 remain required before the Release 0.7 exit criteria are complete.
+Implementation status: INT-01 and INT-02 are implemented on the Release 0.7 branch. INT-03 and INT-04 remain required before the Release 0.7 exit criteria are complete.
 
 ### INT-01 — Canonical Company Identity
 
@@ -114,7 +114,6 @@ Implementation status: INT-01 is implemented on the company-identity branch. INT
 
 ### Remaining Release 0.7 Foundations
 
-- INT-02: append-safe point-in-time SEC fact observations and as-of queries.
 - INT-03: normalized annual, quarterly, and TTM financial metrics.
 - INT-04: dedicated V3 Company Intelligence APIs and explicit response schemas.
 

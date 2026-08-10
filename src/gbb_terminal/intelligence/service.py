@@ -49,6 +49,7 @@ class CompanyIdentityService:
             retrieved_at=envelope.retrieved_at,
             status=envelope.status,
             quality_warnings=envelope.quality_warnings,
+            remaining_quota=envelope.remaining_quota,
             cached=envelope.cached,
         )
         grouped: dict[str, list[dict]] = defaultdict(list)

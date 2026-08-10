@@ -23,6 +23,7 @@ class CompanyProvenance(BaseModel):
     retrieved_at: datetime
     status: str = Field(default="Observed", min_length=1, max_length=80)
     quality_warnings: list[str] = Field(default_factory=list)
+    remaining_quota: int | None = None
     cached: bool = False
 
     @field_validator("observation_timestamp", "known_at", "retrieved_at")
