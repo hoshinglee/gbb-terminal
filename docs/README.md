@@ -9,7 +9,7 @@ GBB Terminal is a local-first US equity research and option lifecycle applicatio
 | Architecture | Boundaries, data flow, path resolution, and deployment seams | [Architecture](architecture.md) |
 | System diagrams | Runtime, frontend state, research sequence, DuckDB model, and build fallback | [System Diagrams](system-diagrams.md) |
 | Configuration | Local YAML preferences, environment overrides, and provider keys | [`conf/README.md`](../conf/README.md) |
-| API | Legacy-compatible and V2 HTTP contracts | [API](api.md) |
+| API | Legacy-compatible V2 research contracts and strict V3 Company Intelligence contracts | [API](api.md) |
 | Company Intelligence | Canonical company identity, security history, resolution, and SEC directory sync | [Company Intelligence](company-intelligence.md) |
 | Financial metrics | Versioned SEC concept mappings, units, annual/quarterly/TTM views, derivations, warnings, and lineage | [Financial Metrics](financial-metrics.md) |
 | Strategy Model V2 | Templates, instances, parameters, rule graphs, and research runs | [Strategy Model V2](strategy-model-v2.md) |

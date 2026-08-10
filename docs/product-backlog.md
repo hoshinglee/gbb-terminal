@@ -103,7 +103,7 @@ Implementation status: P0.6 and P0.7 are implemented on the release 0.6 branch. 
 
 ## Release 0.7 — Company Intelligence Foundation
 
-Implementation status: INT-01 through INT-03 are implemented on the Release 0.7 branch. INT-04 remains required before the Release 0.7 exit criteria are complete.
+Implementation status: INT-01 through INT-04 are implemented on the Release 0.7 branch. The backend foundation exit criteria are complete; a Company Intelligence browser canvas remains a later product milestone.
 
 ### INT-01 — Canonical Company Identity
 
@@ -112,9 +112,12 @@ Implementation status: INT-01 through INT-03 are implemented on the Release 0.7 
 - Preserve ticker changes, alternate share classes, and delistings as dated security mappings.
 - Ingest the official SEC ticker/CIK/exchange directory with explicit source limitations and retrieval context.
 
-### Remaining Release 0.7 Foundations
+### INT-04 — V3 Company Intelligence APIs
 
-- INT-04: dedicated V3 Company Intelligence APIs and explicit response schemas.
+- Resolve ticker paths through canonical company identity rather than storing business data under ticker keys.
+- Expose company overview, point-in-time source facts, and normalized annual/quarterly/TTM metrics.
+- Keep provenance, as-of context, schema versions, warnings, and source lineage visible.
+- Preserve every V2 Stock Observatory, Strategy Lab, and Option Lab contract.
 
 ## Cross-Release Usefulness Enhancements
 

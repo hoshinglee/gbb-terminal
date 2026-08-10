@@ -84,6 +84,8 @@ The raw Company Facts and submissions payloads also remain in `provider_cache`. 
 
 ## Current Boundary
 
-Release 0.7 INT-01 through INT-03 are storage/domain infrastructure. They intentionally do not add a browser panel. V3 contracts arrive in INT-04. Existing V2 stock, strategy, and option APIs continue accepting tickers.
+Release 0.7 INT-04 exposes strict V3 company overview, point-in-time financial fact history, and normalized metrics endpoints over `CompanyIntelligenceService`. It intentionally does not add a browser panel yet. Existing V2 stock, strategy, and option APIs continue accepting tickers unchanged.
+
+See [API Application](api.md) for exact V3 endpoints, filters, response counts, provenance, error semantics, and the company-versus-security boundary.
 
 Official source: [SEC Accessing EDGAR Data](https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data).

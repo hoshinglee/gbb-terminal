@@ -1,4 +1,5 @@
 from .identity import IdentityConflictError, normalize_cik, normalize_exchange, normalize_fiscal_year_end, normalize_ticker
+from .company_service import CompanyFinancialHistory, CompanyIntelligenceService
 from .fact_models import FinancialFact, FinancialFactQuery
 from .fact_repository import FinancialFactRepository
 from .fact_service import FactIngestionResult, FinancialFactService
@@ -13,6 +14,8 @@ __all__ = [
     "CompanyIdentity",
     "CompanyIdentityRepository",
     "CompanyIdentityService",
+    "CompanyIntelligenceService",
+    "CompanyFinancialHistory",
     "CompanyProvenance",
     "CompanyRegistration",
     "CompanyStatus",

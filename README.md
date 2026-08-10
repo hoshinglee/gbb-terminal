@@ -36,6 +36,8 @@ Runtime data belongs in ignored `data/` and `log/` directories. Existing `data/g
 
 To populate the Release 0.7 company registry from the official SEC ticker/CIK directory, run `python scripts/sync_company_identities.py`. The SEC directory is current-association evidence, not a complete historical listing database; its limitations are persisted with the records.
 
+After synchronizing one company's SEC facts with `python scripts/sync_company_facts.py NVDA`, inspect the Company Intelligence V3 contracts at `/api/v3/companies/NVDA`, `/api/v3/companies/NVDA/financials`, and `/api/v3/companies/NVDA/metrics?period=annual`. These business-research APIs are intentionally separate from the existing V2 stock-market endpoint.
+
 ## Data and model limits
 
 - Yahoo Finance data may be delayed, adjusted, incomplete, or unavailable.

@@ -7,6 +7,7 @@ from ..intelligence.service import CompanyIdentityService
 from ..intelligence.fact_repository import FinancialFactRepository
 from ..intelligence.fact_service import FinancialFactService
 from ..intelligence.metrics import NormalizedMetricsService
+from ..intelligence.company_service import CompanyIntelligenceService
 from ..llm.translator import StrategyTranslator
 from ..market_data.service import MarketData
 from ..settings import Settings, settings
@@ -23,6 +24,7 @@ class ApplicationServices:
     company_identity: CompanyIdentityService
     financial_facts: FinancialFactService
     normalized_metrics: NormalizedMetricsService
+    company_intelligence: CompanyIntelligenceService
 
 
 def build_services(configuration: Settings = settings) -> ApplicationServices:
@@ -35,6 +37,7 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
         store,
         market_data.sec,
     )
+    normalized_metrics = NormalizedMetricsService(financial_facts, company_identity)
     return ApplicationServices(
         store=store,
         market_data=market_data,
@@ -42,5 +45,6 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
         strategy_catalogue=catalogue,
         company_identity=company_identity,
         financial_facts=financial_facts,
-        normalized_metrics=NormalizedMetricsService(financial_facts, company_identity),
+        normalized_metrics=normalized_metrics,
+        company_intelligence=CompanyIntelligenceService(company_identity, financial_facts, normalized_metrics),
     )

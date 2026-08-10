@@ -1,0 +1,161 @@
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from ...intelligence.metric_models import MetricPeriodKind
+
+
+def _camel_case(value: str) -> str:
+    head, *tail = value.split("_")
+    return head + "".join(part.capitalize() for part in tail)
+
+
+class V3ResponseModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", alias_generator=_camel_case, populate_by_name=True)
+
+
+class V3QueryModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class CompanyLookupQuery(V3QueryModel):
+    as_of: date | None = None
+
+
+class FinancialHistoryQuery(V3QueryModel):
+    concepts: str | None = Field(default=None, max_length=4000)
+    forms: str | None = Field(default=None, max_length=500)
+    as_of: datetime | None = None
+    limit: int = Field(default=1000, ge=1, le=5000)
+
+    @field_validator("as_of")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("as_of must include a timezone offset.")
+        return value
+
+
+class MetricsQuery(V3QueryModel):
+    period: MetricPeriodKind = MetricPeriodKind.ANNUAL
+    as_of: datetime | None = None
+
+    @field_validator("as_of")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("as_of must include a timezone offset.")
+        return value
+
+
+class ProvenanceResponse(V3ResponseModel):
+    source: str
+    dataset: str
+    observation_timestamp: datetime
+    known_at: datetime
+    retrieved_at: datetime
+    status: str
+    quality_warnings: list[str] = Field(default_factory=list)
+    remaining_quota: int | None = None
+    cached: bool
+
+
+class SecurityMappingResponse(V3ResponseModel):
+    security_id: str
+    ticker: str
+    exchange: str | None = None
+    valid_from: date
+    valid_to: date | None = None
+    is_primary: bool
+    status: str
+    provenance: ProvenanceResponse
+
+
+class CompanyReferenceResponse(V3ResponseModel):
+    company_id: str
+    cik: str
+    legal_name: str
+    primary_ticker: str | None = None
+    exchange: str | None = None
+    status: str
+
+
+class CompanyOverviewResponse(CompanyReferenceResponse):
+    api_version: Literal["v3"] = "v3"
+    as_of: date | None = None
+    sector: str | None = None
+    industry: str | None = None
+    fiscal_year_end: str | None = None
+    securities: list[SecurityMappingResponse]
+    provenance: ProvenanceResponse
+
+
+class FinancialFactResponse(V3ResponseModel):
+    fact_id: str
+    taxonomy: str
+    concept: str
+    label: str | None = None
+    description: str | None = None
+    value: float
+    raw_value: str
+    unit: str
+    period_start: date | None = None
+    period_end: date
+    fiscal_year: int | None = None
+    fiscal_period: str | None = None
+    form: str
+    filed_date: date
+    accepted_at: datetime | None = None
+    known_at_source: str
+    accession_number: str
+    frame: str | None = None
+    provenance: ProvenanceResponse
+    source_metadata: dict
+
+
+class FinancialHistoryResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    company: CompanyReferenceResponse
+    as_of: datetime
+    matching_fact_count: int
+    returned_fact_count: int
+    facts: list[FinancialFactResponse]
+    warnings: list[str] = Field(default_factory=list)
+
+
+class NormalizedMetricResponse(V3ResponseModel):
+    metric_id: str
+    label: str
+    value: float | None
+    unit: str
+    period_kind: MetricPeriodKind
+    period_start: date | None = None
+    period_end: date
+    fiscal_year: int | None = None
+    fiscal_period: str | None = None
+    definition_version: str
+    derived: bool
+    source_fact_ids: list[str]
+    warnings: list[str]
+
+
+class MetricsProvenanceResponse(V3ResponseModel):
+    source: Literal["SEC EDGAR"] = "SEC EDGAR"
+    dataset: Literal["normalized_financial_metrics"] = "normalized_financial_metrics"
+    as_of: datetime
+    definition_version: str
+    source_fact_ids: list[str]
+
+
+class NormalizedMetricsResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    company: CompanyReferenceResponse
+    period_kind: MetricPeriodKind
+    as_of: datetime
+    definition_version: str
+    metrics: list[NormalizedMetricResponse]
+    warnings: list[str]
+    provenance: MetricsProvenanceResponse

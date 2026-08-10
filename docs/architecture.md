@@ -41,6 +41,8 @@ Company Intelligence has a separate identity boundary. Price and option requests
 
 Point-in-time Company Facts are persisted independently from normalized metrics. `FinancialFactService` owns SEC ingestion, source identity, acceptance-aware `known_at`, and as-of retrieval. `NormalizedMetricsService` owns versioned concept precedence, unit conversion, annual/quarterly/TTM construction, derived calculations, warnings, and source-fact lineage. API routes do not perform financial normalization.
 
+`CompanyIntelligenceService` is the V3 orchestration boundary. The router only validates strict query models, maps typed domain results to explicit camelCase response schemas, and translates lookup/validation failures into HTTP semantics. No Company Intelligence calculation is implemented inside API routes, and V2 stock/option route contracts remain unchanged.
+
 Hosted authentication is intentionally absent. Storage tables allow nullable `owner_id` so repository logic can later support users without contaminating domain models.
 
 See [System Diagrams](system-diagrams.md) for runtime, frontend state, request sequence, DuckDB, and build-fallback views.
