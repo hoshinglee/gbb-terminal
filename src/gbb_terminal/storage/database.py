@@ -184,7 +184,17 @@ class LocalMarketStore:
         ).fetchone()[0]
         if newest is None or (max_age_minutes is not None and datetime.now(timezone.utc).replace(tzinfo=None) - newest > timedelta(minutes=max_age_minutes)):
             return None
-        days = {"1mo": 40, "3mo": 110, "6mo": 200, "1y": 370, "2y": 740}.get(period, 740)
+        days = {
+            "1mo": 40,
+            "3mo": 110,
+            "6mo": 200,
+            "1y": 370,
+            "2y": 740,
+            "3y": 1_110,
+            "5y": 1_850,
+            "10y": 3_700,
+            "max": 36_500,
+        }.get(period, 740)
         start_date = (datetime.now(timezone.utc) - timedelta(days=days)).date()
         frame = self.connection.execute(
             """SELECT price_date AS Date, open AS Open, high AS High, low AS Low,

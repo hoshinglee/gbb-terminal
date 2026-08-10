@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ...intelligence.metric_models import MetricPeriodKind
+from ...intelligence.valuation_models import ValuationFrequency, ValuationStatus
 
 
 def _camel_case(value: str) -> str:
@@ -41,6 +42,20 @@ class FinancialHistoryQuery(V3QueryModel):
 
 class MetricsQuery(V3QueryModel):
     period: MetricPeriodKind = MetricPeriodKind.ANNUAL
+    as_of: datetime | None = None
+
+    @field_validator("as_of")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("as_of must include a timezone offset.")
+        return value
+
+
+class ValuationQuery(V3QueryModel):
+    period: Literal["1y", "3y", "5y", "10y", "max"] = "5y"
+    frequency: ValuationFrequency = ValuationFrequency.WEEKLY
+    metrics: str | None = Field(default=None, max_length=500)
     as_of: datetime | None = None
 
     @field_validator("as_of")
@@ -159,3 +174,60 @@ class NormalizedMetricsResponse(V3ResponseModel):
     metrics: list[NormalizedMetricResponse]
     warnings: list[str]
     provenance: MetricsProvenanceResponse
+
+
+class ValuationPointResponse(V3ResponseModel):
+    valuation_date: date
+    metric_id: str
+    label: str
+    value: float | None
+    unit: str
+    status: ValuationStatus
+    price: float
+    market_cap: float | None = None
+    enterprise_value: float | None = None
+    denominator_value: float | None = None
+    denominator_metric: str
+    fundamental_period_end: date | None = None
+    fundamental_known_at: datetime | None = None
+    source_fact_ids: list[str]
+    price_source: str
+    warnings: list[str]
+
+
+class ValuationStatisticsResponse(V3ResponseModel):
+    metric_id: str
+    label: str
+    unit: str
+    status: ValuationStatus
+    current: float | None = None
+    percentile: float | None = None
+    median: float | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+    z_score: float | None = None
+    sample_size: int
+
+
+class ValuationProvenanceResponse(V3ResponseModel):
+    price_source: str
+    price_dataset: Literal["daily_prices"] = "daily_prices"
+    fundamental_source: Literal["SEC EDGAR"] = "SEC EDGAR"
+    fundamental_dataset: Literal["normalized_financial_metrics"] = "normalized_financial_metrics"
+    as_of: datetime
+    engine_version: str
+    source_fact_ids: list[str]
+
+
+class HistoricalValuationResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    company: CompanyReferenceResponse
+    frequency: ValuationFrequency
+    start_date: date
+    end_date: date
+    as_of: datetime
+    engine_version: str
+    history: dict[str, list[ValuationPointResponse]]
+    statistics: dict[str, ValuationStatisticsResponse]
+    warnings: list[str]
+    provenance: ValuationProvenanceResponse

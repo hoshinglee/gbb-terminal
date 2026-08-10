@@ -316,6 +316,13 @@ class NormalizedMetricsService:
     def _add_derived_metrics(self, periods: list[_Period]) -> None:
         for index, period in enumerate(periods):
             metrics = period.metrics
+            metrics["ebitda"] = self._binary_metric(
+                period,
+                "ebitda",
+                "operating_income",
+                "depreciation_amortization",
+                lambda left, right: left + right,
+            )
             metrics["free_cash_flow"] = self._binary_metric(period, "free_cash_flow", "operating_cash_flow", "capital_expenditure", lambda left, right: left - right)
             metrics["gross_margin"] = self._ratio_metric(period, "gross_margin", "gross_profit", "revenue")
             metrics["operating_margin"] = self._ratio_metric(period, "operating_margin", "operating_income", "revenue")

@@ -14,13 +14,19 @@ from ..schemas.v3 import (
     FinancialFactResponse,
     FinancialHistoryQuery,
     FinancialHistoryResponse,
+    HistoricalValuationResponse,
     MetricsProvenanceResponse,
     MetricsQuery,
     NormalizedMetricResponse,
     NormalizedMetricsResponse,
     ProvenanceResponse,
     SecurityMappingResponse,
+    ValuationPointResponse,
+    ValuationProvenanceResponse,
+    ValuationQuery,
+    ValuationStatisticsResponse,
 )
+from ...intelligence.valuation_definitions import VALUATION_DEFINITIONS
 
 
 def create_intelligence_router(service: CompanyIntelligenceService) -> APIRouter:
@@ -95,6 +101,63 @@ def create_intelligence_router(service: CompanyIntelligenceService) -> APIRouter
             )
         except LookupError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get("/companies/{ticker}/valuation", response_model=HistoricalValuationResponse)
+    async def historical_valuation(
+        ticker: str,
+        query: Annotated[ValuationQuery, Query()],
+    ) -> HistoricalValuationResponse:
+        try:
+            metric_ids = [value.strip() for value in (query.metrics or "").split(",") if value.strip()]
+            result = await service.historical_valuation(
+                ticker,
+                query.period,
+                query.frequency,
+                query.as_of,
+                metric_ids or list(VALUATION_DEFINITIONS),
+            )
+            company = service.company_overview(ticker)
+            source_fact_ids = list(
+                dict.fromkeys(
+                    source
+                    for points in result.points.values()
+                    for point in points
+                    for source in point.source_fact_ids
+                )
+            )
+            price_source = next(
+                (point.price_source for points in result.points.values() for point in points),
+                "Yahoo Finance",
+            )
+            return HistoricalValuationResponse(
+                company=_company_reference(company),
+                frequency=result.frequency,
+                start_date=result.start_date,
+                end_date=result.end_date,
+                as_of=result.as_of,
+                engine_version=result.engine_version,
+                history={
+                    metric_id: [ValuationPointResponse.model_validate(point.model_dump()) for point in points]
+                    for metric_id, points in result.points.items()
+                },
+                statistics={
+                    metric_id: ValuationStatisticsResponse.model_validate(statistics.model_dump())
+                    for metric_id, statistics in result.statistics.items()
+                },
+                warnings=result.warnings,
+                provenance=ValuationProvenanceResponse(
+                    price_source=price_source,
+                    as_of=result.as_of,
+                    engine_version=result.engine_version,
+                    source_fact_ids=source_fact_ids,
+                ),
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 

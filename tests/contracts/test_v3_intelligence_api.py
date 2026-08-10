@@ -2,6 +2,7 @@ import hashlib
 from datetime import date, datetime, timezone
 
 import pytest
+import pandas as pd
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -18,6 +19,8 @@ from gbb_terminal.intelligence import (
     FinancialFactRepository,
     FinancialFactService,
     NormalizedMetricsService,
+    HistoricalValuationService,
+    ValuationRepository,
 )
 from gbb_terminal.market_data.providers.sec import SECProvider
 from gbb_terminal.storage.database import LocalMarketStore
@@ -92,7 +95,23 @@ def build_client(tmp_path):
         )
     facts = FinancialFactService(fact_repository, identities, store, sec)
     metrics = NormalizedMetricsService(facts, identities)
-    service = CompanyIntelligenceService(identities, facts, metrics)
+    valuation = HistoricalValuationService(metrics, ValuationRepository(store.connection))
+
+    class FixtureMarketData:
+        metadata = {
+            "NVDA": {
+                "source": "Yahoo Finance",
+                "qualityWarnings": ["Fixture delayed prices."],
+            }
+        }
+
+        async def history(self, ticker, period):
+            return pd.DataFrame(
+                {"Close": [100.0, 105.0]},
+                index=pd.to_datetime(["2024-03-01", "2024-03-08"]),
+            )
+
+    service = CompanyIntelligenceService(identities, facts, metrics, valuation, FixtureMarketData())
     app = FastAPI()
     app.include_router(create_intelligence_router(service))
     return TestClient(app), company
@@ -145,7 +164,7 @@ def test_metrics_endpoint_returns_versioned_lineage_under_as_of_boundary(tmp_pat
     payload = response.json()
     revenue = next(metric for metric in payload["metrics"] if metric["metricId"] == "revenue")
     assert revenue["value"] == 100
-    assert revenue["definitionVersion"] == "1.0.0"
+    assert revenue["definitionVersion"] == "1.1.0"
     assert revenue["sourceFactIds"] == payload["provenance"]["sourceFactIds"]
     assert payload["periodKind"] == "annual"
     assert payload["provenance"]["dataset"] == "normalized_financial_metrics"
@@ -180,3 +199,22 @@ def test_unknown_company_returns_not_found(tmp_path):
     response = client.get("/api/v3/companies/UNKNOWN")
 
     assert response.status_code == 404
+
+
+def test_valuation_endpoint_returns_versioned_history_statistics_and_provenance(tmp_path):
+    client, _ = build_client(tmp_path)
+
+    response = client.get(
+        "/api/v3/companies/NVDA/valuation",
+        params={"period": "1y", "frequency": "weekly", "metrics": "trailing_pe"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["apiVersion"] == "v3"
+    assert payload["frequency"] == "weekly"
+    assert len(payload["history"]["trailing_pe"]) == 2
+    assert payload["statistics"]["trailing_pe"]["status"] == "unavailable"
+    assert payload["provenance"]["priceSource"] == "Yahoo Finance"
+    assert payload["provenance"]["fundamentalSource"] == "SEC EDGAR"
+    assert payload["provenance"]["engineVersion"] == "1.0.0"

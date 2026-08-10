@@ -9,6 +9,16 @@ from .metric_models import MetricPeriodKind, NormalizedMetric, NormalizedMetricS
 from .metrics import NormalizedMetricsService, UnitNormalizer
 from .repository import CompanyIdentityRepository
 from .service import CompanyIdentityService, IdentitySyncResult
+from .valuation import HistoricalValuationService
+from .valuation_definitions import VALUATION_DEFINITIONS, VALUATION_ENGINE_VERSION
+from .valuation_models import (
+    ValuationFrequency,
+    ValuationPoint,
+    ValuationSeries,
+    ValuationStatistics,
+    ValuationStatus,
+)
+from .valuation_repository import ValuationRepository
 
 __all__ = [
     "CompanyIdentity",
@@ -34,6 +44,15 @@ __all__ = [
     "NormalizedMetricsService",
     "SecurityMapping",
     "UnitNormalizer",
+    "HistoricalValuationService",
+    "VALUATION_DEFINITIONS",
+    "VALUATION_ENGINE_VERSION",
+    "ValuationFrequency",
+    "ValuationPoint",
+    "ValuationRepository",
+    "ValuationSeries",
+    "ValuationStatistics",
+    "ValuationStatus",
     "normalize_cik",
     "normalize_exchange",
     "normalize_fiscal_year_end",

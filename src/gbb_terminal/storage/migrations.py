@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import duckdb
 
 
-CURRENT_SCHEMA_VERSION = 7
+CURRENT_SCHEMA_VERSION = 8
 
 
 def apply_company_identity_schema(connection: duckdb.DuckDBPyConnection) -> None:
@@ -95,9 +95,42 @@ def apply_financial_fact_schema(connection: duckdb.DuckDBPyConnection) -> None:
     )
 
 
+def apply_valuation_schema(connection: duckdb.DuckDBPyConnection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS valuation_series (
+            company_id VARCHAR NOT NULL REFERENCES companies(company_id),
+            ticker VARCHAR NOT NULL,
+            valuation_date DATE NOT NULL,
+            frequency VARCHAR NOT NULL CHECK (frequency IN ('daily', 'weekly')),
+            metric_id VARCHAR NOT NULL,
+            label VARCHAR NOT NULL,
+            value DOUBLE,
+            unit VARCHAR NOT NULL,
+            status VARCHAR NOT NULL CHECK (status IN ('available', 'nm', 'unavailable')),
+            price DOUBLE NOT NULL,
+            market_cap DOUBLE,
+            enterprise_value DOUBLE,
+            denominator_value DOUBLE,
+            denominator_metric VARCHAR NOT NULL,
+            fundamental_period_end DATE,
+            fundamental_known_at TIMESTAMP,
+            source_fact_ids JSON NOT NULL,
+            price_source VARCHAR NOT NULL,
+            warnings JSON NOT NULL,
+            engine_version VARCHAR NOT NULL,
+            computed_at TIMESTAMP NOT NULL,
+            PRIMARY KEY (company_id, ticker, valuation_date, frequency, metric_id, engine_version)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS valuation_company_date_index ON valuation_series(company_id, valuation_date)"
+    )
+
+
 def record_schema_version(connection: duckdb.DuckDBPyConnection) -> None:
     apply_company_identity_schema(connection)
     apply_financial_fact_schema(connection)
+    apply_valuation_schema(connection)
     connection.execute("""
         CREATE TABLE IF NOT EXISTS schema_migrations (
             version INTEGER PRIMARY KEY,

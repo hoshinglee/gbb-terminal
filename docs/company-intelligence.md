@@ -62,6 +62,12 @@ INT-03 adds a versioned metrics engine over the point-in-time fact store. It sup
 
 See [Normalized Financial Metrics](financial-metrics.md) for business definitions and function contracts.
 
+## Historical Valuation
+
+INT-05 adds daily or weekly historical trailing valuation using adjusted security closes and normalized facts known at each US market close. The engine exposes P/E, P/S, P/B, EV/Revenue, EV/EBITDA when supported, P/FCF, earnings yield, and FCF yield with explicit `nm` and unavailable states. Every point retains the fundamental period, `known_at`, source fact IDs, and price source.
+
+See [Historical Point-In-Time Valuation](historical-valuation.md) for deterministic alignment, formulas, statistics, and DuckDB cache behavior.
+
 ## SEC Directory Sync
 
 The SEC publishes a periodically updated CIK, company-name, ticker, and exchange association file. The SEC states that its accuracy and scope are not guaranteed, so GBB preserves that warning in every ingested mapping and does not treat the retrieval date as a proven historical listing date.
@@ -84,7 +90,7 @@ The raw Company Facts and submissions payloads also remain in `provider_cache`. 
 
 ## Current Boundary
 
-Release 0.7 INT-04 exposes strict V3 company overview, point-in-time financial fact history, and normalized metrics endpoints over `CompanyIntelligenceService`. It intentionally does not add a browser panel yet. Existing V2 stock, strategy, and option APIs continue accepting tickers unchanged.
+Release 0.8 extends the strict V3 boundary with historical valuation while preserving the Release 0.7 company overview, point-in-time facts, and normalized metrics contracts. Existing V2 stock, strategy, and option APIs continue accepting tickers unchanged.
 
 See [API Application](api.md) for exact V3 endpoints, filters, response counts, provenance, error semantics, and the company-versus-security boundary.
 

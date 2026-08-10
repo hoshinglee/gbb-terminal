@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+from typing import TYPE_CHECKING
 
 from .fact_models import FinancialFact, FinancialFactQuery
 from .fact_service import FinancialFactService
@@ -9,6 +10,11 @@ from .metric_models import MetricPeriodKind, NormalizedMetricSet
 from .metrics import NormalizedMetricsService
 from .models import CompanyIdentity
 from .service import CompanyIdentityService
+from .valuation import HistoricalValuationService
+from .valuation_models import ValuationFrequency, ValuationSeries
+
+if TYPE_CHECKING:
+    from ..market_data.service import MarketData
 
 
 @dataclass(frozen=True)
@@ -26,10 +32,14 @@ class CompanyIntelligenceService:
         identities: CompanyIdentityService,
         facts: FinancialFactService,
         metrics: NormalizedMetricsService,
+        valuation: HistoricalValuationService | None = None,
+        market_data: MarketData | None = None,
     ) -> None:
         self.identities = identities
         self.facts = facts
         self.metrics = metrics
+        self.valuation = valuation
+        self.market_data = market_data
 
     def company_overview(self, ticker: str, as_of: date | None = None) -> CompanyIdentity:
         company = self.identities.resolve_ticker(ticker, as_of=as_of)
@@ -67,3 +77,26 @@ class CompanyIntelligenceService:
     ) -> NormalizedMetricSet:
         self.company_overview(ticker)
         return self.metrics.calculate(ticker, period_kind=period_kind, as_of=as_of)
+
+    async def historical_valuation(
+        self,
+        ticker: str,
+        period: str,
+        frequency: ValuationFrequency,
+        as_of: datetime | None,
+        metric_ids: list[str],
+    ) -> ValuationSeries:
+        self.company_overview(ticker)
+        if self.valuation is None or self.market_data is None:
+            raise RuntimeError("Historical valuation is not configured for this application instance.")
+        prices = await self.market_data.history(ticker, period)
+        metadata = self.market_data.metadata.get(ticker.upper(), {})
+        return self.valuation.calculate(
+            ticker,
+            prices,
+            frequency=frequency,
+            as_of=as_of,
+            metric_ids=metric_ids,
+            price_source=metadata.get("source", "Yahoo Finance"),
+            price_warnings=metadata.get("qualityWarnings", []),
+        )
