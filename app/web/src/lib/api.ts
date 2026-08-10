@@ -23,6 +23,10 @@ import type {
   StrategyInstance,
   StrategyTemplate,
   ValidationDesign,
+  CompanyMetricsResponse,
+  CompanyOverview,
+  EarningsHistoryResponse,
+  HistoricalValuationResponse,
 } from "@/lib/types"
 
 export class ApiError extends Error {
@@ -186,4 +190,27 @@ export function applyOptionLifecycleEvent(positionId: string, event: OptionLifec
     method: "POST",
     body: JSON.stringify(event),
   })
+}
+
+export function loadCompanyOverview(ticker: string) {
+  return request<CompanyOverview>(`/api/v3/companies/${encodeURIComponent(ticker.trim().toUpperCase())}`)
+}
+
+export function loadCompanyMetrics(ticker: string, period: "annual" | "quarterly" | "ttm" = "ttm") {
+  const parameters = new URLSearchParams({ period })
+  return request<CompanyMetricsResponse>(`/api/v3/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/metrics?${parameters}`)
+}
+
+export function loadCompanyValuation(
+  ticker: string,
+  period: "1y" | "3y" | "5y" | "10y" | "max" = "5y",
+  frequency: "daily" | "weekly" = "weekly",
+) {
+  const parameters = new URLSearchParams({ period, frequency })
+  return request<HistoricalValuationResponse>(`/api/v3/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/valuation?${parameters}`)
+}
+
+export function loadCompanyEarnings(ticker: string, benchmark = "SPY", limit = 40) {
+  const parameters = new URLSearchParams({ benchmark: benchmark.trim().toUpperCase(), limit: String(limit) })
+  return request<EarningsHistoryResponse>(`/api/v3/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/earnings?${parameters}`)
 }

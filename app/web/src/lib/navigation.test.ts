@@ -13,6 +13,8 @@ describe("laboratory navigation", () => {
     expect(labHref("strategy", "NVDA")).toBe("/?ticker=NVDA")
     expect(labHref("options", "NVDA")).toBe("/?lab=options&ticker=NVDA")
     expect(labFromSearch("?lab=market")).toBe("market")
+    expect(labFromSearch("?lab=intelligence")).toBe("intelligence")
+    expect(labHref("intelligence", "NVDA")).toBe("/?lab=intelligence&ticker=NVDA")
     expect(labFromSearch("?lab=unknown")).toBe("strategy")
   })
 })

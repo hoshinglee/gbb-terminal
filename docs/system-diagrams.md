@@ -9,7 +9,7 @@ flowchart LR
     Investor[Hobbyist Investor]
 
     subgraph Browser[Browser]
-        ReactUI[React Research App<br/>Strategy + Options + Stock + Market]
+        ReactUI[React Research App<br/>Strategy + Options + Stock + Market + Company Intelligence]
         LegacyUI[Explicit Vanilla Migration Fallback]
         Charts[Lightweight Charts]
         Scenarios[Accessible Scenario SVG]
@@ -264,6 +264,17 @@ flowchart LR
         Benchmark --> Relative
     end
 
+    subgraph Intelligence[React Company Intelligence]
+        CompanyContext[Canonical Company Context]
+        Fundamentals[Normalized TTM Financials]
+        Valuation[Point-In-Time Valuation]
+        Events[Earnings Event History]
+        EventDetail[Selected Event Evidence + Reaction]
+        CompanyContext --> Fundamentals
+        CompanyContext --> Valuation
+        CompanyContext --> Events --> EventDetail
+    end
+
     StockAPI[GET /api/v2/stocks/:ticker] --> Quote
     StockAPI --> Replay
     ChainAPI[GET /api/v2/options/chains/:ticker] --> OptionContext
@@ -272,15 +283,23 @@ flowchart LR
     MarketAPI --> Relative
     MarketAPI --> Macro
     MarketAPI --> Providers
+    IntelligenceAPI[GET /api/v3/companies/:ticker/*] --> CompanyContext
+    IntelligenceAPI --> Fundamentals
+    IntelligenceAPI --> Valuation
+    IntelligenceAPI --> Events
     DuckDB[(DuckDB Cache)] --> StockAPI
     DuckDB --> ChainAPI
     DuckDB --> MarketAPI
+    DuckDB --> IntelligenceAPI
     Yahoo[Yahoo Finance] --> StockAPI
     Yahoo --> ChainAPI
     Yahoo --> MarketAPI
+    Yahoo --> IntelligenceAPI
+    SEC[SEC EDGAR] --> IntelligenceAPI
     Relative -->|Validated ticker link| StockContext
     StockContext -->|Ticker only| Strategy[Strategy Lab]
     StockContext -->|Ticker only| Options[Option Lab]
+    StockContext -->|Ticker only| CompanyContext
 ```
 
 Stock and market state never becomes strategy identity or option-position state. Cross-lab navigation carries only a validated symbol. Market overview rows fail independently, so an unavailable ETF or macro proxy remains visible with warnings while successful current or cached rows continue rendering.
@@ -521,4 +540,4 @@ flowchart LR
     LegacyRoute --> Legacy
 ```
 
-When the React build exists, `/` serves Strategy Lab while `/?lab=options`, `/?lab=stock`, and `/?lab=market` select the other lazy-loaded canvases from the same generated application. Without generated assets, `/` falls back to the vanilla application. `/legacy` remains available until connected-browser parity gates allow explicit retirement.
+When the React build exists, `/` serves Strategy Lab while `/?lab=options`, `/?lab=stock`, `/?lab=market`, and `/?lab=intelligence` select the other lazy-loaded canvases from the same generated application. Without generated assets, `/` falls back to the vanilla application. `/legacy` remains available until connected-browser parity gates allow explicit retirement.

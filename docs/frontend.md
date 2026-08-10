@@ -8,11 +8,11 @@ Fallback sources: `app/index.html`, `app/static/app.js`, `app/static/market-char
 
 GBB Terminal migrated one complete product slice at a time instead of rewriting every panel at once.
 
-- A production Vite build under `app/static/react/` serves Strategy Lab, Option Lab, Stock Observatory, and Market Pulse.
+- A production Vite build under `app/static/react/` serves Strategy Lab, Option Lab, Stock Observatory, Market Pulse, and Company Intelligence.
 - If that build is absent, FastAPI serves the vanilla application at `/`.
-- `/` opens Strategy Lab; `/?lab=options`, `/?lab=stock`, and `/?lab=market` open the other canvases without a second frontend bundle or client router.
+- `/` opens Strategy Lab; `/?lab=options`, `/?lab=stock`, `/?lab=market`, and `/?lab=intelligence` open the other canvases without a second frontend bundle or client router.
 - Every laboratory is lazy-loaded as a separate release chunk so opening one canvas does not download every domain workspace.
-- A validated `ticker` query parameter carries a symbol among Strategy Lab, Option Lab, and Stock Observatory without copying domain configuration.
+- A validated `ticker` query parameter carries a symbol among Strategy Lab, Option Lab, Stock Observatory, and Company Intelligence without copying domain configuration.
 - `/legacy` always serves the vanilla interface as an explicit migration fallback, but primary navigation no longer routes through it.
 - The legacy sidebar includes **Return To Research Canvas**, so users never need to edit the browser URL manually.
 - Both interfaces call the same FastAPI endpoints and use the same DuckDB database.
@@ -85,6 +85,19 @@ Release 0.6 adds an evidence-first market canvas:
 
 Sector links open Stock Observatory or Strategy Lab with the selected ETF ticker. Publication dates remain visible because cross-asset proxies do not share identical market hours.
 
+## React Company Intelligence
+
+Release 0.8 adds a dedicated company-business canvas at `/?lab=intelligence`:
+
+1. Canonical legal name, CIK, current security, sector, and provenance keep business identity separate from ticker-market data.
+2. Latest normalized TTM financial evidence and historical trailing valuation provide context before event analysis.
+3. Earnings history shows reported revenue/EPS separately from calculated D0, D+5, D+20, benchmark-adjusted, and volume reactions.
+4. Selecting a keyboard-focusable event keeps the company context in place while opening a detailed SEC evidence card and linked price/volume/reaction chart.
+5. Aggregate move, direction frequency, drift, range, included sample size, and excluded sample count remain visible together.
+6. Every event links to its SEC filing and exposes timing quality, accession, `known_at`, source facts, reaction-engine version, and caveats.
+
+The event chart supports pointer inspection and Left/Right/Home/End keyboard navigation. Before-open and after-close alignment comes from the backend's trading-session model rather than browser date arithmetic. The canvas repeatedly states that historical reactions are descriptive and do not predict the next event.
+
 ## Financial Charts
 
 TradingView Lightweight Charts renders:
@@ -118,7 +131,7 @@ npm run test:run
 npm run build
 ```
 
-Component tests cover mutually exclusive strategy selection, the stale-parameter regression, trailing-stop configuration, Darvas/Fibonacci overlays, option recipe replacement, lifecycle rediscovery, stock ticker handoff, local watchlists, and sector breadth. Python browser-contract tests verify all four React labs, evidence tabs, chart markers, lifecycle actions, direct routes, return navigation, and fallback assets.
+Component tests cover mutually exclusive strategy selection, the stale-parameter regression, trailing-stop configuration, Darvas/Fibonacci overlays, option recipe replacement, lifecycle rediscovery, stock ticker handoff, local watchlists, sector breadth, Company Intelligence event selection, evidence links, and non-predictive language. Python browser-contract tests verify all five React canvases, evidence tabs, chart markers, lifecycle actions, direct routes, return navigation, and fallback assets.
 
 The shell includes skip navigation, labelled desktop/mobile navigation, explicit research-control labels, table captions, visible chart focus rings, and reduced-motion CSS. Smooth evidence scrolling becomes immediate when the operating system requests reduced motion.
 

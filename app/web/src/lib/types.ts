@@ -519,3 +519,235 @@ export interface OptionSimulationRunSummary {
 export interface OptionSimulationRunDetail extends Omit<OptionSimulationRunSummary, "summary"> {
   result: Omit<OptionSimulationResult, "runId" | "createdAt" | "modelVersion">
 }
+
+export interface CompanyReference {
+  companyId: string
+  cik: string
+  legalName: string
+  primaryTicker: string | null
+  exchange: string | null
+  status: string
+}
+
+export interface CompanyOverview extends CompanyReference {
+  apiVersion: "v3"
+  asOf: string | null
+  sector: string | null
+  industry: string | null
+  fiscalYearEnd: string | null
+  securities: Array<{
+    securityId: string
+    ticker: string
+    exchange: string | null
+    validFrom: string
+    validTo: string | null
+    isPrimary: boolean
+    status: string
+    provenance: {
+      source: string
+      dataset: string
+      observationTimestamp: string
+      knownAt: string
+      retrievedAt: string
+      status: string
+      qualityWarnings: string[]
+      cached: boolean
+    }
+  }>
+  provenance: {
+    source: string
+    dataset: string
+    observationTimestamp: string
+    knownAt: string
+    retrievedAt: string
+    status: string
+    qualityWarnings: string[]
+    cached: boolean
+  }
+}
+
+export interface CompanyMetric {
+  metricId: string
+  label: string
+  value: number | null
+  unit: string
+  periodKind: "annual" | "quarterly" | "ttm"
+  periodStart: string | null
+  periodEnd: string
+  fiscalYear: number | null
+  fiscalPeriod: string | null
+  definitionVersion: string
+  derived: boolean
+  sourceFactIds: string[]
+  warnings: string[]
+}
+
+export interface CompanyMetricsResponse {
+  apiVersion: "v3"
+  company: CompanyReference
+  periodKind: "annual" | "quarterly" | "ttm"
+  asOf: string
+  definitionVersion: string
+  metrics: CompanyMetric[]
+  warnings: string[]
+}
+
+export type ValuationStatus = "available" | "nm" | "unavailable"
+
+export interface ValuationPoint {
+  valuationDate: string
+  metricId: string
+  label: string
+  value: number | null
+  unit: string
+  status: ValuationStatus
+  price: number
+  marketCap: number | null
+  enterpriseValue: number | null
+  denominatorValue: number | null
+  denominatorMetric: string
+  fundamentalPeriodEnd: string | null
+  fundamentalKnownAt: string | null
+  sourceFactIds: string[]
+  priceSource: string
+  warnings: string[]
+}
+
+export interface ValuationStatistics {
+  metricId: string
+  label: string
+  unit: string
+  status: ValuationStatus
+  current: number | null
+  percentile: number | null
+  median: number | null
+  minimum: number | null
+  maximum: number | null
+  zScore: number | null
+  sampleSize: number
+}
+
+export interface HistoricalValuationResponse {
+  apiVersion: "v3"
+  company: CompanyReference
+  frequency: "daily" | "weekly"
+  startDate: string
+  endDate: string
+  asOf: string
+  engineVersion: string
+  history: Record<string, ValuationPoint[]>
+  statistics: Record<string, ValuationStatistics>
+  warnings: string[]
+  provenance: {
+    priceSource: string
+    priceDataset: string
+    fundamentalSource: string
+    fundamentalDataset: string
+    asOf: string
+    engineVersion: string
+    sourceFactIds: string[]
+  }
+}
+
+export interface EarningsReportedMetric {
+  metricId: string
+  label: string
+  value: number | null
+  unit: string
+  periodEnd: string
+  sourceFactIds: string[]
+  warnings: string[]
+}
+
+export interface EarningsEvent {
+  eventId: string
+  companyId: string
+  cik: string
+  ticker: string
+  fiscalYear: number | null
+  fiscalPeriod: string | null
+  periodEnd: string
+  announcementAt: string | null
+  announcementDate: string
+  session: "before_open" | "after_close" | "intraday" | "unknown"
+  timingQuality: "exact" | "date_only"
+  evidence: {
+    source: string
+    dataset: string
+    accessionNumber: string
+    filingForm: string
+    filingUrl: string
+    filedDate: string
+    knownAt: string
+    sourceFactIds: string[]
+  }
+  reportedMetrics: Record<string, EarningsReportedMetric>
+  guidanceMetadata: Record<string, unknown>
+  modelVersion: string
+  warnings: string[]
+}
+
+export interface EarningsReactionWindow {
+  window: string
+  endSession: string | null
+  stockReturn: number | null
+  benchmarkReturn: number | null
+  benchmarkAdjustedReturn: number | null
+  status: string
+}
+
+export interface EarningsReactionPathPoint {
+  relativeSession: number
+  sessionDate: string
+  close: number
+  cumulativeReturn: number
+  benchmarkAdjustedReturn: number | null
+  volume: number | null
+}
+
+export interface EarningsReaction {
+  eventId: string
+  benchmarkTicker: string
+  anchorSession: string | null
+  priorSession: string | null
+  openingGap: number | null
+  abnormalVolume: number | null
+  volumePercentile: number | null
+  windows: Record<string, EarningsReactionWindow>
+  path: EarningsReactionPathPoint[]
+  engineVersion: string
+  warnings: string[]
+}
+
+export interface EarningsEventAnalysis {
+  event: EarningsEvent
+  reaction: EarningsReaction
+}
+
+export interface EarningsHistoryResponse {
+  apiVersion: "v3"
+  company: CompanyReference
+  benchmarkTicker: string
+  asOf: string
+  events: EarningsEventAnalysis[]
+  aggregate: {
+    sampleSize: number
+    typicalAbsoluteEventMove: number | null
+    positiveReactionFrequency: number | null
+    medianD5Return: number | null
+    medianD20Return: number | null
+    eventMoveMinimum: number | null
+    eventMoveMaximum: number | null
+    excludedEvents: number
+  }
+  warnings: string[]
+  provenance: {
+    eventSource: string
+    eventDataset: string
+    priceSource: string
+    asOf: string
+    eventModelVersion: string
+    reactionEngineVersion: string
+    sourceFactIds: string[]
+  }
+}
