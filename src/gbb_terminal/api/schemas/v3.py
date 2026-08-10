@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ...intelligence.earnings_models import EarningsSession, EventTimingQuality
+from ...intelligence.estimate_models import EstimateMatchStatus, EstimateMetric
 from ...intelligence.metric_models import MetricPeriodKind
 from ...intelligence.valuation_models import ValuationFrequency, ValuationStatus
 
@@ -76,6 +77,18 @@ class EarningsQuery(V3QueryModel):
     @classmethod
     def normalize_benchmark(cls, value: str) -> str:
         return value.strip().upper()
+
+    @field_validator("as_of")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("as_of must include a timezone offset.")
+        return value
+
+
+class EstimatesQuery(V3QueryModel):
+    metrics: str | None = Field(default=None, max_length=100)
+    as_of: datetime | None = None
 
     @field_validator("as_of")
     @classmethod
@@ -359,3 +372,59 @@ class EarningsHistoryResponse(V3ResponseModel):
     aggregate: EarningsAggregateResponse
     warnings: list[str]
     provenance: EarningsProvenanceResponse
+
+
+class EstimateObservationResponse(V3ResponseModel):
+    estimate_id: str
+    provider_key: str
+    provider_name: str
+    symbol: str
+    cik: str | None = None
+    metric: EstimateMetric
+    fiscal_year: int
+    fiscal_period: str
+    period_end: date
+    unit: str
+    mean: float | None = None
+    median: float | None = None
+    high: float | None = None
+    low: float | None = None
+    estimate_count: int | None = None
+    observed_at: datetime
+    known_at: datetime
+    source_metadata: dict
+    contract_version: str
+
+
+class EstimateComparisonResponse(V3ResponseModel):
+    estimate: EstimateObservationResponse
+    match_status: EstimateMatchStatus
+    reported_value: float | None = None
+    reported_unit: str | None = None
+    reported_period_end: date | None = None
+    reported_source_fact_ids: list[str]
+    difference: float | None = None
+    surprise_percent: float | None = None
+    warnings: list[str]
+
+
+class EstimateProvenanceResponse(V3ResponseModel):
+    provider_key: str
+    provider_name: str
+    as_of: datetime
+    contract_version: str
+    expectation_dataset: Literal["analyst_estimates"] = "analyst_estimates"
+    reported_dataset: Literal["normalized_financial_metrics"] = "normalized_financial_metrics"
+    distinction: Literal["Third-party/manual expectations are not SEC-reported facts."] = "Third-party/manual expectations are not SEC-reported facts."
+
+
+class EstimateHistoryResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    company: CompanyReferenceResponse
+    as_of: datetime
+    contract_version: str
+    provider_key: str
+    provider_name: str
+    comparisons: list[EstimateComparisonResponse]
+    warnings: list[str]
+    provenance: EstimateProvenanceResponse

@@ -12,3 +12,4 @@ data/
 log/
 app/web/node_modules/
 app/static/react/
+conf/estimates.json

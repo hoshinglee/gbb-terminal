@@ -7,6 +7,8 @@ paths:
   frontend_directory: app
   database_path: data/gbb_terminal.duckdb
   log_directory: log
+  # Optional local analyst-estimate fixture. This file is ignored by Git.
+  estimate_fixture_path: conf/estimates.json
 
 llm:
   # Supported values: google, openai, anthropic. Provider aliases: google_ai_studio, claude.

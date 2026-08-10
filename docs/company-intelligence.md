@@ -74,6 +74,12 @@ INT-06 persists first-class fiscal events with stable identity, SEC filing evide
 
 See [Earnings Events And Reaction Analytics](earnings-intelligence.md) for window definitions and limitations.
 
+## Analyst Estimate Boundary
+
+INT-08 defines a vendor-neutral revenue/EPS estimate contract and optional local fixture adapter. Expectations retain provider and `known_at`, map to reported metrics only by exact fiscal identity, and remain visually/API-distinct from SEC facts. Missing coverage returns an empty, warning-rich result rather than breaking company, financial, valuation, or earnings workflows.
+
+See [Analyst Estimates Provider Contract](analyst-estimates.md) for fixture configuration, revision semantics, and mapping statuses.
+
 ## SEC Directory Sync
 
 The SEC publishes a periodically updated CIK, company-name, ticker, and exchange association file. The SEC states that its accuracy and scope are not guaranteed, so GBB preserves that warning in every ingested mapping and does not treat the retrieval date as a proven historical listing date.

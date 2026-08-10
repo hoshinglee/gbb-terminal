@@ -14,6 +14,7 @@ GBB Terminal is a local-first US equity research and option lifecycle applicatio
 | Financial metrics | Versioned SEC concept mappings, units, annual/quarterly/TTM views, derivations, warnings, and lineage | [Financial Metrics](financial-metrics.md) |
 | Historical valuation | Point-in-time trailing multiples, market-close alignment, statistics, and cache semantics | [Historical Valuation](historical-valuation.md) |
 | Earnings intelligence | Source-backed events, session-aware reaction windows, benchmark adjustment, and aggregates | [Earnings Intelligence](earnings-intelligence.md) |
+| Analyst estimates | Provider-neutral expectations, revisions, fiscal mapping, and manual local fixtures | [Analyst Estimates](analyst-estimates.md) |
 | Strategy Model V2 | Templates, instances, parameters, rule graphs, and research runs | [Strategy Model V2](strategy-model-v2.md) |
 | Strategy engine | Safe declarative rule evaluation and semantic identity | [Strategy engine](strategy-engine.md) |
 | Backtesting | Execution assumptions, metrics, benchmarks, search, and portfolios | [Backtesting](backtesting.md) |

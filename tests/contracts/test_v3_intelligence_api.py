@@ -24,7 +24,9 @@ from gbb_terminal.intelligence import (
     EarningsIntelligenceService,
     EarningsRepository,
 )
+from gbb_terminal.intelligence.estimates import EstimateIntelligenceService
 from gbb_terminal.market_data.providers.sec import SECProvider
+from gbb_terminal.market_data.providers.estimates import EmptyEstimateProvider
 from gbb_terminal.storage.database import LocalMarketStore
 
 
@@ -99,6 +101,7 @@ def build_client(tmp_path):
     metrics = NormalizedMetricsService(facts, identities)
     valuation = HistoricalValuationService(metrics, ValuationRepository(store.connection))
     earnings = EarningsIntelligenceService(metrics, EarningsRepository(store.connection))
+    estimates = EstimateIntelligenceService(metrics, EmptyEstimateProvider())
 
     class FixtureMarketData:
         metadata = {
@@ -121,6 +124,7 @@ def build_client(tmp_path):
         valuation,
         FixtureMarketData(),
         earnings,
+        estimates,
     )
     app = FastAPI()
     app.include_router(create_intelligence_router(service))
@@ -246,3 +250,18 @@ def test_earnings_endpoint_returns_event_evidence_reactions_and_sample_size(tmp_
     assert payload["aggregate"]["excludedEvents"] == 1
     assert payload["provenance"]["eventModelVersion"] == "1.0.0"
     assert "do not predict" in " ".join(payload["warnings"])
+
+
+def test_estimates_endpoint_is_empty_safe_and_distinguishes_expectations_from_reported_facts(tmp_path):
+    client, _ = build_client(tmp_path)
+
+    response = client.get("/api/v3/companies/NVDA/estimates")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["apiVersion"] == "v3"
+    assert payload["comparisons"] == []
+    assert payload["providerKey"] == "none"
+    assert payload["provenance"]["expectationDataset"] == "analyst_estimates"
+    assert payload["provenance"]["reportedDataset"] == "normalized_financial_metrics"
+    assert "not SEC-reported facts" in payload["provenance"]["distinction"]

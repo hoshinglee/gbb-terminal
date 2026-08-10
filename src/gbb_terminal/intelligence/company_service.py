@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 from .fact_models import FinancialFact, FinancialFactQuery
 from .earnings import EarningsIntelligenceService
 from .earnings_models import EarningsHistory
+from .estimate_models import EstimateHistory, EstimateMetric
+from .estimates import EstimateIntelligenceService
 from .fact_service import FinancialFactService
 from .metric_models import MetricPeriodKind, NormalizedMetricSet
 from .metrics import NormalizedMetricsService
@@ -38,6 +40,7 @@ class CompanyIntelligenceService:
         valuation: HistoricalValuationService | None = None,
         market_data: MarketData | None = None,
         earnings: EarningsIntelligenceService | None = None,
+        estimates: EstimateIntelligenceService | None = None,
     ) -> None:
         self.identities = identities
         self.facts = facts
@@ -45,6 +48,7 @@ class CompanyIntelligenceService:
         self.valuation = valuation
         self.market_data = market_data
         self.earnings = earnings
+        self.estimates = estimates
 
     def company_overview(self, ticker: str, as_of: date | None = None) -> CompanyIdentity:
         company = self.identities.resolve_ticker(ticker, as_of=as_of)
@@ -134,3 +138,14 @@ class CompanyIntelligenceService:
             for warning in self.market_data.metadata.get(symbol, {}).get("qualityWarnings", [])
         ]
         return result.model_copy(update={"warnings": list(dict.fromkeys([*result.warnings, *provider_warnings]))})
+
+    def estimate_history(
+        self,
+        ticker: str,
+        as_of: datetime | None,
+        metric_ids: list[EstimateMetric],
+    ) -> EstimateHistory:
+        self.company_overview(ticker)
+        if self.estimates is None:
+            raise RuntimeError("Analyst estimate intelligence is not configured for this application instance.")
+        return self.estimates.history(ticker, as_of=as_of, metric_ids=metric_ids)

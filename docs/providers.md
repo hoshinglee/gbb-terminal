@@ -7,6 +7,7 @@ Every provider returns a `DataEnvelope` containing dataset, symbol, observation 
 - `FINRAProvider`: daily Regulation SHO short-sale volume with an explicit warning that it is not short interest.
 - `FREDProvider`: macroeconomic CSV series with revision warnings.
 - `OCCProvider`: official aggregate volume/open-interest report catalogue, never represented as historical contract pricing.
+- `EstimateProvider`: provider-neutral protocol for timestamped revenue/EPS expectations. Release 0.8 ships only an ignored local/manual fixture adapter and an empty provider; it does not scrape or select a commercial vendor.
 
 `MarketData` first checks fresh DuckDB data. Provider requests use bounded retries and exponential backoff. If retrieval fails, the service returns a stale cache with warnings when possible; otherwise it reports a provider error.
 
@@ -17,3 +18,5 @@ The SEC company-ticker directory is periodically updated current-association dat
 SEC Company Facts ingestion stores every numeric annual and quarterly observation instead of selecting only the latest concept value. Submission acceptance timestamps are joined by accession when available; otherwise the fact uses a visible, conservative end-of-filed-date `known_at` fallback. The raw Company Facts and submissions payloads remain in `provider_cache` alongside the normalized point-in-time rows.
 
 Public routes under `/api/v2/public-data` expose SEC filings/fundamentals/13F/Form 4, FINRA daily short-sale volume, FRED series, and OCC report context. Responses include metadata and fall back to the corresponding cached provider payload when retrieval fails.
+
+The separate V3 estimates route reads a configured manual fixture through the provider protocol. Estimate coverage is optional and is never substituted for SEC-reported history. See [Analyst Estimates Provider Contract](analyst-estimates.md).

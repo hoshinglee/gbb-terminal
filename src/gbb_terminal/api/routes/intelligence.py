@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ...intelligence.company_service import CompanyIntelligenceService
 from ...intelligence.fact_models import FinancialFactQuery
+from ...intelligence.estimate_models import EstimateMetric
 from ...intelligence.models import CompanyIdentity, CompanyProvenance
 from ..schemas.v3 import (
     CompanyLookupQuery,
@@ -19,6 +20,10 @@ from ..schemas.v3 import (
     EarningsHistoryResponse,
     EarningsProvenanceResponse,
     EarningsQuery,
+    EstimateComparisonResponse,
+    EstimateHistoryResponse,
+    EstimateProvenanceResponse,
+    EstimatesQuery,
     HistoricalValuationResponse,
     MetricsProvenanceResponse,
     MetricsQuery,
@@ -204,6 +209,41 @@ def create_intelligence_router(service: CompanyIntelligenceService) -> APIRouter
                     event_model_version=event_model_version,
                     reaction_engine_version=reaction_engine_version,
                     source_fact_ids=source_fact_ids,
+                ),
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get("/companies/{ticker}/estimates", response_model=EstimateHistoryResponse)
+    async def estimate_history(
+        ticker: str,
+        query: Annotated[EstimatesQuery, Query()],
+    ) -> EstimateHistoryResponse:
+        try:
+            raw_metrics = [value.strip() for value in (query.metrics or "").split(",") if value.strip()]
+            metric_ids = [EstimateMetric(value) for value in raw_metrics] if raw_metrics else list(EstimateMetric)
+            result = service.estimate_history(ticker, query.as_of, metric_ids)
+            company = service.company_overview(ticker)
+            return EstimateHistoryResponse(
+                company=_company_reference(company),
+                as_of=result.as_of,
+                contract_version=result.contract_version,
+                provider_key=result.provider_key,
+                provider_name=result.provider_name,
+                comparisons=[
+                    EstimateComparisonResponse.model_validate(comparison.model_dump())
+                    for comparison in result.comparisons
+                ],
+                warnings=result.warnings,
+                provenance=EstimateProvenanceResponse(
+                    provider_key=result.provider_key,
+                    provider_name=result.provider_name,
+                    as_of=result.as_of,
+                    contract_version=result.contract_version,
                 ),
             )
         except LookupError as error:
