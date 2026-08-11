@@ -118,7 +118,7 @@ describe("Company Intelligence earnings explorer", () => {
       asOf: "2026-08-10T00:00:00Z",
       engineVersion: "1.0.0",
       history: {},
-      statistics: { trailing_pe: { metricId: "trailing_pe", label: "Trailing P/E", unit: "x", status: "available", current: 31.4, percentile: 64, median: 28.1, minimum: 14, maximum: 72, zScore: 0.4, sampleSize: 260 } },
+      statistics: { trailing_pe: { metricId: "trailing_pe", label: "Trailing P/E", unit: "x", status: "available", current: 31.4, percentile: 92, median: 28.1, minimum: 14, maximum: 72, zScore: 0.4, sampleSize: 260 } },
       warnings: [],
       provenance: { priceSource: "Yahoo Finance", priceDataset: "daily_prices", fundamentalSource: "SEC EDGAR", fundamentalDataset: "normalized_financial_metrics", asOf: "2026-08-10T00:00:00Z", engineVersion: "1.0.0", sourceFactIds: [] },
     })
@@ -136,6 +136,9 @@ describe("Company Intelligence earnings explorer", () => {
     expect(screen.getByText(/do not predict the next earnings reaction/i)).toBeInTheDocument()
     expect(screen.getByLabelText("Company ticker")).toHaveValue("NVDA")
     expect(screen.getByLabelText("Earnings benchmark")).toHaveValue("SPY")
+    expect(screen.getByText("92nd percentile over 5 Years")).toBeInTheDocument()
+    expect(screen.getByRole("tablist")).toHaveClass("grid", "w-full", "grid-cols-2", "group-data-[orientation=horizontal]/tabs:h-auto", "sm:inline-flex")
+    expect(screen.getByRole("tablist")).not.toHaveClass("overflow-x-auto")
   })
 
   it("selects another event through a keyboard-focusable event control", async () => {
