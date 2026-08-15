@@ -16,6 +16,15 @@ V3 separates company-business research from V2 security-market observability. A 
 | `GET /api/v3/companies/{ticker}/valuation` | Return daily or weekly trailing valuation history, statistics, point-in-time fact lineage, and price provenance. |
 | `GET /api/v3/companies/{ticker}/earnings` | Return source-backed fiscal events, session-aware D0/D+1/D+5/D+20/D+60 reactions, benchmark adjustment, volume context, and aggregate statistics. |
 | `GET /api/v3/companies/{ticker}/estimates` | Return timestamped provider-neutral revenue/EPS expectations, revision observations, exact reported-period mappings, and expectation/reporting provenance. Empty coverage remains a successful response. |
+| `GET /api/v3/companies/{ticker}/evidence/documents` | List versioned public source documents with optional `types`, timezone-aware `as_of`, and `limit` filters. |
+| `GET /api/v3/companies/{ticker}/evidence/documents/{document_id}` | Return one source document and all independently addressable exact-text spans. |
+| `GET /api/v3/companies/{ticker}/evidence/spans/{span_id}` | Return one exact source span without requiring the extracted structured claim. |
+| `GET /api/v3/companies/{ticker}/evidence/claims/{claim_type}/{claim_id}` | Return all source spans associated with a typed structured claim. |
+| `GET /api/v3/companies/{ticker}/relationships` | Return current persisted source-backed business relationships with optional comma-separated `directions`, `types`, `confidences`, timezone-aware `as_of`, and `limit`. |
+| `GET /api/v3/companies/{ticker}/relationships/{relationship_id}` | Return append-only point-in-time relationship observations and evidence by observation. |
+| `POST /api/v3/companies/{ticker}/relationships/{relationship_id}/overrides` | Append an evidence-backed human correction with an explicit correction note. |
+| `GET /api/v3/companies/{ticker}/operations` | Return versioned segment, exact issuer geography, and custom KPI series with optional `categories` and timezone-aware `as_of`. |
+| `GET /api/v3/companies/{ticker}/guidance` | Return immutable guidance and commitment chronology with optional statement `types`, statuses, and timezone-aware `as_of`. |
 
 All V3 responses include `apiVersion: "v3"`. Response fields use camelCase; internal Python domain models remain snake_case. V3 query and response schemas reject unknown fields. A missing canonical company returns `404`; invalid filters or domain inputs return `400`; invalid/unknown query parameters return `422`.
 
@@ -24,6 +33,10 @@ Company overview provenance includes source, dataset, observation, `knownAt`, re
 Earnings responses classify SEC acceptance time in New York market hours, align after-close/weekend/holiday events to the next observed session, and preserve date-only ambiguity. They distinguish normalized reported facts from calculated reactions and state that historical reactions do not predict the next event. See [Earnings Events And Reaction Analytics](earnings-intelligence.md).
 
 Estimate responses never represent expectations as SEC facts. Each observation has provider and `knownAt`; fiscal mapping requires exact metric, period end, fiscal year, and fiscal period. The default local provider returns empty coverage unless an ignored manual fixture is configured. See [Analyst Estimates Provider Contract](analyst-estimates.md).
+
+Evidence responses preserve document source identity, content version, publication timing, `knownAt`, retrieval timing, parse state, exact source text, location context, and extraction method. Changed source content creates a linked document version rather than overwriting history. Historical requests cannot inspect documents published after their `asOf` boundary, and empty coverage is explicitly described as incomplete. See [Evidence Intelligence](evidence-intelligence.md).
+
+Relationship responses contain only persisted edges with inspectable evidence. Stable economic edges accumulate observations and source spans without duplicate graph edges; unresolved names remain raw names. Operations responses preserve definition versions and reporting bases, and calculate growth or mix only within compatible histories. Guidance responses preserve exact original wording, linked revisions, normalized ranges or points, qualitative commitments, and explicitly labelled outcome methods. See [Business Network](business-network.md), [Operating Intelligence](operating-intelligence.md), and [Guidance Intelligence](guidance-intelligence.md).
 
 `matchingFactCount` reports all rows matching the financial-history filters; `returnedFactCount` reports rows included under `limit`. Truncation adds an explicit warning rather than silently implying complete history.
 

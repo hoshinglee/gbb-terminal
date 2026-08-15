@@ -116,6 +116,22 @@ This checklist separates research correctness from launch-environment stabilizat
 - [x] Reconcile representative maximum-history performance: 1,439 weekly observations across eight valuation measures return in 4.5 seconds; the warm-cache 40-event earnings response returns in 3.8 seconds on the development machine.
 - [ ] Complete connected-browser review using a locally synchronized supported company with live/cached Yahoo and SEC data.
 
+## Release 0.9 — Evidence And Business Network
+
+- [x] Complete INT-09 strict models for versioned evidence documents, exact source spans, parse status, and typed claim links.
+- [x] Persist INT-09 records in backward-compatible DuckDB schema version 10 without rewriting existing company, market, research, or option records.
+- [x] Deduplicate exact source content and retain changed content as a linked document version.
+- [x] Enforce company ownership and `known_at` boundaries for document, span, and claim-evidence reads.
+- [x] Prevent failed document parsing from creating unsupported evidence spans.
+- [x] Expose read-only strict V3 document, detail, span, and claim-evidence contracts with incomplete-coverage warnings.
+- [x] Cover duplicate ingestion, changed documents, as-of filtering, independent span retrieval, multiple spans per claim, parser failure, migration, and API source traceability.
+- [ ] Add permitted public-document collectors and deterministic parsing workflows for supported companies.
+- [x] Complete INT-10 source-backed customer/supplier relationship persistence and deterministic extraction, including unresolved counterparties, evidence accumulation, history, and audited overrides.
+- [x] Complete INT-11 interactive company relationship graph with direction, filters, keyboard-accessible table fallback, focused navigation, evidence/history dialogs, and incomplete-disclosure context.
+- [x] Complete INT-12 versioned segment, geography, and company-specific KPI intelligence with reorganization boundaries, compatible comparisons, source evidence, and explicit missing coverage.
+- [x] Complete INT-13 immutable guidance and management-commitment history with linked revisions, original wording, normalized ranges, evidence, and rule-based outcomes.
+- [x] Complete connected-browser review of evidence context, resolved and unresolved business-network navigation, responsive graph overflow, keyboard interaction, source history, and explicit incomplete-disclosure states.
+
 ## Deferred Launch Stability — Former Release 0.3 Gates
 
 Run these when preparing an actual public release candidate:

@@ -50,7 +50,11 @@ def test_react_research_canvas_sources_are_present():
     market_pulse = Path("app/web/src/features/market-pulse/market-pulse.tsx").read_text()
     company_intelligence = Path("app/web/src/features/company-intelligence/company-intelligence.tsx").read_text()
     earnings_chart = Path("app/web/src/features/company-intelligence/earnings-reaction-chart.tsx").read_text()
-    assert '"version": "0.8.0"' in package
+    relationship_network = Path("app/web/src/features/company-intelligence/relationship-network.tsx").read_text()
+    operations_intelligence = Path("app/web/src/features/company-intelligence/operations-intelligence.tsx").read_text()
+    guidance_timeline = Path("app/web/src/features/company-intelligence/guidance-timeline.tsx").read_text()
+    source_dialog = Path("app/web/src/features/company-intelligence/source-evidence-dialog.tsx").read_text()
+    assert '"version": "0.9.0"' in package
     assert '"react"' in package
     assert '"lightweight-charts"' in package
     assert 'import("@/features/strategy-lab/strategy-lab")' in application
@@ -78,6 +82,18 @@ def test_react_research_canvas_sources_are_present():
     assert "Calculated Market Reaction" in company_intelligence
     assert "Historical Evidence, Not A Forecast" in company_intelligence
     assert "EarningsReactionChart" in company_intelligence
+    assert "RelationshipNetwork" in company_intelligence
+    assert "OperationsIntelligence" in company_intelligence
+    assert "GuidanceTimeline" in company_intelligence
+    assert "Evidence-Backed Business Network" in relationship_network
+    assert "min-w-[640px]" in relationship_network
+    assert "Unresolved public-company mapping" in relationship_network
+    assert "complete keyboard-accessible table" in relationship_network
+    assert "Reporting Definitions Changed" in operations_intelligence
+    assert "compatible disclosed total" in operations_intelligence
+    assert "Original Qualitative Wording" in guidance_timeline
+    assert "Historical Record, Not Model Forecast" in guidance_timeline
+    assert "Exact source excerpts remain authoritative" in source_dialog
     assert 'aria-keyshortcuts="ArrowLeft ArrowRight Home End"' in earnings_chart
     assert "createSeriesMarkers" in earnings_chart
     assert "StrategyCommand" in strategy_lab
@@ -104,6 +120,7 @@ def test_react_research_canvas_sources_are_present():
     assert 'href: "/?lab=stock"' in app_shell
     assert 'href: "/?lab=market"' in app_shell
     assert 'href: "/?lab=intelligence"' in app_shell
+    assert "v0.9 evidence network" in app_shell
     assert 'legacy?panel=stock' not in app_shell
     assert 'legacy?panel=market' not in app_shell
     assert 'aria-label="Mobile research laboratories"' in app_shell
@@ -123,3 +140,4 @@ def test_system_diagrams_cover_runtime_frontend_research_and_storage():
     assert "sequenceDiagram" in diagrams
     assert "erDiagram" in diagrams
     assert "## Frontend Build And Fallback" in diagrams
+    assert "## Company Evidence And Business Network Pipeline" in diagrams

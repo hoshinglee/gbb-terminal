@@ -270,9 +270,16 @@ flowchart LR
         Valuation[Point-In-Time Valuation]
         Events[Earnings Event History]
         EventDetail[Selected Event Evidence + Reaction]
+        Network[Persisted Business Network]
+        Operations[Segments + Geography + KPIs]
+        Guidance[Guidance + Commitment Timeline]
+        Sources[Exact Source Evidence Dialogs]
         CompanyContext --> Fundamentals
         CompanyContext --> Valuation
         CompanyContext --> Events --> EventDetail
+        CompanyContext --> Network --> Sources
+        CompanyContext --> Operations --> Sources
+        CompanyContext --> Guidance --> Sources
     end
 
     StockAPI[GET /api/v2/stocks/:ticker] --> Quote
@@ -287,6 +294,9 @@ flowchart LR
     IntelligenceAPI --> Fundamentals
     IntelligenceAPI --> Valuation
     IntelligenceAPI --> Events
+    IntelligenceAPI --> Network
+    IntelligenceAPI --> Operations
+    IntelligenceAPI --> Guidance
     DuckDB[(DuckDB Cache)] --> StockAPI
     DuckDB --> ChainAPI
     DuckDB --> MarketAPI
@@ -362,6 +372,38 @@ flowchart LR
 ```
 
 Provider extraction does not choose business metrics. The intelligence engine can be rerun deterministically against the same `as_of` boundary and definition version, while every result retains source-fact lineage.
+
+## Company Evidence And Business Network Pipeline
+
+```mermaid
+flowchart LR
+    Public[Permitted Public Document] --> Document[Versioned Evidence Document<br/>source + external ID + content hash]
+    Document --> Span[Exact Evidence Span<br/>location + extraction method]
+    Span --> Relationship[Relationship Observation]
+    Span --> Definition[Operating Definition]
+    Span --> Metric[Operating Observation]
+    Span --> Statement[Guidance Statement]
+    Span --> Outcome[Guidance Evaluation]
+
+    Relationship --> Edge[(Stable Economic Edge)]
+    Relationship --> History[(Append-Only Relationship History)]
+    Definition --> Series[(Versioned Segment / Geography / KPI)]
+    Metric --> Series
+    Statement --> Timeline[(Immutable Guidance Timeline)]
+    Outcome --> Timeline
+
+    Edge --> Graph[One-Hop Graph + Accessible Table]
+    History --> Graph
+    Series --> OperationsUI[Compatible Mix / Growth + Reorganization]
+    Timeline --> GuidanceUI[Original Wording + Outcome Method]
+    Span --> SourceUI[Exact Source Dialog]
+
+    AsOf{known_at and as_of boundary} --> Graph
+    AsOf --> OperationsUI
+    AsOf --> GuidanceUI
+```
+
+Structured claims cannot exist without source ownership and timing validation. Unresolved counterparties retain disclosed names, definition changes remain versioned, and qualitative commitments cannot acquire fabricated numeric precision.
 
 ## DuckDB Logical Model
 
@@ -511,12 +553,108 @@ erDiagram
         json source_metadata
     }
 
+    EVIDENCE_DOCUMENTS {
+        string document_id PK
+        string company_id FK
+        string source
+        string external_id
+        int version
+        timestamp known_at
+        string content_hash
+        string parse_status
+    }
+
+    EVIDENCE_SPANS {
+        string span_id PK
+        string document_id FK
+        string span_hash
+        string section
+        int page_number
+        string exact_text
+        timestamp extracted_at
+    }
+
+    EVIDENCE_CLAIM_LINKS {
+        string claim_type PK
+        string claim_id PK
+        string span_id PK
+        string evidence_role PK
+    }
+
+    BUSINESS_RELATIONSHIPS {
+        string relationship_id PK
+        string source_company_id FK
+        string normalized_counterparty_name
+        string relationship_type
+        string direction
+    }
+
+    RELATIONSHIP_OBSERVATIONS {
+        string observation_id PK
+        string relationship_id FK
+        string target_company_id FK
+        double exposure_value
+        date valid_from
+        date valid_to
+        timestamp known_at
+        string confidence
+    }
+
+    OPERATING_METRIC_DEFINITIONS {
+        string definition_id PK
+        string company_id FK
+        string category
+        string definition_key
+        string reporting_basis
+        int version
+        string supersedes_definition_id
+        timestamp known_at
+    }
+
+    OPERATING_METRIC_OBSERVATIONS {
+        string observation_id PK
+        string definition_id FK
+        date period_end
+        double value
+        string unit
+        timestamp known_at
+    }
+
+    GUIDANCE_STATEMENTS {
+        string statement_id PK
+        string company_id FK
+        string statement_type
+        string topic
+        string value_kind
+        int revision
+        string supersedes_statement_id
+        timestamp known_at
+    }
+
+    GUIDANCE_EVALUATIONS {
+        string evaluation_id PK
+        string statement_id FK
+        string status
+        string method
+        timestamp known_at
+    }
+
     STRATEGY_CATALOGUE ||--o{ BACKTEST_RUNS : defines
     BACKTEST_RUNS ||--o{ BACKTEST_TRADES : contains
     STRATEGY_CATALOGUE o|--o{ RESEARCH_RUNS : catalogues
     OPTION_POSITIONS ||--o{ OPTION_POSITION_EVENTS : journals
     COMPANIES ||--o{ COMPANY_SECURITY_MAPPINGS : identifies
     COMPANIES ||--o{ SEC_FINANCIAL_FACTS : reports
+    COMPANIES ||--o{ EVIDENCE_DOCUMENTS : publishes
+    EVIDENCE_DOCUMENTS ||--o{ EVIDENCE_SPANS : contains
+    EVIDENCE_SPANS ||--o{ EVIDENCE_CLAIM_LINKS : supports
+    COMPANIES ||--o{ BUSINESS_RELATIONSHIPS : discloses
+    BUSINESS_RELATIONSHIPS ||--o{ RELATIONSHIP_OBSERVATIONS : accumulates
+    COMPANIES o|--o{ RELATIONSHIP_OBSERVATIONS : resolves_to
+    COMPANIES ||--o{ OPERATING_METRIC_DEFINITIONS : reports
+    OPERATING_METRIC_DEFINITIONS ||--o{ OPERATING_METRIC_OBSERVATIONS : measures
+    COMPANIES ||--o{ GUIDANCE_STATEMENTS : issues
+    GUIDANCE_STATEMENTS ||--o{ GUIDANCE_EVALUATIONS : evaluates
 ```
 
 The relationships shown are logical domain relationships; DuckDB does not currently declare every one as a foreign-key constraint. Cache tables are intentionally independent so provider outages and schema evolution do not block research records.

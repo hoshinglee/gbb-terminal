@@ -147,6 +147,42 @@ Implementation status: INT-05 through INT-08 are implemented on the Release 0.8 
 - Support revision history, exact fiscal mapping, empty coverage, and a Git-ignored manual fixture adapter.
 - Do not scrape or select a commercial estimates vendor and do not turn expectations into reported facts.
 
+## Release 0.9 — Evidence And Business Network
+
+Implementation status: INT-09 through INT-13 storage, domain, strict APIs, evidence-first React views, automated contracts, and the connected-browser acceptance sweep are implemented on the Release 0.9 branch. Permitted public-document collectors remain open; no graph edge or extracted claim may precede inspectable evidence.
+
+### INT-09 — Evidence Documents And Source-Backed Spans
+
+- Version permitted public documents by stable company/source/external identity and SHA-256 content fingerprint.
+- Preserve publication, `known_at`, retrieval, source URL, parse state, and quality context.
+- Persist independently retrievable exact-text spans with source location and extraction metadata.
+- Link one or multiple support, context, or contradiction spans to typed structured claims.
+- Reject unsupported spans after parsing failure and keep empty public-disclosure coverage explicit.
+
+### INT-10 — Customer And Supplier Relationships
+
+- Persist directional supplier, customer, manufacturer, distributor, partner, and explicitly disclosed competitor relationships.
+- Distinguish resolved companies from raw or unnamed counterparties and retain economic exposure when disclosed.
+- Require evidence for sourced/disclosed edges, accumulate duplicate evidence without duplicate economic edges, and preserve historical changes.
+
+### INT-11 — Interactive Relationship Graph
+
+- Render only persisted relationships with visible direction, type, confidence, date context, and evidence access.
+- Support focused expansion and company navigation without implying that the public network is exhaustive.
+- Keep graph exploration separate from unsupported network-derived trading signals.
+
+### INT-12 — Segment, Geography, And KPI Intelligence
+
+- Version issuer-reported segment definitions and preserve reorganizations rather than silently combining incompatible history.
+- Retain fiscal period, units, `known_at`, and evidence for segment, geographic, and company-specific KPI observations.
+- Start with trustworthy depth for curated US companies instead of claiming universal standardized coverage.
+
+### INT-13 — Guidance And Management Commitments
+
+- Preserve immutable source-backed guidance, revisions, ranges, qualitative commitments, and applicable periods.
+- Reconcile objective outcomes through deterministic rules and label manual or interpretive assessments explicitly.
+- Keep original wording and evidence available; LLM summaries never replace source statements.
+
 ## Cross-Release Usefulness Enhancements
 
 1. Compare saved stock and option research runs in one project workspace.

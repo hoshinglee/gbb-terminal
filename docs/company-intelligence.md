@@ -82,6 +82,30 @@ INT-08 defines a vendor-neutral revenue/EPS estimate contract and optional local
 
 See [Analyst Estimates Provider Contract](analyst-estimates.md) for fixture configuration, revision semantics, and mapping statuses.
 
+## Evidence Intelligence
+
+INT-09 adds a reusable trust layer for future relationships, segment observations, KPIs, guidance, and management commentary. Public documents are versioned under the durable `company_id`; exact text spans remain independently retrievable and may be linked to one or more typed claims. Document reads and claim evidence enforce `known_at` boundaries, while parsing failures cannot create unsupported spans.
+
+See [Evidence Intelligence](evidence-intelligence.md) for document identity, claim-link semantics, parsing safety, APIs, and storage contracts.
+
+## Business Network
+
+INT-10 persists stable source-backed relationship edges and append-only observations for suppliers, customers, manufacturers, distributors, partners, explicitly named competitors, and concentration disclosures. Exact names resolve only when identity is unambiguous; names such as `Customer A` remain unresolved. INT-11 renders only those persisted edges in a filtered one-hop graph with source access, date context, incoming-edge perspective, company navigation, dense-network limits, and a complete accessible table.
+
+See [Business Relationship Network](business-network.md) for extraction rules, edge identity, point-in-time history, graph behavior, and limitations.
+
+## Operating Intelligence
+
+INT-12 versions issuer-defined segments, exact geographic groupings, and typed company KPIs. Growth remains inside one definition version, while mix requires a compatible category, reporting basis, measure, unit, and period. Reorganizations remain visible instead of silently joining incompatible history.
+
+See [Segment, Geography, And KPI Intelligence](operating-intelligence.md) for definition and calculation rules.
+
+## Guidance And Commitments
+
+INT-13 preserves exact management wording, normalized ranges or points, qualitative commitments, linked revisions, withdrawals, and outcome evaluations. Objective normalized results may receive deterministic outcomes; manual and interpretive assessments remain explicitly labelled. LLM summaries never replace source statements.
+
+See [Guidance And Management Commitments](guidance-intelligence.md) for revision, evaluation, and UI semantics.
+
 ## SEC Directory Sync
 
 The SEC publishes a periodically updated CIK, company-name, ticker, and exchange association file. The SEC states that its accuracy and scope are not guaranteed, so GBB preserves that warning in every ingested mapping and does not treat the retrieval date as a proven historical listing date.
@@ -104,7 +128,7 @@ The raw Company Facts and submissions payloads also remain in `provider_cache`. 
 
 ## Current Boundary
 
-Release 0.8 extends the strict V3 boundary with historical valuation while preserving the Release 0.7 company overview, point-in-time facts, and normalized metrics contracts. Existing V2 stock, strategy, and option APIs continue accepting tickers unchanged.
+Release 0.9 extends the strict V3 boundary with versioned evidence documents, exact source spans, typed claim associations, source-backed relationships, a persisted business network, versioned operating disclosures, and immutable guidance history. Every domain remains independently loadable so incomplete public coverage cannot erase available financial or earnings evidence. Existing V2 stock, strategy, and option APIs continue accepting tickers unchanged.
 
 See [API Application](api.md) for exact V3 endpoints, filters, response counts, provenance, error semantics, and the company-versus-security boundary.
 

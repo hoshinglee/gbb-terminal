@@ -7,7 +7,23 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ...intelligence.earnings_models import EarningsSession, EventTimingQuality
 from ...intelligence.estimate_models import EstimateMatchStatus, EstimateMetric
+from ...intelligence.evidence_models import EvidenceDocumentType, EvidenceParseStatus, EvidenceRole
+from ...intelligence.guidance_models import (
+    GuidanceComparison,
+    GuidanceEvaluationMethod,
+    GuidanceRevisionDirection,
+    GuidanceStatementType,
+    GuidanceStatus,
+    GuidanceValueKind,
+)
 from ...intelligence.metric_models import MetricPeriodKind
+from ...intelligence.operations_models import OperatingMetricCategory, OperatingValueType
+from ...intelligence.relationship_models import (
+    RelationshipConfidence,
+    RelationshipDirection,
+    RelationshipObservationKind,
+    RelationshipType,
+)
 from ...intelligence.valuation_models import ValuationFrequency, ValuationStatus
 
 
@@ -22,6 +38,10 @@ class V3ResponseModel(BaseModel):
 
 class V3QueryModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+class V3RequestModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", alias_generator=_camel_case, populate_by_name=True)
 
 
 class CompanyLookupQuery(V3QueryModel):
@@ -88,6 +108,89 @@ class EarningsQuery(V3QueryModel):
 
 class EstimatesQuery(V3QueryModel):
     metrics: str | None = Field(default=None, max_length=100)
+    as_of: datetime | None = None
+
+    @field_validator("as_of")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("as_of must include a timezone offset.")
+        return value
+
+
+class EvidenceDocumentsQuery(V3QueryModel):
+    types: str | None = Field(default=None, max_length=500)
+    as_of: datetime | None = None
+    limit: int = Field(default=100, ge=1, le=500)
+
+    @field_validator("as_of")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("as_of must include a timezone offset.")
+        return value
+
+
+class EvidenceAsOfQuery(V3QueryModel):
+    as_of: datetime | None = None
+
+    @field_validator("as_of")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("as_of must include a timezone offset.")
+        return value
+
+
+class RelationshipsQuery(V3QueryModel):
+    directions: str | None = Field(default=None, max_length=200)
+    types: str | None = Field(default=None, max_length=500)
+    confidences: str | None = Field(default=None, max_length=200)
+    as_of: datetime | None = None
+    limit: int = Field(default=100, ge=1, le=500)
+
+    @field_validator("as_of")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("as_of must include a timezone offset.")
+        return value
+
+
+class RelationshipOverrideRequest(V3RequestModel):
+    target_company_id: str | None = Field(default=None, min_length=1, max_length=120)
+    exposure_value: float | None = None
+    exposure_unit: str | None = Field(default=None, min_length=1, max_length=120)
+    valid_from: date | None = None
+    valid_to: date | None = None
+    known_at: datetime
+    confidence: RelationshipConfidence
+    evidence_span_ids: list[str] = Field(min_length=1, max_length=50)
+    correction_note: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("known_at")
+    @classmethod
+    def require_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("knownAt must include a timezone offset.")
+        return value
+
+
+class OperationsQuery(V3QueryModel):
+    categories: str | None = Field(default=None, max_length=200)
+    as_of: datetime | None = None
+
+    @field_validator("as_of")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("as_of must include a timezone offset.")
+        return value
+
+
+class GuidanceHistoryQuery(V3QueryModel):
+    types: str | None = Field(default=None, max_length=300)
+    statuses: str | None = Field(default=None, max_length=300)
     as_of: datetime | None = None
 
     @field_validator("as_of")
@@ -171,6 +274,279 @@ class FinancialHistoryResponse(V3ResponseModel):
     returned_fact_count: int
     facts: list[FinancialFactResponse]
     warnings: list[str] = Field(default_factory=list)
+
+
+class EvidenceDocumentResponse(V3ResponseModel):
+    document_id: str
+    source: str
+    dataset: str
+    document_type: EvidenceDocumentType
+    external_id: str
+    version: int
+    supersedes_document_id: str | None = None
+    title: str | None = None
+    form: str | None = None
+    accession_number: str | None = None
+    source_url: str
+    filed_at: datetime | None = None
+    published_at: datetime | None = None
+    known_at: datetime
+    retrieved_at: datetime
+    content_hash: str
+    mime_type: str
+    parse_status: EvidenceParseStatus
+    parse_error: str | None = None
+    source_metadata: dict
+    quality_warnings: list[str]
+    model_version: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class EvidenceSpanResponse(V3ResponseModel):
+    span_id: str
+    document_id: str
+    span_hash: str
+    exact_text: str
+    section: str | None = None
+    page_number: int | None = None
+    start_offset: int | None = None
+    end_offset: int | None = None
+    context_before: str | None = None
+    context_after: str | None = None
+    extraction_method: str
+    extracted_at: datetime
+    source_metadata: dict
+    created_at: datetime
+
+
+class EvidenceDocumentsResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    company: CompanyReferenceResponse
+    as_of: datetime
+    matching_document_count: int
+    returned_document_count: int
+    documents: list[EvidenceDocumentResponse]
+    warnings: list[str]
+
+
+class EvidenceDocumentDetailResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    company: CompanyReferenceResponse
+    as_of: datetime
+    document: EvidenceDocumentResponse
+    spans: list[EvidenceSpanResponse]
+
+
+class EvidenceSpanDetailResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    company: CompanyReferenceResponse
+    as_of: datetime
+    document: EvidenceDocumentResponse
+    span: EvidenceSpanResponse
+
+
+class EvidenceClaimSpanResponse(V3ResponseModel):
+    role: EvidenceRole
+    linked_at: datetime
+    span: EvidenceSpanResponse
+
+
+class EvidenceClaimResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    company: CompanyReferenceResponse
+    as_of: datetime
+    claim_type: str
+    claim_id: str
+    evidence: list[EvidenceClaimSpanResponse]
+    warnings: list[str]
+
+
+class SourceEvidenceResponse(V3ResponseModel):
+    role: EvidenceRole
+    linked_at: datetime
+    document: EvidenceDocumentResponse
+    span: EvidenceSpanResponse
+
+
+class RelationshipEdgeResponse(V3ResponseModel):
+    relationship_id: str
+    source_company_id: str
+    normalized_counterparty_name: str
+    raw_counterparty_name: str
+    relationship_type: RelationshipType
+    direction: RelationshipDirection
+    model_version: str
+    created_at: datetime
+
+
+class RelationshipObservationResponse(V3ResponseModel):
+    observation_id: str
+    relationship_id: str
+    target_company_id: str | None = None
+    exposure_value: float | None = None
+    exposure_unit: str | None = None
+    valid_from: date | None = None
+    valid_to: date | None = None
+    known_at: datetime
+    extraction_method: str
+    confidence: RelationshipConfidence
+    observation_kind: RelationshipObservationKind
+    supersedes_observation_id: str | None = None
+    correction_note: str | None = None
+    created_at: datetime
+
+
+class CompanyRelationshipResponse(V3ResponseModel):
+    edge: RelationshipEdgeResponse
+    observation: RelationshipObservationResponse
+    source_company: CompanyReferenceResponse
+    target_company: CompanyReferenceResponse | None = None
+    perspective_direction: RelationshipDirection
+    evidence: list[SourceEvidenceResponse]
+
+
+class RelationshipNetworkResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    company: CompanyReferenceResponse
+    as_of: datetime
+    matching_relationship_count: int
+    returned_relationship_count: int
+    relationships: list[CompanyRelationshipResponse]
+    warnings: list[str]
+
+
+class RelationshipHistoryResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    company: CompanyReferenceResponse
+    as_of: datetime
+    edge: RelationshipEdgeResponse
+    observations: list[RelationshipObservationResponse]
+    evidence: dict[str, list[SourceEvidenceResponse]]
+
+
+class OperatingMetricDefinitionResponse(V3ResponseModel):
+    definition_id: str
+    category: OperatingMetricCategory
+    definition_key: str
+    label: str
+    measure: str
+    unit: str
+    value_type: OperatingValueType
+    reporting_basis: str
+    version: int
+    valid_from: date | None = None
+    valid_to: date | None = None
+    supersedes_definition_id: str | None = None
+    description: str | None = None
+    known_at: datetime
+    extraction_method: str
+    model_version: str
+    created_at: datetime
+
+
+class OperatingMetricObservationResponse(V3ResponseModel):
+    observation_id: str
+    definition_id: str
+    period_start: date | None = None
+    period_end: date
+    fiscal_year: int | None = None
+    fiscal_period: str | None = None
+    value: float
+    unit: str
+    known_at: datetime
+    extraction_method: str
+    created_at: datetime
+
+
+class OperatingMetricPointResponse(V3ResponseModel):
+    observation: OperatingMetricObservationResponse
+    mix_percent: float | None = None
+    growth_percent: float | None = None
+    evidence: list[SourceEvidenceResponse]
+
+
+class OperatingMetricSeriesResponse(V3ResponseModel):
+    definition: OperatingMetricDefinitionResponse
+    definition_evidence: list[SourceEvidenceResponse]
+    points: list[OperatingMetricPointResponse]
+
+
+class OperatingDefinitionTransitionResponse(V3ResponseModel):
+    prior_definition_id: str
+    next_definition_id: str
+    definition_key: str
+    prior_label: str
+    next_label: str
+    prior_reporting_basis: str
+    next_reporting_basis: str
+    known_at: datetime
+
+
+class OperatingIntelligenceResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    company: CompanyReferenceResponse
+    as_of: datetime
+    series: list[OperatingMetricSeriesResponse]
+    transitions: list[OperatingDefinitionTransitionResponse]
+    warnings: list[str]
+
+
+class GuidanceStatementResponse(V3ResponseModel):
+    statement_id: str
+    statement_type: GuidanceStatementType
+    topic: str
+    metric_id: str | None = None
+    statement_text: str
+    value_kind: GuidanceValueKind
+    comparison: GuidanceComparison
+    lower_bound: float | None = None
+    upper_bound: float | None = None
+    point_value: float | None = None
+    unit: str | None = None
+    applicable_period_start: date | None = None
+    applicable_period_end: date | None = None
+    fiscal_year: int | None = None
+    fiscal_period: str | None = None
+    issued_at: datetime
+    known_at: datetime
+    extraction_method: str
+    revision: int
+    supersedes_statement_id: str | None = None
+    model_version: str
+    created_at: datetime
+
+
+class GuidanceEvaluationResponse(V3ResponseModel):
+    evaluation_id: str
+    statement_id: str
+    status: GuidanceStatus
+    evaluated_at: datetime
+    known_at: datetime
+    method: GuidanceEvaluationMethod
+    actual_value: float | None = None
+    actual_unit: str | None = None
+    source_fact_ids: list[str]
+    resulting_statement_id: str | None = None
+    note: str | None = None
+    created_at: datetime
+
+
+class GuidanceRecordResponse(V3ResponseModel):
+    statement: GuidanceStatementResponse
+    revision_direction: GuidanceRevisionDirection
+    status: GuidanceStatus
+    evaluations: list[GuidanceEvaluationResponse]
+    statement_evidence: list[SourceEvidenceResponse]
+    evaluation_evidence: dict[str, list[SourceEvidenceResponse]]
+
+
+class GuidanceHistoryResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    company: CompanyReferenceResponse
+    as_of: datetime
+    records: list[GuidanceRecordResponse]
+    warnings: list[str]
 
 
 class NormalizedMetricResponse(V3ResponseModel):

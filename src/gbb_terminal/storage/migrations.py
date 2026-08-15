@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import duckdb
 
 
-CURRENT_SCHEMA_VERSION = 9
+CURRENT_SCHEMA_VERSION = 13
 
 
 def apply_company_identity_schema(connection: duckdb.DuckDBPyConnection) -> None:
@@ -172,11 +172,267 @@ def apply_earnings_schema(connection: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+def apply_evidence_schema(connection: duckdb.DuckDBPyConnection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS evidence_documents (
+            document_id VARCHAR PRIMARY KEY,
+            company_id VARCHAR NOT NULL REFERENCES companies(company_id),
+            source VARCHAR NOT NULL,
+            dataset VARCHAR NOT NULL,
+            document_type VARCHAR NOT NULL CHECK (
+                document_type IN ('10-k', '10-q', '8-k', 'earnings_release', 'annual_report',
+                                  'investor_presentation', 'other')
+            ),
+            external_id VARCHAR NOT NULL,
+            version INTEGER NOT NULL CHECK (version >= 1),
+            supersedes_document_id VARCHAR,
+            title VARCHAR,
+            form VARCHAR,
+            accession_number VARCHAR,
+            source_url VARCHAR NOT NULL,
+            filed_at TIMESTAMP,
+            published_at TIMESTAMP,
+            known_at TIMESTAMP NOT NULL,
+            retrieved_at TIMESTAMP NOT NULL,
+            content_hash VARCHAR NOT NULL,
+            mime_type VARCHAR NOT NULL,
+            parse_status VARCHAR NOT NULL CHECK (parse_status IN ('pending', 'parsed', 'failed')),
+            parse_error VARCHAR,
+            source_metadata JSON NOT NULL,
+            quality_warnings JSON NOT NULL,
+            model_version VARCHAR NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP NOT NULL,
+            UNIQUE (company_id, source, external_id, content_hash)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS evidence_document_company_known_index ON evidence_documents(company_id, known_at)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS evidence_document_source_identity_index ON evidence_documents(source, external_id)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS evidence_spans (
+            span_id VARCHAR PRIMARY KEY,
+            document_id VARCHAR NOT NULL REFERENCES evidence_documents(document_id),
+            span_hash VARCHAR NOT NULL,
+            exact_text VARCHAR NOT NULL,
+            section VARCHAR,
+            page_number INTEGER,
+            start_offset INTEGER,
+            end_offset INTEGER,
+            context_before VARCHAR,
+            context_after VARCHAR,
+            extraction_method VARCHAR NOT NULL,
+            extracted_at TIMESTAMP NOT NULL,
+            source_metadata JSON NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            CHECK (page_number IS NULL OR page_number >= 1),
+            CHECK ((start_offset IS NULL AND end_offset IS NULL) OR
+                   (start_offset >= 0 AND end_offset > start_offset)),
+            UNIQUE (document_id, span_hash)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS evidence_span_document_index ON evidence_spans(document_id)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS evidence_claim_links (
+            claim_type VARCHAR NOT NULL,
+            claim_id VARCHAR NOT NULL,
+            span_id VARCHAR NOT NULL REFERENCES evidence_spans(span_id),
+            evidence_role VARCHAR NOT NULL CHECK (evidence_role IN ('support', 'context', 'contradiction')),
+            created_at TIMESTAMP NOT NULL,
+            PRIMARY KEY (claim_type, claim_id, span_id, evidence_role)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS evidence_claim_index ON evidence_claim_links(claim_type, claim_id)"
+    )
+
+
+def apply_relationship_schema(connection: duckdb.DuckDBPyConnection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS business_relationships (
+            relationship_id VARCHAR PRIMARY KEY,
+            source_company_id VARCHAR NOT NULL REFERENCES companies(company_id),
+            normalized_counterparty_name VARCHAR NOT NULL,
+            raw_counterparty_name VARCHAR NOT NULL,
+            relationship_type VARCHAR NOT NULL CHECK (
+                relationship_type IN ('supplier', 'customer', 'manufacturer_foundry', 'distributor',
+                                      'strategic_partner', 'competitor', 'customer_concentration',
+                                      'supplier_concentration')
+            ),
+            direction VARCHAR NOT NULL CHECK (
+                direction IN ('upstream', 'downstream', 'bidirectional', 'market')
+            ),
+            model_version VARCHAR NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            UNIQUE (source_company_id, normalized_counterparty_name, relationship_type, direction)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS relationship_source_index ON business_relationships(source_company_id)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS relationship_observations (
+            observation_id VARCHAR PRIMARY KEY,
+            relationship_id VARCHAR NOT NULL REFERENCES business_relationships(relationship_id),
+            target_company_id VARCHAR REFERENCES companies(company_id),
+            exposure_value DOUBLE,
+            exposure_unit VARCHAR,
+            valid_from DATE,
+            valid_to DATE,
+            known_at TIMESTAMP NOT NULL,
+            extraction_method VARCHAR NOT NULL,
+            confidence VARCHAR NOT NULL CHECK (
+                confidence IN ('disclosed', 'strongly_inferred', 'inferred')
+            ),
+            observation_kind VARCHAR NOT NULL CHECK (
+                observation_kind IN ('extracted', 'human_override')
+            ),
+            supersedes_observation_id VARCHAR,
+            correction_note VARCHAR,
+            created_at TIMESTAMP NOT NULL,
+            CHECK (valid_to IS NULL OR valid_from IS NULL OR valid_to >= valid_from),
+            CHECK ((exposure_value IS NULL AND exposure_unit IS NULL) OR
+                   (exposure_value IS NOT NULL AND exposure_unit IS NOT NULL))
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS relationship_observation_edge_index ON relationship_observations(relationship_id, known_at)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS relationship_observation_target_index ON relationship_observations(target_company_id, known_at)"
+    )
+
+
+def apply_operations_schema(connection: duckdb.DuckDBPyConnection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS operating_metric_definitions (
+            definition_id VARCHAR PRIMARY KEY,
+            company_id VARCHAR NOT NULL REFERENCES companies(company_id),
+            category VARCHAR NOT NULL CHECK (category IN ('segment', 'geography', 'kpi')),
+            definition_key VARCHAR NOT NULL,
+            label VARCHAR NOT NULL,
+            measure VARCHAR NOT NULL,
+            unit VARCHAR NOT NULL,
+            value_type VARCHAR NOT NULL CHECK (
+                value_type IN ('currency', 'percentage', 'count', 'ratio', 'duration', 'other')
+            ),
+            reporting_basis VARCHAR NOT NULL,
+            version INTEGER NOT NULL CHECK (version >= 1),
+            valid_from DATE,
+            valid_to DATE,
+            supersedes_definition_id VARCHAR,
+            description VARCHAR,
+            known_at TIMESTAMP NOT NULL,
+            extraction_method VARCHAR NOT NULL,
+            model_version VARCHAR NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            CHECK (valid_to IS NULL OR valid_from IS NULL OR valid_to >= valid_from),
+            UNIQUE (company_id, category, definition_key, reporting_basis, version)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS operating_definition_company_index ON operating_metric_definitions(company_id, category, known_at)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS operating_metric_observations (
+            observation_id VARCHAR PRIMARY KEY,
+            definition_id VARCHAR NOT NULL REFERENCES operating_metric_definitions(definition_id),
+            period_start DATE,
+            period_end DATE NOT NULL,
+            fiscal_year INTEGER,
+            fiscal_period VARCHAR,
+            value DOUBLE NOT NULL,
+            unit VARCHAR NOT NULL,
+            known_at TIMESTAMP NOT NULL,
+            extraction_method VARCHAR NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            CHECK (period_start IS NULL OR period_end >= period_start)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS operating_observation_definition_index ON operating_metric_observations(definition_id, period_end, known_at)"
+    )
+
+
+def apply_guidance_schema(connection: duckdb.DuckDBPyConnection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS guidance_statements (
+            statement_id VARCHAR PRIMARY KEY,
+            company_id VARCHAR NOT NULL REFERENCES companies(company_id),
+            statement_type VARCHAR NOT NULL CHECK (
+                statement_type IN ('financial_guidance', 'strategic_commitment', 'kpi_target', 'risk_constraint')
+            ),
+            topic VARCHAR NOT NULL,
+            metric_id VARCHAR,
+            statement_text VARCHAR NOT NULL,
+            value_kind VARCHAR NOT NULL CHECK (
+                value_kind IN ('numeric_range', 'numeric_point', 'qualitative')
+            ),
+            comparison VARCHAR NOT NULL CHECK (
+                comparison IN ('within_range', 'at_least', 'at_most', 'approximately', 'not_applicable')
+            ),
+            lower_bound DOUBLE,
+            upper_bound DOUBLE,
+            point_value DOUBLE,
+            unit VARCHAR,
+            applicable_period_start DATE,
+            applicable_period_end DATE,
+            fiscal_year INTEGER,
+            fiscal_period VARCHAR,
+            issued_at TIMESTAMP NOT NULL,
+            known_at TIMESTAMP NOT NULL,
+            extraction_method VARCHAR NOT NULL,
+            revision INTEGER NOT NULL CHECK (revision >= 1),
+            supersedes_statement_id VARCHAR,
+            model_version VARCHAR NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            CHECK (applicable_period_start IS NULL OR applicable_period_end IS NULL OR
+                   applicable_period_end >= applicable_period_start)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS guidance_statement_company_index ON guidance_statements(company_id, known_at, topic)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS guidance_evaluations (
+            evaluation_id VARCHAR PRIMARY KEY,
+            statement_id VARCHAR NOT NULL REFERENCES guidance_statements(statement_id),
+            status VARCHAR NOT NULL CHECK (
+                status IN ('open', 'delivered', 'partially_delivered', 'missed', 'withdrawn',
+                           'superseded', 'unknown')
+            ),
+            evaluated_at TIMESTAMP NOT NULL,
+            known_at TIMESTAMP NOT NULL,
+            method VARCHAR NOT NULL CHECK (method IN ('system', 'rule_based', 'manual', 'interpretive')),
+            actual_value DOUBLE,
+            actual_unit VARCHAR,
+            source_fact_ids JSON NOT NULL,
+            resulting_statement_id VARCHAR,
+            note VARCHAR,
+            created_at TIMESTAMP NOT NULL,
+            CHECK ((actual_value IS NULL AND actual_unit IS NULL) OR
+                   (actual_value IS NOT NULL AND actual_unit IS NOT NULL))
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS guidance_evaluation_statement_index ON guidance_evaluations(statement_id, known_at)"
+    )
+
+
 def record_schema_version(connection: duckdb.DuckDBPyConnection) -> None:
     apply_company_identity_schema(connection)
     apply_financial_fact_schema(connection)
     apply_valuation_schema(connection)
     apply_earnings_schema(connection)
+    apply_evidence_schema(connection)
+    apply_relationship_schema(connection)
+    apply_operations_schema(connection)
+    apply_guidance_schema(connection)
     connection.execute("""
         CREATE TABLE IF NOT EXISTS schema_migrations (
             version INTEGER PRIMARY KEY,

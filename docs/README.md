@@ -11,6 +11,10 @@ GBB Terminal is a local-first US equity research and option lifecycle applicatio
 | Configuration | Local YAML preferences, environment overrides, and provider keys | [`conf/README.md`](../conf/README.md) |
 | API | Legacy-compatible V2 research contracts and strict V3 Company Intelligence contracts | [API](api.md) |
 | Company Intelligence | Canonical company identity, security history, resolution, and SEC directory sync | [Company Intelligence](company-intelligence.md) |
+| Evidence Intelligence | Versioned source documents, exact text spans, claim links, and point-in-time inspection | [Evidence Intelligence](evidence-intelligence.md) |
+| Business network | Source-backed counterparties, direction, exposure, history, graph navigation, and unresolved identities | [Business Network](business-network.md) |
+| Operating intelligence | Versioned segments, issuer geography, custom KPIs, compatible mix/growth, and reorganizations | [Operating Intelligence](operating-intelligence.md) |
+| Guidance intelligence | Immutable original guidance, revisions, withdrawals, deterministic outcomes, and source evidence | [Guidance Intelligence](guidance-intelligence.md) |
 | Financial metrics | Versioned SEC concept mappings, units, annual/quarterly/TTM views, derivations, warnings, and lineage | [Financial Metrics](financial-metrics.md) |
 | Historical valuation | Point-in-time trailing multiples, market-close alignment, statistics, and cache semantics | [Historical Valuation](historical-valuation.md) |
 | Earnings intelligence | Source-backed events, session-aware reaction windows, benchmark adjustment, and aggregates | [Earnings Intelligence](earnings-intelligence.md) |
