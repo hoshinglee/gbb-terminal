@@ -751,3 +751,231 @@ export interface EarningsHistoryResponse {
     sourceFactIds: string[]
   }
 }
+
+export type EvidenceRole = "support" | "context" | "contradiction"
+
+export interface EvidenceDocumentSummary {
+  documentId: string
+  source: string
+  dataset: string
+  documentType: string
+  externalId: string
+  version: number
+  title: string | null
+  form: string | null
+  accessionNumber: string | null
+  sourceUrl: string
+  filedAt: string | null
+  publishedAt: string | null
+  knownAt: string
+  retrievedAt: string
+  parseStatus: string
+  qualityWarnings: string[]
+}
+
+export interface EvidenceSpanSummary {
+  spanId: string
+  documentId: string
+  exactText: string
+  section: string | null
+  pageNumber: number | null
+  startOffset: number | null
+  endOffset: number | null
+  extractionMethod: string
+  extractedAt: string
+}
+
+export interface SourceEvidence {
+  role: EvidenceRole
+  linkedAt: string
+  document: EvidenceDocumentSummary
+  span: EvidenceSpanSummary
+}
+
+export type RelationshipType = "supplier" | "customer" | "manufacturer_foundry" | "distributor" | "strategic_partner" | "competitor" | "customer_concentration" | "supplier_concentration"
+export type RelationshipDirection = "upstream" | "downstream" | "bidirectional" | "market"
+export type RelationshipConfidence = "disclosed" | "strongly_inferred" | "inferred"
+
+export interface RelationshipEdge {
+  relationshipId: string
+  sourceCompanyId: string
+  normalizedCounterpartyName: string
+  rawCounterpartyName: string
+  relationshipType: RelationshipType
+  direction: RelationshipDirection
+  modelVersion: string
+  createdAt: string
+}
+
+export interface RelationshipObservation {
+  observationId: string
+  relationshipId: string
+  targetCompanyId: string | null
+  exposureValue: number | null
+  exposureUnit: string | null
+  validFrom: string | null
+  validTo: string | null
+  knownAt: string
+  extractionMethod: string
+  confidence: RelationshipConfidence
+  observationKind: "extracted" | "human_override"
+  supersedesObservationId: string | null
+  correctionNote: string | null
+  createdAt: string
+}
+
+export interface CompanyRelationship {
+  edge: RelationshipEdge
+  observation: RelationshipObservation
+  sourceCompany: CompanyReference
+  targetCompany: CompanyReference | null
+  perspectiveDirection: RelationshipDirection
+  evidence: SourceEvidence[]
+}
+
+export interface RelationshipNetworkResponse {
+  apiVersion: "v3"
+  company: CompanyReference
+  asOf: string
+  matchingRelationshipCount: number
+  returnedRelationshipCount: number
+  relationships: CompanyRelationship[]
+  warnings: string[]
+}
+
+export interface RelationshipHistoryResponse {
+  apiVersion: "v3"
+  company: CompanyReference
+  asOf: string
+  edge: RelationshipEdge
+  observations: RelationshipObservation[]
+  evidence: Record<string, SourceEvidence[]>
+}
+
+export type OperatingMetricCategory = "segment" | "geography" | "kpi"
+export type OperatingValueType = "currency" | "percentage" | "count" | "ratio" | "duration" | "other"
+
+export interface OperatingMetricDefinition {
+  definitionId: string
+  category: OperatingMetricCategory
+  definitionKey: string
+  label: string
+  measure: string
+  unit: string
+  valueType: OperatingValueType
+  reportingBasis: string
+  version: number
+  validFrom: string | null
+  validTo: string | null
+  supersedesDefinitionId: string | null
+  description: string | null
+  knownAt: string
+  extractionMethod: string
+  modelVersion: string
+  createdAt: string
+}
+
+export interface OperatingMetricObservation {
+  observationId: string
+  definitionId: string
+  periodStart: string | null
+  periodEnd: string
+  fiscalYear: number | null
+  fiscalPeriod: string | null
+  value: number
+  unit: string
+  knownAt: string
+  extractionMethod: string
+  createdAt: string
+}
+
+export interface OperatingMetricPoint {
+  observation: OperatingMetricObservation
+  mixPercent: number | null
+  growthPercent: number | null
+  evidence: SourceEvidence[]
+}
+
+export interface OperatingMetricSeries {
+  definition: OperatingMetricDefinition
+  definitionEvidence: SourceEvidence[]
+  points: OperatingMetricPoint[]
+}
+
+export interface OperatingIntelligenceResponse {
+  apiVersion: "v3"
+  company: CompanyReference
+  asOf: string
+  series: OperatingMetricSeries[]
+  transitions: Array<{
+    priorDefinitionId: string
+    nextDefinitionId: string
+    definitionKey: string
+    priorLabel: string
+    nextLabel: string
+    priorReportingBasis: string
+    nextReportingBasis: string
+    knownAt: string
+  }>
+  warnings: string[]
+}
+
+export type GuidanceStatus = "open" | "delivered" | "partially_delivered" | "missed" | "withdrawn" | "superseded" | "unknown"
+export type GuidanceValueKind = "numeric_range" | "numeric_point" | "qualitative"
+
+export interface GuidanceStatement {
+  statementId: string
+  statementType: "financial_guidance" | "strategic_commitment" | "kpi_target" | "risk_constraint"
+  topic: string
+  metricId: string | null
+  statementText: string
+  valueKind: GuidanceValueKind
+  comparison: "within_range" | "at_least" | "at_most" | "approximately" | "not_applicable"
+  lowerBound: number | null
+  upperBound: number | null
+  pointValue: number | null
+  unit: string | null
+  applicablePeriodStart: string | null
+  applicablePeriodEnd: string | null
+  fiscalYear: number | null
+  fiscalPeriod: string | null
+  issuedAt: string
+  knownAt: string
+  extractionMethod: string
+  revision: number
+  supersedesStatementId: string | null
+  modelVersion: string
+  createdAt: string
+}
+
+export interface GuidanceEvaluation {
+  evaluationId: string
+  statementId: string
+  status: GuidanceStatus
+  evaluatedAt: string
+  knownAt: string
+  method: "system" | "rule_based" | "manual" | "interpretive"
+  actualValue: number | null
+  actualUnit: string | null
+  sourceFactIds: string[]
+  resultingStatementId: string | null
+  note: string | null
+  createdAt: string
+}
+
+export interface GuidanceRecord {
+  statement: GuidanceStatement
+  revisionDirection: "initial" | "raised" | "cut" | "reaffirmed" | "changed"
+  status: GuidanceStatus
+  evaluations: GuidanceEvaluation[]
+  statementEvidence: SourceEvidence[]
+  evaluationEvidence: Record<string, SourceEvidence[]>
+}
+
+export interface GuidanceHistoryResponse {
+  apiVersion: "v3"
+  company: CompanyReference
+  asOf: string
+  records: GuidanceRecord[]
+  warnings: string[]
+}

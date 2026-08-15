@@ -10,7 +10,15 @@ from ..intelligence.metrics import NormalizedMetricsService
 from ..intelligence.company_service import CompanyIntelligenceService
 from ..intelligence.earnings import EarningsIntelligenceService
 from ..intelligence.earnings_repository import EarningsRepository
+from ..intelligence.evidence import EvidenceService
+from ..intelligence.evidence_repository import EvidenceRepository
 from ..intelligence.estimates import EstimateIntelligenceService
+from ..intelligence.guidance import GuidanceService
+from ..intelligence.guidance_repository import GuidanceRepository
+from ..intelligence.operations import OperationsIntelligenceService
+from ..intelligence.operations_repository import OperationsRepository
+from ..intelligence.relationship_repository import RelationshipRepository
+from ..intelligence.relationships import RelationshipService
 from ..intelligence.valuation import HistoricalValuationService
 from ..intelligence.valuation_repository import ValuationRepository
 from ..llm.translator import StrategyTranslator
@@ -33,6 +41,10 @@ class ApplicationServices:
     historical_valuation: HistoricalValuationService
     earnings_intelligence: EarningsIntelligenceService
     estimate_intelligence: EstimateIntelligenceService
+    evidence_intelligence: EvidenceService
+    relationship_intelligence: RelationshipService
+    operations_intelligence: OperationsIntelligenceService
+    guidance_intelligence: GuidanceService
     company_intelligence: CompanyIntelligenceService
 
 
@@ -64,6 +76,24 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
         normalized_metrics,
         estimate_provider,
     )
+    evidence_repository = EvidenceRepository(store.connection)
+    evidence_intelligence = EvidenceService(evidence_repository, company_identity)
+    relationship_intelligence = RelationshipService(
+        RelationshipRepository(store.connection, evidence_repository),
+        evidence_repository,
+        company_identity,
+    )
+    operations_intelligence = OperationsIntelligenceService(
+        OperationsRepository(store.connection, evidence_repository),
+        evidence_repository,
+        company_identity,
+    )
+    guidance_intelligence = GuidanceService(
+        GuidanceRepository(store.connection, evidence_repository),
+        evidence_repository,
+        company_identity,
+        normalized_metrics,
+    )
     return ApplicationServices(
         store=store,
         market_data=market_data,
@@ -75,6 +105,10 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
         historical_valuation=historical_valuation,
         earnings_intelligence=earnings_intelligence,
         estimate_intelligence=estimate_intelligence,
+        evidence_intelligence=evidence_intelligence,
+        relationship_intelligence=relationship_intelligence,
+        operations_intelligence=operations_intelligence,
+        guidance_intelligence=guidance_intelligence,
         company_intelligence=CompanyIntelligenceService(
             company_identity,
             financial_facts,
@@ -83,5 +117,9 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
             market_data,
             earnings_intelligence,
             estimate_intelligence,
+            evidence_intelligence,
+            relationship_intelligence,
+            operations_intelligence,
+            guidance_intelligence,
         ),
     )

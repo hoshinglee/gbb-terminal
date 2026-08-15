@@ -39,7 +39,7 @@ export function AppShell({ children, activeLab = "strategy" }: { children: React
           <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]" /><span className="font-mono text-[9px] text-primary">LOCAL · READY</span></div>
           <p className="m-0 text-xs leading-5 text-muted-foreground">Educational US equity and options research. No brokerage execution.</p>
           <a href="/legacy" className="block text-[10px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Open Migration Fallback</a>
-          <Badge variant="outline" className="font-mono text-[9px]">v0.8 intelligence</Badge>
+          <Badge variant="outline" className="font-mono text-[9px]">v0.9 evidence network</Badge>
         </div>
       </aside>
       <header className="border-b bg-background/95 px-3 py-3 lg:hidden">

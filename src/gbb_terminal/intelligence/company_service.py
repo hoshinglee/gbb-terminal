@@ -10,9 +10,29 @@ from .earnings import EarningsIntelligenceService
 from .earnings_models import EarningsHistory
 from .estimate_models import EstimateHistory, EstimateMetric
 from .estimates import EstimateIntelligenceService
+from .evidence import (
+    CompanyClaimEvidence,
+    CompanyEvidenceDocument,
+    CompanyEvidenceDocuments,
+    CompanyEvidenceSpan,
+    EvidenceService,
+)
+from .evidence_models import EvidenceDocumentQuery
 from .fact_service import FinancialFactService
+from .guidance import GuidanceService
+from .guidance_models import GuidanceHistory, GuidanceQuery
 from .metric_models import MetricPeriodKind, NormalizedMetricSet
 from .metrics import NormalizedMetricsService
+from .operations import OperationsIntelligenceService
+from .operations_models import OperatingIntelligence, OperatingIntelligenceQuery
+from .relationship_models import (
+    CompanyRelationship,
+    RelationshipHistory,
+    RelationshipNetwork,
+    RelationshipNetworkQuery,
+    RelationshipOverrideCreate,
+)
+from .relationships import RelationshipService
 from .models import CompanyIdentity
 from .service import CompanyIdentityService
 from .valuation import HistoricalValuationService
@@ -41,6 +61,10 @@ class CompanyIntelligenceService:
         market_data: MarketData | None = None,
         earnings: EarningsIntelligenceService | None = None,
         estimates: EstimateIntelligenceService | None = None,
+        evidence: EvidenceService | None = None,
+        relationships: RelationshipService | None = None,
+        operations: OperationsIntelligenceService | None = None,
+        guidance: GuidanceService | None = None,
     ) -> None:
         self.identities = identities
         self.facts = facts
@@ -49,6 +73,10 @@ class CompanyIntelligenceService:
         self.market_data = market_data
         self.earnings = earnings
         self.estimates = estimates
+        self.evidence = evidence
+        self.relationships = relationships
+        self.operations = operations
+        self.guidance = guidance
 
     def company_overview(self, ticker: str, as_of: date | None = None) -> CompanyIdentity:
         company = self.identities.resolve_ticker(ticker, as_of=as_of)
@@ -149,3 +177,90 @@ class CompanyIntelligenceService:
         if self.estimates is None:
             raise RuntimeError("Analyst estimate intelligence is not configured for this application instance.")
         return self.estimates.history(ticker, as_of=as_of, metric_ids=metric_ids)
+
+    def evidence_documents(
+        self,
+        ticker: str,
+        query: EvidenceDocumentQuery,
+    ) -> CompanyEvidenceDocuments:
+        if self.evidence is None:
+            raise RuntimeError("Evidence intelligence is not configured for this application instance.")
+        return self.evidence.documents(ticker, query)
+
+    def evidence_document(
+        self,
+        ticker: str,
+        document_id: str,
+        as_of: datetime | None = None,
+    ) -> CompanyEvidenceDocument:
+        if self.evidence is None:
+            raise RuntimeError("Evidence intelligence is not configured for this application instance.")
+        return self.evidence.document(ticker, document_id, as_of)
+
+    def evidence_span(
+        self,
+        ticker: str,
+        span_id: str,
+        as_of: datetime | None = None,
+    ) -> CompanyEvidenceSpan:
+        if self.evidence is None:
+            raise RuntimeError("Evidence intelligence is not configured for this application instance.")
+        return self.evidence.span(ticker, span_id, as_of)
+
+    def claim_evidence(
+        self,
+        ticker: str,
+        claim_type: str,
+        claim_id: str,
+        as_of: datetime | None = None,
+    ) -> CompanyClaimEvidence:
+        if self.evidence is None:
+            raise RuntimeError("Evidence intelligence is not configured for this application instance.")
+        return self.evidence.claim(ticker, claim_type, claim_id, as_of)
+
+    def relationship_network(
+        self,
+        ticker: str,
+        query: RelationshipNetworkQuery,
+    ) -> RelationshipNetwork:
+        if self.relationships is None:
+            raise RuntimeError("Relationship intelligence is not configured for this application instance.")
+        return self.relationships.network(ticker, query)
+
+    def relationship_history(
+        self,
+        ticker: str,
+        relationship_id: str,
+        as_of: datetime | None = None,
+    ) -> RelationshipHistory:
+        if self.relationships is None:
+            raise RuntimeError("Relationship intelligence is not configured for this application instance.")
+        return self.relationships.history(ticker, relationship_id, as_of)
+
+    def override_relationship(
+        self,
+        ticker: str,
+        relationship_id: str,
+        command: RelationshipOverrideCreate,
+    ) -> CompanyRelationship:
+        if self.relationships is None:
+            raise RuntimeError("Relationship intelligence is not configured for this application instance.")
+        return self.relationships.override(ticker, relationship_id, command)
+
+    def operating_intelligence(
+        self,
+        ticker: str,
+        query: OperatingIntelligenceQuery,
+    ) -> OperatingIntelligence:
+        if self.operations is None:
+            raise RuntimeError("Operating intelligence is not configured for this application instance.")
+        return self.operations.history(ticker, query)
+
+    def guidance_history(
+        self,
+        ticker: str,
+        query: GuidanceQuery,
+    ) -> GuidanceHistory:
+        if self.guidance is None:
+            raise RuntimeError("Guidance intelligence is not configured for this application instance.")
+        return self.guidance.history(ticker, query)

@@ -27,6 +27,10 @@ import type {
   CompanyOverview,
   EarningsHistoryResponse,
   HistoricalValuationResponse,
+  GuidanceHistoryResponse,
+  OperatingIntelligenceResponse,
+  RelationshipHistoryResponse,
+  RelationshipNetworkResponse,
 } from "@/lib/types"
 
 export class ApiError extends Error {
@@ -213,4 +217,20 @@ export function loadCompanyValuation(
 export function loadCompanyEarnings(ticker: string, benchmark = "SPY", limit = 40) {
   const parameters = new URLSearchParams({ benchmark: benchmark.trim().toUpperCase(), limit: String(limit) })
   return request<EarningsHistoryResponse>(`/api/v3/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/earnings?${parameters}`)
+}
+
+export function loadCompanyRelationships(ticker: string) {
+  return request<RelationshipNetworkResponse>(`/api/v3/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/relationships`)
+}
+
+export function loadCompanyRelationshipHistory(ticker: string, relationshipId: string) {
+  return request<RelationshipHistoryResponse>(`/api/v3/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/relationships/${encodeURIComponent(relationshipId)}`)
+}
+
+export function loadCompanyOperations(ticker: string) {
+  return request<OperatingIntelligenceResponse>(`/api/v3/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/operations`)
+}
+
+export function loadCompanyGuidance(ticker: string) {
+  return request<GuidanceHistoryResponse>(`/api/v3/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/guidance`)
 }

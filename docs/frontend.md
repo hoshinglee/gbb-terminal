@@ -87,7 +87,7 @@ Sector links open Stock Observatory or Strategy Lab with the selected ETF ticker
 
 ## React Company Intelligence
 
-Release 0.8 adds a dedicated company-business canvas at `/?lab=intelligence`:
+Release 0.8 adds the company-business canvas at `/?lab=intelligence`; Release 0.9 extends it with source-backed business evidence:
 
 1. Canonical legal name, CIK, current security, sector, and provenance keep business identity separate from ticker-market data.
 2. Latest normalized TTM financial evidence and historical trailing valuation provide context before event analysis.
@@ -95,8 +95,12 @@ Release 0.8 adds a dedicated company-business canvas at `/?lab=intelligence`:
 4. Selecting a keyboard-focusable event keeps the company context in place while opening a detailed SEC evidence card and linked price/volume/reaction chart.
 5. Aggregate move, direction frequency, drift, range, included sample size, and excluded sample count remain visible together.
 6. Every event links to its SEC filing and exposes timing quality, accession, `known_at`, source facts, reaction-engine version, and caveats.
+7. Network renders only persisted directional relationships, retains unresolved or unnamed counterparties, exposes evidence and history for every edge, and keeps the complete keyboard-accessible table available when the graph is capped.
+8. Operations separates versioned segments, issuer-defined geography, and typed KPIs while preventing comparisons across incompatible definitions or reorganizations.
+9. Guidance preserves original management wording, linked revisions, normalized ranges without invented precision, chronological source evidence, and explicitly labelled rule-based or manual outcomes.
+10. Earnings, Financials, Valuation, Network, Operations, Guidance, and Sources load independently so an unavailable dataset does not erase the remaining company evidence.
 
-The event chart supports pointer inspection and Left/Right/Home/End keyboard navigation. Before-open and after-close alignment comes from the backend's trading-session model rather than browser date arithmetic. The canvas repeatedly states that historical reactions are descriptive and do not predict the next event.
+The event chart supports pointer inspection and Left/Right/Home/End keyboard navigation. Network nodes support focused company navigation, unresolved-node inspection, direction/type/confidence filters, and internally scrollable narrow layouts without causing page-level overflow. Before-open and after-close alignment comes from the backend's trading-session model rather than browser date arithmetic. The canvas repeatedly states that historical reactions are descriptive and do not predict the next event.
 
 ## Financial Charts
 
@@ -131,7 +135,7 @@ npm run test:run
 npm run build
 ```
 
-Component tests cover mutually exclusive strategy selection, the stale-parameter regression, trailing-stop configuration, Darvas/Fibonacci overlays, option recipe replacement, lifecycle rediscovery, stock ticker handoff, local watchlists, sector breadth, Company Intelligence event selection, evidence links, and non-predictive language. Python browser-contract tests verify all five React canvases, evidence tabs, chart markers, lifecycle actions, direct routes, return navigation, and fallback assets.
+Component tests cover mutually exclusive strategy selection, the stale-parameter regression, trailing-stop configuration, Darvas/Fibonacci overlays, option recipe replacement, lifecycle rediscovery, stock ticker handoff, local watchlists, sector breadth, Company Intelligence event selection, business-network navigation, unresolved counterparties, source dialogs, operating evidence, guidance history, and non-predictive language. Python browser-contract tests verify all five React canvases, evidence tabs, chart markers, lifecycle actions, V3 intelligence views, direct routes, return navigation, and fallback assets.
 
 The shell includes skip navigation, labelled desktop/mobile navigation, explicit research-control labels, table captions, visible chart focus rings, and reduced-motion CSS. Smooth evidence scrolling becomes immediate when the operating system requests reduced motion.
 

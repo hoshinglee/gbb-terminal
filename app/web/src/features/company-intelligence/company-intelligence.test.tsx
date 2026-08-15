@@ -1,14 +1,27 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { CompanyIntelligence } from "@/features/company-intelligence/company-intelligence"
 import {
   loadCompanyEarnings,
+  loadCompanyGuidance,
   loadCompanyMetrics,
+  loadCompanyOperations,
   loadCompanyOverview,
+  loadCompanyRelationshipHistory,
+  loadCompanyRelationships,
   loadCompanyValuation,
 } from "@/lib/api"
-import type { EarningsEventAnalysis, EarningsHistoryResponse } from "@/lib/types"
+import type {
+  EarningsEventAnalysis,
+  EarningsHistoryResponse,
+  GuidanceHistoryResponse,
+  OperatingIntelligenceResponse,
+  RelationshipHistoryResponse,
+  RelationshipNetworkResponse,
+  SourceEvidence,
+} from "@/lib/types"
 
 vi.mock("@/features/company-intelligence/earnings-reaction-chart", () => ({
   EarningsReactionChart: ({ analysis }: { analysis: EarningsEventAnalysis }) => <div data-testid="reaction-chart">Chart {analysis.event.eventId}</div>,
@@ -20,6 +33,10 @@ vi.mock("@/lib/api", () => ({
   loadCompanyMetrics: vi.fn(),
   loadCompanyValuation: vi.fn(),
   loadCompanyEarnings: vi.fn(),
+  loadCompanyRelationships: vi.fn(),
+  loadCompanyRelationshipHistory: vi.fn(),
+  loadCompanyOperations: vi.fn(),
+  loadCompanyGuidance: vi.fn(),
 }))
 
 const eventAnalysis = (eventId: string, fiscalPeriod: string, announcementDate: string): EarningsEventAnalysis => ({
@@ -83,6 +100,128 @@ const earnings: EarningsHistoryResponse = {
   provenance: { eventSource: "SEC EDGAR", eventDataset: "sec_company_facts", priceSource: "Yahoo Finance", asOf: "2026-08-10T00:00:00Z", eventModelVersion: "1.0.0", reactionEngineVersion: "1.0.0", sourceFactIds: ["fact-event-q1"] },
 }
 
+const sourceEvidence: SourceEvidence = {
+  role: "support",
+  linkedAt: "2025-03-01T12:00:00Z",
+  document: {
+    documentId: "document-1",
+    source: "SEC EDGAR",
+    dataset: "filings",
+    documentType: "annual_report",
+    externalId: "0001045810-25-000001",
+    version: 1,
+    title: "NVIDIA Annual Report",
+    form: "10-K",
+    accessionNumber: "0001045810-25-000001",
+    sourceUrl: "https://www.sec.gov/nvda-10-k",
+    filedAt: "2025-03-01T12:00:00Z",
+    publishedAt: "2025-03-01T12:00:00Z",
+    knownAt: "2025-03-01T12:00:00Z",
+    retrievedAt: "2025-03-02T12:00:00Z",
+    parseStatus: "parsed",
+    qualityWarnings: [],
+  },
+  span: {
+    spanId: "span-1",
+    documentId: "document-1",
+    exactText: "Taiwan Semiconductor Manufacturing Company manufactures our principal products.",
+    section: "Business",
+    pageNumber: 12,
+    startOffset: 100,
+    endOffset: 178,
+    extractionMethod: "deterministic_phrase",
+    extractedAt: "2025-03-02T12:00:00Z",
+  },
+}
+
+const relationshipObservation = {
+  observationId: "observation-1",
+  relationshipId: "relationship-1",
+  targetCompanyId: "company-tsm",
+  exposureValue: null,
+  exposureUnit: null,
+  validFrom: "2025-01-01",
+  validTo: null,
+  knownAt: "2025-03-01T12:00:00Z",
+  extractionMethod: "deterministic_phrase",
+  confidence: "disclosed" as const,
+  observationKind: "extracted" as const,
+  supersedesObservationId: null,
+  correctionNote: null,
+  createdAt: "2025-03-02T12:00:00Z",
+}
+
+const relationships: RelationshipNetworkResponse = {
+  apiVersion: "v3",
+  company: earnings.company,
+  asOf: "2026-08-10T00:00:00Z",
+  matchingRelationshipCount: 2,
+  returnedRelationshipCount: 2,
+  relationships: [
+    {
+      edge: { relationshipId: "relationship-1", sourceCompanyId: "company-nvda", normalizedCounterpartyName: "taiwan semiconductor manufacturing company", rawCounterpartyName: "Taiwan Semiconductor Manufacturing Company", relationshipType: "manufacturer_foundry", direction: "upstream", modelVersion: "1.0.0", createdAt: "2025-03-02T12:00:00Z" },
+      observation: relationshipObservation,
+      sourceCompany: earnings.company,
+      targetCompany: { companyId: "company-tsm", cik: "0001046179", legalName: "TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD", primaryTicker: "TSM", exchange: "NYSE", status: "active" },
+      perspectiveDirection: "upstream",
+      evidence: [sourceEvidence],
+    },
+    {
+      edge: { relationshipId: "relationship-2", sourceCompanyId: "company-nvda", normalizedCounterpartyName: "customer a", rawCounterpartyName: "Customer A", relationshipType: "customer_concentration", direction: "downstream", modelVersion: "1.0.0", createdAt: "2025-03-02T12:00:00Z" },
+      observation: { ...relationshipObservation, observationId: "observation-2", relationshipId: "relationship-2", targetCompanyId: null, exposureValue: 13, exposureUnit: "% of revenue" },
+      sourceCompany: earnings.company,
+      targetCompany: null,
+      perspectiveDirection: "downstream",
+      evidence: [{ ...sourceEvidence, span: { ...sourceEvidence.span, spanId: "span-2", exactText: "Customer A represented 13% of revenue." } }],
+    },
+  ],
+  warnings: ["Public disclosure is incomplete and absence of an edge is not evidence of no relationship."],
+}
+
+const relationshipHistory: RelationshipHistoryResponse = {
+  apiVersion: "v3",
+  company: earnings.company,
+  asOf: relationships.asOf,
+  edge: relationships.relationships[0].edge,
+  observations: [relationshipObservation],
+  evidence: { "observation-1": [sourceEvidence] },
+}
+
+const operations: OperatingIntelligenceResponse = {
+  apiVersion: "v3",
+  company: earnings.company,
+  asOf: "2026-08-10T00:00:00Z",
+  series: [
+    {
+      definition: { definitionId: "definition-compute", category: "segment", definitionKey: "compute-networking", label: "Compute & Networking", measure: "Revenue", unit: "USD", valueType: "currency", reportingBasis: "Issuer FY2025 reportable segments", version: 2, validFrom: "2025-01-01", validTo: null, supersedesDefinitionId: "definition-compute-v1", description: "Issuer-defined reportable segment", knownAt: "2025-03-01T12:00:00Z", extractionMethod: "structured_filing_table", modelVersion: "1.0.0", createdAt: "2025-03-02T12:00:00Z" },
+      definitionEvidence: [sourceEvidence],
+      points: [{ observation: { observationId: "operating-observation-1", definitionId: "definition-compute", periodStart: "2024-01-01", periodEnd: "2025-01-31", fiscalYear: 2025, fiscalPeriod: "FY", value: 116_000_000_000, unit: "USD", knownAt: "2025-03-01T12:00:00Z", extractionMethod: "structured_filing_table", createdAt: "2025-03-02T12:00:00Z" }, mixPercent: 88.4, growthPercent: 77.8, evidence: [sourceEvidence] }],
+    },
+    {
+      definition: { definitionId: "definition-kpi", category: "kpi", definitionKey: "data-center-revenue", label: "Data Center Revenue", measure: "Revenue", unit: "USD", valueType: "currency", reportingBasis: "Issuer supplemental disclosure", version: 1, validFrom: "2025-01-01", validTo: null, supersedesDefinitionId: null, description: "Company-specific KPI", knownAt: "2025-03-01T12:00:00Z", extractionMethod: "structured_filing_table", modelVersion: "1.0.0", createdAt: "2025-03-02T12:00:00Z" },
+      definitionEvidence: [sourceEvidence],
+      points: [{ observation: { observationId: "operating-observation-2", definitionId: "definition-kpi", periodStart: "2024-01-01", periodEnd: "2025-01-31", fiscalYear: 2025, fiscalPeriod: "FY", value: 115_000_000_000, unit: "USD", knownAt: "2025-03-01T12:00:00Z", extractionMethod: "structured_filing_table", createdAt: "2025-03-02T12:00:00Z" }, mixPercent: null, growthPercent: 142, evidence: [sourceEvidence] }],
+    },
+  ],
+  transitions: [{ priorDefinitionId: "definition-compute-v1", nextDefinitionId: "definition-compute", definitionKey: "compute-networking", priorLabel: "Compute & Networking", nextLabel: "Compute & Networking", priorReportingBasis: "Issuer FY2024 reportable segments", nextReportingBasis: "Issuer FY2025 reportable segments", knownAt: "2025-03-01T12:00:00Z" }],
+  warnings: ["Company-specific KPI and geographic coverage follows issuer disclosures and may be incomplete."],
+}
+
+const guidance: GuidanceHistoryResponse = {
+  apiVersion: "v3",
+  company: earnings.company,
+  asOf: "2026-08-10T00:00:00Z",
+  records: [{
+    statement: { statementId: "guidance-1", statementType: "financial_guidance", topic: "Quarterly Revenue", metricId: "revenue", statementText: "We expect revenue to be $28.0 billion, plus or minus 2 percent.", valueKind: "numeric_range", comparison: "within_range", lowerBound: 27_440_000_000, upperBound: 28_560_000_000, pointValue: null, unit: "USD", applicablePeriodStart: "2025-02-01", applicablePeriodEnd: "2025-04-30", fiscalYear: 2026, fiscalPeriod: "Q1", issuedAt: "2025-02-26T21:00:00Z", knownAt: "2025-02-26T21:00:00Z", extractionMethod: "deterministic_guidance", revision: 1, supersedesStatementId: null, modelVersion: "1.0.0", createdAt: "2025-02-27T12:00:00Z" },
+    revisionDirection: "initial",
+    status: "delivered",
+    evaluations: [{ evaluationId: "evaluation-1", statementId: "guidance-1", status: "delivered", evaluatedAt: "2025-05-28T21:00:00Z", knownAt: "2025-05-28T21:00:00Z", method: "rule_based", actualValue: 28_100_000_000, actualUnit: "USD", sourceFactIds: ["revenue-q1"], resultingStatementId: null, note: "Objective result compared with the persisted statement bounds.", createdAt: "2025-05-29T12:00:00Z" }],
+    statementEvidence: [{ ...sourceEvidence, span: { ...sourceEvidence.span, spanId: "guidance-span", exactText: "We expect revenue to be $28.0 billion, plus or minus 2 percent." } }],
+    evaluationEvidence: { "evaluation-1": [sourceEvidence] },
+  }],
+  warnings: ["Guidance and commitments are historical source-backed statements, not forecasts generated by GBB Terminal."],
+}
+
 describe("Company Intelligence earnings explorer", () => {
   beforeEach(() => {
     vi.mocked(loadCompanyOverview).mockResolvedValue({
@@ -123,6 +262,10 @@ describe("Company Intelligence earnings explorer", () => {
       provenance: { priceSource: "Yahoo Finance", priceDataset: "daily_prices", fundamentalSource: "SEC EDGAR", fundamentalDataset: "normalized_financial_metrics", asOf: "2026-08-10T00:00:00Z", engineVersion: "1.0.0", sourceFactIds: [] },
     })
     vi.mocked(loadCompanyEarnings).mockResolvedValue(earnings)
+    vi.mocked(loadCompanyRelationships).mockResolvedValue(relationships)
+    vi.mocked(loadCompanyRelationshipHistory).mockResolvedValue(relationshipHistory)
+    vi.mocked(loadCompanyOperations).mockResolvedValue(operations)
+    vi.mocked(loadCompanyGuidance).mockResolvedValue(guidance)
   })
 
   it("keeps company context, sample size, evidence, and non-predictive language visible", async () => {
@@ -137,8 +280,38 @@ describe("Company Intelligence earnings explorer", () => {
     expect(screen.getByLabelText("Company ticker")).toHaveValue("NVDA")
     expect(screen.getByLabelText("Earnings benchmark")).toHaveValue("SPY")
     expect(screen.getByText("92nd percentile over 5 Years")).toBeInTheDocument()
-    expect(screen.getByRole("tablist")).toHaveClass("grid", "w-full", "grid-cols-2", "group-data-[orientation=horizontal]/tabs:h-auto", "sm:inline-flex")
+    expect(screen.getByRole("tablist")).toHaveClass("grid", "w-full", "grid-cols-2", "group-data-[orientation=horizontal]/tabs:h-auto", "sm:flex", "sm:flex-wrap")
     expect(screen.getByRole("tablist")).not.toHaveClass("overflow-x-auto")
+  })
+
+  it("exposes persisted network, operating, and guidance evidence without hiding missing context", async () => {
+    const user = userEvent.setup()
+    render(<CompanyIntelligence initialTicker="NVDA" />)
+    await screen.findByRole("heading", { name: "NVIDIA CORP" })
+
+    await user.click(screen.getByRole("tab", { name: "Network" }))
+    expect(await screen.findByText("Evidence-Backed Business Network")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: /Open TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD Company Intelligence/ })).toHaveAttribute("href", "/?lab=intelligence&ticker=TSM")
+    expect(screen.getByText("Unresolved public-company mapping")).toBeInTheDocument()
+    expect(screen.getByText("Incomplete Public Network")).toBeInTheDocument()
+    const unresolvedNode = screen.getByRole("button", { name: "Inspect unresolved counterparty Customer A" })
+    unresolvedNode.focus()
+    fireEvent.keyDown(unresolvedNode, { key: "Enter" })
+    expect(await screen.findByText("Customer A Relationship History")).toBeInTheDocument()
+    expect(loadCompanyRelationshipHistory).toHaveBeenCalledWith("NVDA", "relationship-2")
+    await user.click(screen.getByRole("button", { name: "Close" }))
+
+    await user.click(screen.getByRole("tab", { name: "Operations" }))
+    expect(await screen.findByText("Business Segments")).toBeInTheDocument()
+    expect(screen.getByText("Reporting Definitions Changed")).toBeInTheDocument()
+    expect(screen.getAllByText("Data Center Revenue").length).toBeGreaterThan(0)
+    expect(screen.getByText(/does not calculate growth across incompatible definitions/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole("tab", { name: "Guidance" }))
+    expect(await screen.findByText("Management Guidance & Commitments")).toBeInTheDocument()
+    expect(screen.getByText("Normalized Range")).toBeInTheDocument()
+    expect(screen.getByText(/We expect revenue to be \$28.0 billion/i)).toBeInTheDocument()
+    expect(screen.getByText("Historical Record, Not Model Forecast")).toBeInTheDocument()
   })
 
   it("selects another event through a keyboard-focusable event control", async () => {

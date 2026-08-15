@@ -2,16 +2,27 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Path, Query
 
 from ...intelligence.company_service import CompanyIntelligenceService
+from ...intelligence.evidence_models import EvidenceDocumentQuery, EvidenceDocumentType
 from ...intelligence.fact_models import FinancialFactQuery
 from ...intelligence.estimate_models import EstimateMetric
+from ...intelligence.guidance_models import GuidanceQuery, GuidanceStatementType, GuidanceStatus
 from ...intelligence.models import CompanyIdentity, CompanyProvenance
+from ...intelligence.operations_models import OperatingIntelligenceQuery, OperatingMetricCategory
+from ...intelligence.relationship_models import (
+    RelationshipConfidence,
+    RelationshipDirection,
+    RelationshipNetworkQuery,
+    RelationshipOverrideCreate,
+    RelationshipType,
+)
 from ..schemas.v3 import (
     CompanyLookupQuery,
     CompanyOverviewResponse,
     CompanyReferenceResponse,
+    CompanyRelationshipResponse,
     FinancialFactResponse,
     FinancialHistoryQuery,
     FinancialHistoryResponse,
@@ -20,6 +31,18 @@ from ..schemas.v3 import (
     EarningsHistoryResponse,
     EarningsProvenanceResponse,
     EarningsQuery,
+    EvidenceAsOfQuery,
+    EvidenceClaimResponse,
+    EvidenceClaimSpanResponse,
+    EvidenceDocumentDetailResponse,
+    EvidenceDocumentResponse,
+    EvidenceDocumentsQuery,
+    EvidenceDocumentsResponse,
+    EvidenceSpanDetailResponse,
+    EvidenceSpanResponse,
+    GuidanceHistoryQuery,
+    GuidanceHistoryResponse,
+    GuidanceRecordResponse,
     EstimateComparisonResponse,
     EstimateHistoryResponse,
     EstimateProvenanceResponse,
@@ -29,8 +52,19 @@ from ..schemas.v3 import (
     MetricsQuery,
     NormalizedMetricResponse,
     NormalizedMetricsResponse,
+    OperatingIntelligenceResponse,
+    OperatingMetricPointResponse,
+    OperatingMetricSeriesResponse,
+    OperationsQuery,
     ProvenanceResponse,
     SecurityMappingResponse,
+    SourceEvidenceResponse,
+    RelationshipEdgeResponse,
+    RelationshipHistoryResponse,
+    RelationshipNetworkResponse,
+    RelationshipObservationResponse,
+    RelationshipOverrideRequest,
+    RelationshipsQuery,
     ValuationPointResponse,
     ValuationProvenanceResponse,
     ValuationQuery,
@@ -253,6 +287,288 @@ def create_intelligence_router(service: CompanyIntelligenceService) -> APIRouter
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 
+    @router.get("/companies/{ticker}/evidence/documents", response_model=EvidenceDocumentsResponse)
+    async def evidence_documents(
+        ticker: str,
+        query: Annotated[EvidenceDocumentsQuery, Query()],
+    ) -> EvidenceDocumentsResponse:
+        try:
+            raw_types = [value.strip().lower() for value in (query.types or "").split(",") if value.strip()]
+            document_types = [EvidenceDocumentType(value) for value in raw_types]
+            result = service.evidence_documents(
+                ticker,
+                EvidenceDocumentQuery(
+                    document_types=document_types,
+                    as_of=query.as_of,
+                    limit=query.limit,
+                ),
+            )
+            return EvidenceDocumentsResponse(
+                company=_company_reference(result.company),
+                as_of=result.as_of,
+                matching_document_count=result.matching_document_count,
+                returned_document_count=len(result.documents),
+                documents=[_evidence_document(document) for document in result.documents],
+                warnings=result.warnings,
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get(
+        "/companies/{ticker}/evidence/documents/{document_id}",
+        response_model=EvidenceDocumentDetailResponse,
+    )
+    async def evidence_document(
+        ticker: str,
+        document_id: str,
+        query: Annotated[EvidenceAsOfQuery, Query()],
+    ) -> EvidenceDocumentDetailResponse:
+        try:
+            result = service.evidence_document(ticker, document_id, query.as_of)
+            return EvidenceDocumentDetailResponse(
+                company=_company_reference(result.company),
+                as_of=result.as_of,
+                document=_evidence_document(result.document),
+                spans=[_evidence_span(span) for span in result.spans],
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get(
+        "/companies/{ticker}/evidence/spans/{span_id}",
+        response_model=EvidenceSpanDetailResponse,
+    )
+    async def evidence_span(
+        ticker: str,
+        span_id: str,
+        query: Annotated[EvidenceAsOfQuery, Query()],
+    ) -> EvidenceSpanDetailResponse:
+        try:
+            result = service.evidence_span(ticker, span_id, query.as_of)
+            return EvidenceSpanDetailResponse(
+                company=_company_reference(result.company),
+                as_of=result.as_of,
+                document=_evidence_document(result.document),
+                span=_evidence_span(result.span),
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get(
+        "/companies/{ticker}/evidence/claims/{claim_type}/{claim_id}",
+        response_model=EvidenceClaimResponse,
+    )
+    async def claim_evidence(
+        ticker: str,
+        claim_type: Annotated[str, Path(pattern=r"^[a-z][a-z0-9_.-]*$", max_length=120)],
+        claim_id: Annotated[str, Path(min_length=1, max_length=240)],
+        query: Annotated[EvidenceAsOfQuery, Query()],
+    ) -> EvidenceClaimResponse:
+        try:
+            result = service.claim_evidence(ticker, claim_type, claim_id, query.as_of)
+            return EvidenceClaimResponse(
+                company=_company_reference(result.company),
+                as_of=result.as_of,
+                claim_type=result.claim_type,
+                claim_id=result.claim_id,
+                evidence=[
+                    EvidenceClaimSpanResponse(
+                        role=item.link.role,
+                        linked_at=item.link.created_at,
+                        span=_evidence_span(item.span),
+                    )
+                    for item in result.evidence
+                ],
+                warnings=result.warnings,
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get("/companies/{ticker}/relationships", response_model=RelationshipNetworkResponse)
+    async def relationship_network(
+        ticker: str,
+        query: Annotated[RelationshipsQuery, Query()],
+    ) -> RelationshipNetworkResponse:
+        try:
+            result = service.relationship_network(
+                ticker,
+                RelationshipNetworkQuery(
+                    directions=_enum_values(query.directions, RelationshipDirection),
+                    relationship_types=_enum_values(query.types, RelationshipType),
+                    confidences=_enum_values(query.confidences, RelationshipConfidence),
+                    as_of=query.as_of,
+                    limit=query.limit,
+                ),
+            )
+            return RelationshipNetworkResponse(
+                company=_company_reference(result.company),
+                as_of=result.as_of,
+                matching_relationship_count=result.matching_relationship_count,
+                returned_relationship_count=len(result.relationships),
+                relationships=[_relationship(item) for item in result.relationships],
+                warnings=result.warnings,
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get(
+        "/companies/{ticker}/relationships/{relationship_id}",
+        response_model=RelationshipHistoryResponse,
+    )
+    async def relationship_history(
+        ticker: str,
+        relationship_id: str,
+        query: Annotated[EvidenceAsOfQuery, Query()],
+    ) -> RelationshipHistoryResponse:
+        try:
+            result = service.relationship_history(ticker, relationship_id, query.as_of)
+            return RelationshipHistoryResponse(
+                company=_company_reference(result.company),
+                as_of=result.as_of,
+                edge=RelationshipEdgeResponse.model_validate(result.edge.model_dump()),
+                observations=[
+                    RelationshipObservationResponse.model_validate(item.model_dump())
+                    for item in result.observations
+                ],
+                evidence={
+                    observation_id: [_source_evidence(item) for item in evidence]
+                    for observation_id, evidence in result.evidence.items()
+                },
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.post(
+        "/companies/{ticker}/relationships/{relationship_id}/overrides",
+        response_model=CompanyRelationshipResponse,
+    )
+    async def override_relationship(
+        ticker: str,
+        relationship_id: str,
+        request: RelationshipOverrideRequest,
+    ) -> CompanyRelationshipResponse:
+        try:
+            result = service.override_relationship(
+                ticker,
+                relationship_id,
+                RelationshipOverrideCreate.model_validate(request.model_dump()),
+            )
+            return _relationship(result)
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get("/companies/{ticker}/operations", response_model=OperatingIntelligenceResponse)
+    async def operating_intelligence(
+        ticker: str,
+        query: Annotated[OperationsQuery, Query()],
+    ) -> OperatingIntelligenceResponse:
+        try:
+            result = service.operating_intelligence(
+                ticker,
+                OperatingIntelligenceQuery(
+                    categories=_enum_values(query.categories, OperatingMetricCategory),
+                    as_of=query.as_of,
+                ),
+            )
+            return OperatingIntelligenceResponse(
+                company=_company_reference(result.company),
+                as_of=result.as_of,
+                series=[
+                    OperatingMetricSeriesResponse(
+                        definition=item.definition.model_dump(exclude={"company_id"}),
+                        definition_evidence=[_source_evidence(evidence) for evidence in item.definition_evidence],
+                        points=[
+                            OperatingMetricPointResponse(
+                                observation=point.observation.model_dump(),
+                                mix_percent=point.mix_percent,
+                                growth_percent=point.growth_percent,
+                                evidence=[_source_evidence(evidence) for evidence in point.evidence],
+                            )
+                            for point in item.points
+                        ],
+                    )
+                    for item in result.series
+                ],
+                transitions=[item.model_dump() for item in result.transitions],
+                warnings=result.warnings,
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get("/companies/{ticker}/guidance", response_model=GuidanceHistoryResponse)
+    async def guidance_history(
+        ticker: str,
+        query: Annotated[GuidanceHistoryQuery, Query()],
+    ) -> GuidanceHistoryResponse:
+        try:
+            result = service.guidance_history(
+                ticker,
+                GuidanceQuery(
+                    statement_types=_enum_values(query.types, GuidanceStatementType),
+                    statuses=_enum_values(query.statuses, GuidanceStatus),
+                    as_of=query.as_of,
+                ),
+            )
+            return GuidanceHistoryResponse(
+                company=_company_reference(result.company),
+                as_of=result.as_of,
+                records=[
+                    GuidanceRecordResponse(
+                        statement=item.statement.model_dump(exclude={"company_id"}),
+                        revision_direction=item.revision_direction,
+                        status=item.status,
+                        evaluations=[evaluation.model_dump() for evaluation in item.evaluations],
+                        statement_evidence=[
+                            _source_evidence(evidence) for evidence in item.statement_evidence
+                        ],
+                        evaluation_evidence={
+                            evaluation_id: [_source_evidence(evidence) for evidence in evidence_items]
+                            for evaluation_id, evidence_items in item.evaluation_evidence.items()
+                        },
+                    )
+                    for item in result.records
+                ],
+                warnings=result.warnings,
+            )
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
     return router
 
 
@@ -293,3 +609,36 @@ def _company_overview(company: CompanyIdentity, as_of=None) -> CompanyOverviewRe
         ],
         provenance=_provenance(company.provenance),
     )
+
+
+def _evidence_document(document) -> EvidenceDocumentResponse:
+    return EvidenceDocumentResponse.model_validate(document.model_dump(exclude={"company_id"}))
+
+
+def _evidence_span(span) -> EvidenceSpanResponse:
+    return EvidenceSpanResponse.model_validate(span.model_dump())
+
+
+def _source_evidence(item) -> SourceEvidenceResponse:
+    return SourceEvidenceResponse(
+        role=item.link.role,
+        linked_at=item.link.created_at,
+        document=_evidence_document(item.document),
+        span=_evidence_span(item.span),
+    )
+
+
+def _relationship(item) -> CompanyRelationshipResponse:
+    return CompanyRelationshipResponse(
+        edge=RelationshipEdgeResponse.model_validate(item.edge.model_dump()),
+        observation=RelationshipObservationResponse.model_validate(item.observation.model_dump()),
+        source_company=_company_reference(item.source_company),
+        target_company=_company_reference(item.target_company) if item.target_company else None,
+        perspective_direction=item.perspective_direction,
+        evidence=[_source_evidence(evidence) for evidence in item.evidence],
+    )
+
+
+def _enum_values(raw_value, enum_type):
+    values = [value.strip().lower() for value in (raw_value or "").split(",") if value.strip()]
+    return [enum_type(value) for value in values]
