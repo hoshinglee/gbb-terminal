@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
+from ...intelligence.collection_models import IntelligenceRefreshRequest
 from ...intelligence.company_service import CompanyIntelligenceService
 from ...intelligence.evidence_models import EvidenceDocumentQuery, EvidenceDocumentType
 from ...intelligence.fact_models import FinancialFactQuery
@@ -48,6 +50,10 @@ from ..schemas.v3 import (
     EstimateProvenanceResponse,
     EstimatesQuery,
     HistoricalValuationResponse,
+    IntelligenceRefreshAcceptedResponse,
+    IntelligenceRefreshRequestBody,
+    IntelligenceSourceHealthResponse,
+    LocalJobResponse,
     MetricsProvenanceResponse,
     MetricsQuery,
     NormalizedMetricResponse,
@@ -71,10 +77,15 @@ from ..schemas.v3 import (
     ValuationStatisticsResponse,
 )
 from ...intelligence.valuation_definitions import VALUATION_DEFINITIONS
+from ...storage.database import LocalMarketStore
 
 
-def create_intelligence_router(service: CompanyIntelligenceService) -> APIRouter:
+def create_intelligence_router(
+    service: CompanyIntelligenceService,
+    store: LocalMarketStore | None = None,
+) -> APIRouter:
     router = APIRouter(prefix="/api/v3", tags=["Company Intelligence"])
+    refresh_tasks: set[asyncio.Task] = set()
 
     @router.get("/companies/{ticker}", response_model=CompanyOverviewResponse)
     async def company_overview(
@@ -568,6 +579,84 @@ def create_intelligence_router(service: CompanyIntelligenceService) -> APIRouter
             raise HTTPException(status_code=503, detail=str(error)) from error
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get(
+        "/companies/{ticker}/sources/health",
+        response_model=IntelligenceSourceHealthResponse,
+    )
+    async def intelligence_source_health(ticker: str) -> IntelligenceSourceHealthResponse:
+        try:
+            result = service.source_health(ticker)
+            return IntelligenceSourceHealthResponse.model_validate(result.model_dump())
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+
+    @router.post(
+        "/companies/{ticker}/sources/refresh",
+        response_model=IntelligenceRefreshAcceptedResponse,
+        status_code=202,
+    )
+    async def refresh_intelligence_sources(
+        ticker: str,
+        request: IntelligenceRefreshRequestBody,
+    ) -> IntelligenceRefreshAcceptedResponse:
+        if store is None:
+            raise HTTPException(status_code=503, detail="Local intelligence jobs are not configured.")
+        symbol = ticker.strip().upper()
+        command = IntelligenceRefreshRequest.model_validate(request.model_dump())
+        job_id = store.create_job(
+            "intelligence_refresh",
+            {"ticker": symbol, **command.model_dump(mode="json")},
+        )
+
+        async def run_refresh() -> None:
+            try:
+                result = await asyncio.to_thread(
+                    service.refresh_sources,
+                    symbol,
+                    command,
+                    lambda value, _: store.update_job(job_id, progress=value),
+                    lambda: store.job_cancellation_requested(job_id),
+                )
+                final_status = (
+                    "cancelled"
+                    if result.status.value == "cancelled"
+                    else "failed"
+                    if result.status.value == "failed"
+                    else "completed"
+                )
+                store.update_job(
+                    job_id,
+                    result=result.model_dump(mode="json"),
+                    final_status=final_status,
+                )
+            except Exception as error:
+                store.update_job(job_id, error=str(error))
+
+        task = asyncio.create_task(run_refresh())
+        refresh_tasks.add(task)
+        task.add_done_callback(refresh_tasks.discard)
+        return IntelligenceRefreshAcceptedResponse(job_id=job_id)
+
+    @router.get("/intelligence-jobs/{job_id}", response_model=LocalJobResponse)
+    async def intelligence_job(job_id: str) -> LocalJobResponse:
+        if store is None:
+            raise HTTPException(status_code=503, detail="Local intelligence jobs are not configured.")
+        result = store.get_job(job_id)
+        if result is None or result["jobType"] != "intelligence_refresh":
+            raise HTTPException(status_code=404, detail="Intelligence refresh job not found.")
+        return LocalJobResponse.model_validate(result)
+
+    @router.post("/intelligence-jobs/{job_id}/cancel")
+    async def cancel_intelligence_job(job_id: str):
+        if store is None:
+            raise HTTPException(status_code=503, detail="Local intelligence jobs are not configured.")
+        result = store.get_job(job_id)
+        if result is None or result["jobType"] != "intelligence_refresh":
+            raise HTTPException(status_code=404, detail="Intelligence refresh job not found.")
+        return {"jobId": job_id, "cancelRequested": store.request_job_cancellation(job_id)}
 
     return router
 

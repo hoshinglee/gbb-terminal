@@ -23,6 +23,7 @@ from .routes.intelligence import create_intelligence_router
 from .routes.options import create_option_router
 from .routes.stocks import create_stock_router
 from .routes.strategies import create_strategy_router
+from .routes.universes import create_universe_router
 
 logger = get_logger("api")
 
@@ -80,10 +81,11 @@ app = FastAPI(title="GBB Terminal", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=settings.frontend_static_directory), name="static")
 app.include_router(create_strategy_router(store, translator, catalogue))
 app.include_router(create_backtest_router(store, data, catalogue))
-app.include_router(create_option_router(store, data))
+app.include_router(create_option_router(store, data, services.company_intelligence))
 app.include_router(create_stock_router(data))
 app.include_router(create_market_router(data))
-app.include_router(create_intelligence_router(services.company_intelligence))
+app.include_router(create_intelligence_router(services.company_intelligence, store))
+app.include_router(create_universe_router(services.universe_research, store))
 
 
 @app.middleware("http")

@@ -12,6 +12,8 @@ GBB Terminal is a local-first US equity research and option lifecycle applicatio
 | API | Legacy-compatible V2 research contracts and strict V3 Company Intelligence contracts | [API](api.md) |
 | Company Intelligence | Canonical company identity, security history, resolution, and SEC directory sync | [Company Intelligence](company-intelligence.md) |
 | Evidence Intelligence | Versioned source documents, exact text spans, claim links, and point-in-time inspection | [Evidence Intelligence](evidence-intelligence.md) |
+| Public document collection | SEC archive discovery, deterministic parsing, evidence-bound extraction, refresh jobs, and diagnostics | [Public Document Collection](public-document-collection.md) |
+| Research universe cache | Current S&P 500 snapshots, resilient bulk preparation, resume, diagnostics, and sector drill-down | [S&P 500 Research Universe Cache](universe-cache.md) |
 | Business network | Source-backed counterparties, direction, exposure, history, graph navigation, and unresolved identities | [Business Network](business-network.md) |
 | Operating intelligence | Versioned segments, issuer geography, custom KPIs, compatible mix/growth, and reorganizations | [Operating Intelligence](operating-intelligence.md) |
 | Guidance intelligence | Immutable original guidance, revisions, withdrawals, deterministic outcomes, and source evidence | [Guidance Intelligence](guidance-intelligence.md) |
@@ -28,11 +30,11 @@ GBB Terminal is a local-first US equity research and option lifecycle applicatio
 | Storage | DuckDB tables, migrations, caches, and ledgers | [Storage](storage.md) |
 | LLM translator | Natural language to validated strategy data | [LLM translator](llm-translator.md) |
 | Observability | Structured events and rotating local logs | [Logging](logging.md) |
-| Browser | Four React research canvases, shadcn/ui interactions, financial charts, direct ticker navigation, and vanilla migration fallback | [Frontend](frontend.md) |
+| Browser | Four React research canvases, canonical Company Intelligence stock research, shadcn/ui interactions, financial charts, direct ticker navigation, and vanilla migration fallback | [Frontend](frontend.md) |
 | Market replay | Candles, interval aggregation, overlays, volume, RSI, and MACD | [Market Replay](market-replay.md) |
 | Strategy Lab UX | Implemented research-canvas interaction model and remaining panel migration | [Strategy Lab UX](strategy-lab-ux.md) |
 | Release readiness | Completed research gates and deferred launch-stability checks | [Release Checklist](release-checklist.md) |
-| Product backlog | Completed laboratory foundations and the 0.7–0.9 Company Intelligence direction | [Product Backlog](product-backlog.md) |
+| Product backlog | Completed laboratory foundations and the Release 0.10 personal-research roadmap | [Product Backlog](product-backlog.md) |
 | Community extensions | Adding indicators and strategy templates safely | [Strategy Plugin Guide](strategy-plugin-guide.md) |
 
 ## Safety invariants

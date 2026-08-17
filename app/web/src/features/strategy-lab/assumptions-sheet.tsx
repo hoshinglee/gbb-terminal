@@ -15,9 +15,9 @@ export function AssumptionsSheet() {
   const portfolio = state.selection.kind === "template" && state.selection.template.rule_graph.kind === "ranked_portfolio"
   return (
     <Sheet>
-      <SheetTrigger asChild><Button variant="outline" size="sm"><ShieldCheck />Assumptions</Button></SheetTrigger>
+      <SheetTrigger asChild><Button variant="outline" size="sm"><ShieldCheck />Advanced Validation</Button></SheetTrigger>
       <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
-        <SheetHeader><SheetTitle>Research Assumptions</SheetTitle><SheetDescription>Advanced settings remain available without dominating the research canvas.</SheetDescription></SheetHeader>
+        <SheetHeader><SheetTitle>Advanced Validation</SheetTitle><SheetDescription>Benchmarks, execution costs, comparison context, and validation design remain available without blocking a normal backtest.</SheetDescription></SheetHeader>
         <div className="space-y-6 px-4 pb-8">
           <section className="space-y-4"><div className="flex items-center justify-between"><h3 className="font-medium">Execution</h3><Badge variant="secondary">Next Session Open</Badge></div><div className="grid grid-cols-2 gap-3"><label className="space-y-2 text-xs text-muted-foreground">Commission (bps)<Input type="number" min={0} max={100} step={0.5} value={state.commissionBps} onChange={(event) => dispatch({ type: "update-cost", field: "commissionBps", value: Number(event.target.value) })} /></label><label className="space-y-2 text-xs text-muted-foreground">Slippage (bps)<Input type="number" min={0} max={100} step={0.5} value={state.slippageBps} onChange={(event) => dispatch({ type: "update-cost", field: "slippageBps", value: Number(event.target.value) })} /></label></div><p className="text-xs leading-5 text-muted-foreground">Zero costs are the default educational assumption. Cost sensitivity remains visible in evidence.</p></section>
           <Separator />

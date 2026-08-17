@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from uuid import uuid4
 
 import duckdb
+import pandas as pd
 
 from .fact_models import FinancialFact, FinancialFactQuery
 from .models import CompanyProvenance
@@ -19,43 +21,70 @@ class FinancialFactRepository:
         before = self.count_facts()
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         rows = [self._fact_row(fact, now) for fact in facts]
+        columns = [
+            "fact_id",
+            "company_id",
+            "cik",
+            "taxonomy",
+            "concept",
+            "label",
+            "description",
+            "value",
+            "raw_value",
+            "unit",
+            "period_start",
+            "period_end",
+            "fiscal_year",
+            "fiscal_period",
+            "form",
+            "filed_date",
+            "accepted_at",
+            "known_at",
+            "known_at_source",
+            "accession_number",
+            "frame",
+            "source",
+            "dataset",
+            "data_status",
+            "cached",
+            "remaining_quota",
+            "retrieved_at",
+            "quality_warnings",
+            "source_metadata",
+            "created_at",
+            "updated_at",
+        ]
+        relation_name = f"incoming_sec_facts_{uuid4().hex}"
+        self.connection.register(relation_name, pd.DataFrame(rows, columns=columns))
         self.connection.execute("BEGIN TRANSACTION")
         try:
-            self.connection.executemany(
-                """INSERT OR IGNORE INTO sec_financial_facts
-                   (fact_id, company_id, cik, taxonomy, concept, label, description, value, raw_value, unit,
-                    period_start, period_end, fiscal_year, fiscal_period, form, filed_date, accepted_at, known_at,
-                    known_at_source, accession_number, frame, source, dataset, data_status, cached, remaining_quota,
-                    retrieved_at, quality_warnings, source_metadata, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                rows,
+            self.connection.execute(
+                f"""INSERT OR IGNORE INTO sec_financial_facts ({", ".join(columns)})
+                    SELECT {", ".join(columns)} FROM {relation_name}"""
             )
-            self.connection.executemany(
-                """UPDATE sec_financial_facts
-                   SET accepted_at = ?, known_at = ?, known_at_source = 'acceptance', data_status = ?, cached = ?,
-                       remaining_quota = ?, retrieved_at = ?, quality_warnings = ?, source_metadata = ?, updated_at = ?
-                   WHERE fact_id = ? AND known_at_source <> 'acceptance' AND ? = 'acceptance'""",
-                [
-                    [
-                        fact.accepted_at.astimezone(timezone.utc).replace(tzinfo=None) if fact.accepted_at else None,
-                        fact.provenance.known_at.astimezone(timezone.utc).replace(tzinfo=None),
-                        fact.provenance.status,
-                        fact.provenance.cached,
-                        fact.provenance.remaining_quota,
-                        fact.provenance.retrieved_at.astimezone(timezone.utc).replace(tzinfo=None),
-                        json.dumps(fact.provenance.quality_warnings),
-                        json.dumps(fact.source_metadata),
-                        now,
-                        fact.fact_id,
-                        fact.known_at_source,
-                    ]
-                    for fact in facts
-                ],
+            self.connection.execute(
+                f"""UPDATE sec_financial_facts AS existing
+                    SET accepted_at = incoming.accepted_at,
+                        known_at = incoming.known_at,
+                        known_at_source = 'acceptance',
+                        data_status = incoming.data_status,
+                        cached = incoming.cached,
+                        remaining_quota = incoming.remaining_quota,
+                        retrieved_at = incoming.retrieved_at,
+                        quality_warnings = incoming.quality_warnings,
+                        source_metadata = incoming.source_metadata,
+                        updated_at = incoming.updated_at
+                    FROM {relation_name} AS incoming
+                    WHERE existing.fact_id = incoming.fact_id
+                      AND existing.known_at_source <> 'acceptance'
+                      AND incoming.known_at_source = 'acceptance'"""
             )
             self.connection.execute("COMMIT")
         except Exception:
             self.connection.execute("ROLLBACK")
             raise
+        finally:
+            self.connection.unregister(relation_name)
         return self.count_facts() - before
 
     def query_facts(self, company_id: str, query: FinancialFactQuery | None = None) -> list[FinancialFact]:

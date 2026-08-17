@@ -116,6 +116,47 @@ def run_ranked_portfolio(
 
     active_close = close.reindex(active.index)
     active_weights = weights.reindex(active.index)
+    target_weights_filled = target_weights.ffill().fillna(0.0).reindex(active.index)
+    latest_targets = target_weights_filled.iloc[-1]
+    latest_weights = active_weights.iloc[-1]
+    target_holdings = latest_targets[latest_targets > 0].index.tolist()
+    executed_holdings = latest_weights[latest_weights > 0].index.tolist()
+    latest_rebalance = rebalance_rows[-1] if rebalance_rows else None
+    latest_scores = latest_rebalance["scores"] if latest_rebalance else {}
+    pending_rebalance = not latest_targets.equals(latest_weights)
+    current_signal = {
+        "targetState": "PORTFOLIO" if target_holdings else "CASH",
+        "executedState": "PORTFOLIO" if executed_holdings else "CASH",
+        "signalPosition": round(float(latest_targets.abs().sum()), 4),
+        "executedPosition": round(float(latest_weights.abs().sum()), 4),
+        "observationDate": active.index[-1].strftime("%Y-%m-%d"),
+        "pendingAtNextOpen": pending_rebalance,
+        "executionTiming": "Rankings are observed at the scheduled session close and portfolio changes execute at the next session open.",
+        "entryCriteria": f"Rank {len(histories)} explicit symbols by {lookback}-session return and hold the strongest {top_n}.",
+        "exitCriteria": f"Replace holdings that leave the top {top_n} at each {rebalance_sessions}-session rebalance.",
+        "entryMatched": None,
+        "exitMatched": None,
+        "reason": f"Current target holdings are {', '.join(target_holdings) or 'cash'} based on the latest scheduled ranking.",
+        "ruleValues": {
+            "lookbackSessions": lookback,
+            "rebalanceSessions": rebalance_sessions,
+            "targetHoldings": ", ".join(target_holdings) or "None",
+            **{f"score_{symbol}": score for symbol, score in latest_scores.items()},
+        },
+        "latestTransition": {
+            "signalDate": latest_rebalance["signalDate"],
+            "executionDate": latest_rebalance["executionDate"],
+            "fromState": "PREVIOUS PORTFOLIO",
+            "toState": "PORTFOLIO",
+            "executionPrice": None,
+            "pendingAtNextOpen": False,
+            "reason": f"Scheduled ranking selected {', '.join(latest_rebalance['holdings'])}.",
+            "ruleValues": {
+                "holdings": ", ".join(latest_rebalance["holdings"]),
+                **{f"score_{symbol}": score for symbol, score in latest_scores.items()},
+            },
+        } if latest_rebalance else None,
+    }
     chart = [
         {
             "date": index.strftime("%Y-%m-%d"),
@@ -156,6 +197,7 @@ def run_ranked_portfolio(
         },
         "benchmarks": list(benchmark_columns),
         "regimes": regime_analysis(active, "selected_benchmark"),
+        "currentSignal": current_signal,
         "chart": chart,
         "marketChart": None,
         "trades": [],

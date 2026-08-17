@@ -5,6 +5,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from ...intelligence.collection_models import (
+    DocumentCollectionStatus,
+    IntelligenceRefreshStatus,
+    ModuleCoverageStatus,
+)
 from ...intelligence.earnings_models import EarningsSession, EventTimingQuality
 from ...intelligence.estimate_models import EstimateMatchStatus, EstimateMetric
 from ...intelligence.evidence_models import EvidenceDocumentType, EvidenceParseStatus, EvidenceRole
@@ -25,6 +30,7 @@ from ...intelligence.relationship_models import (
     RelationshipType,
 )
 from ...intelligence.valuation_models import ValuationFrequency, ValuationStatus
+from ...universe.models import UniverseKey, UniverseRefreshStatus
 
 
 def _camel_case(value: str) -> str:
@@ -140,6 +146,191 @@ class EvidenceAsOfQuery(V3QueryModel):
         if value is not None and (value.tzinfo is None or value.utcoffset() is None):
             raise ValueError("as_of must include a timezone offset.")
         return value
+
+
+class IntelligenceRefreshRequestBody(V3RequestModel):
+    forms: list[str] = Field(
+        default_factory=lambda: ["10-K", "10-K/A", "10-Q", "10-Q/A", "8-K", "6-K", "20-F"],
+        min_length=1,
+        max_length=20,
+    )
+    max_filings: int = Field(default=24, ge=1, le=200)
+    include_exhibits: bool = True
+    force: bool = False
+
+    @field_validator("forms")
+    @classmethod
+    def normalize_forms(cls, values: list[str]) -> list[str]:
+        return list(dict.fromkeys(value.strip().upper() for value in values if value.strip()))
+
+
+class IntelligenceRefreshAcceptedResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    job_id: str
+    status: Literal["running"] = "running"
+
+
+class IntelligenceRefreshItemResponse(V3ResponseModel):
+    item_id: str
+    refresh_id: str
+    external_id: str
+    source_url: str | None = None
+    accession_number: str | None = None
+    form: str | None = None
+    status: DocumentCollectionStatus
+    document_id: str | None = None
+    reason: str | None = None
+    created_at: datetime
+
+
+class ModuleCoverageResponse(V3ResponseModel):
+    module: str
+    status: ModuleCoverageStatus
+    record_count: int
+    evidence_span_count: int
+    message: str
+
+
+class IntelligenceRefreshSummaryResponse(V3ResponseModel):
+    refresh_id: str
+    company_id: str
+    ticker: str
+    status: IntelligenceRefreshStatus
+    started_at: datetime
+    completed_at: datetime | None = None
+    documents_discovered: int
+    documents_downloaded: int
+    documents_unchanged: int
+    documents_parsed: int
+    documents_failed: int
+    relationship_count: int
+    operating_observation_count: int
+    guidance_statement_count: int
+    coverage: list[ModuleCoverageResponse]
+    items: list[IntelligenceRefreshItemResponse]
+    warnings: list[str]
+    model_version: str
+
+
+class IntelligenceSourceHealthResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    company_id: str
+    ticker: str
+    last_refresh: IntelligenceRefreshSummaryResponse | None = None
+    document_count: int
+    parsed_document_count: int
+    failed_document_count: int
+    coverage: list[ModuleCoverageResponse]
+    warnings: list[str]
+
+
+class LocalJobResponse(V3ResponseModel):
+    job_id: str
+    job_type: str
+    status: str
+    progress: float
+    request: dict
+    result: dict | None = None
+    error: str | None = None
+    cancel_requested: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class UniverseRefreshRequestBody(V3RequestModel):
+    refresh_snapshot: bool = True
+    force: bool = False
+    max_companies: int | None = Field(default=None, ge=1, le=600)
+    concurrency: int = Field(default=4, ge=1, le=8)
+    max_attempts: int = Field(default=2, ge=1, le=3)
+    fresh_hours: int = Field(default=24, ge=1, le=720)
+
+
+class UniverseRefreshAcceptedResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    job_id: str
+    status: Literal["running"] = "running"
+
+
+class UniverseSnapshotSummaryResponse(V3ResponseModel):
+    snapshot_id: str
+    universe_key: UniverseKey
+    version: int
+    as_of_date: date
+    source: str
+    source_url: str
+    known_at: datetime
+    retrieved_at: datetime
+    constituent_count: int
+    quality_warnings: list[str] = Field(default_factory=list)
+
+
+class UniverseRefreshSummaryResponse(V3ResponseModel):
+    refresh_id: str
+    universe_key: UniverseKey
+    snapshot_id: str
+    status: UniverseRefreshStatus
+    profile: str
+    total_count: int
+    completed_count: int
+    partial_count: int
+    skipped_count: int
+    failed_count: int
+    cancelled_count: int
+    warnings: list[str] = Field(default_factory=list)
+    started_at: datetime
+    completed_at: datetime | None = None
+
+
+class UniverseStatusResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    universe_key: UniverseKey
+    snapshot: UniverseSnapshotSummaryResponse | None = None
+    latest_refresh: UniverseRefreshSummaryResponse | None = None
+    cached_count: int
+    completed_count: int
+    partial_count: int
+    failed_count: int
+    unavailable_count: int
+    sector_counts: dict[str, int] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class SectorConstituentResponse(V3ResponseModel):
+    symbol: str
+    company_name: str
+    sector: str
+    sub_industry: str
+    company_id: str | None = None
+    price: float | None = None
+    daily_change_percent: float | None = None
+    market_cap: float | None = None
+    market_cap_source: str
+    data_status: str
+    observation_timestamp: datetime | None = None
+    known_at: datetime | None = None
+    quality_warnings: list[str] = Field(default_factory=list)
+
+
+class SectorConstituentSnapshotResponse(V3ResponseModel):
+    api_version: Literal["v3"] = "v3"
+    universe_key: UniverseKey
+    snapshot_id: str
+    sector_symbol: str
+    sector_name: str
+    constituent_count: int
+    available_count: int
+    constituents: list[SectorConstituentResponse]
+    gainers: list[SectorConstituentResponse]
+    losers: list[SectorConstituentResponse]
+    unavailable: list[SectorConstituentResponse]
+    generated_at: datetime
+    warnings: list[str] = Field(default_factory=list)
+
+
+class UniverseCancelResponse(V3ResponseModel):
+    job_id: str
+    cancel_requested: bool
 
 
 class RelationshipsQuery(V3QueryModel):

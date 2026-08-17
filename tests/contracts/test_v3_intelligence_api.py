@@ -1,4 +1,5 @@
 import hashlib
+import time
 from datetime import date, datetime, timezone
 
 import pytest
@@ -48,6 +49,11 @@ from gbb_terminal.intelligence import (
     RelationshipService,
     RelationshipType,
 )
+from gbb_terminal.intelligence.collection_models import CollectorDiscovery
+from gbb_terminal.intelligence.collection_repository import IntelligenceRefreshRepository
+from gbb_terminal.intelligence.collection_service import IntelligenceRefreshService
+from gbb_terminal.intelligence.document_extraction import DocumentExtractionService
+from gbb_terminal.intelligence.document_parser import PublicDocumentParser
 from gbb_terminal.intelligence.estimates import EstimateIntelligenceService
 from gbb_terminal.market_data.providers.sec import SECProvider
 from gbb_terminal.market_data.providers.estimates import EmptyEstimateProvider
@@ -259,6 +265,30 @@ def build_client(tmp_path):
     )
     guidance = GuidanceService(guidance_repository, evidence_repository, identities, metrics)
 
+    class EmptyCollector:
+        def discover(self, company, request):
+            return CollectorDiscovery()
+
+        def download(self, company, document):
+            raise AssertionError("An empty collector must not download documents.")
+
+    source_refresh = IntelligenceRefreshService(
+        identities,
+        evidence_repository,
+        IntelligenceRefreshRepository(store.connection),
+        EmptyCollector(),
+        PublicDocumentParser(),
+        DocumentExtractionService(
+            evidence_repository,
+            relationships,
+            operations_repository,
+            guidance_repository,
+        ),
+        relationship_repository,
+        operations_repository,
+        guidance_repository,
+    )
+
     class FixtureMarketData:
         metadata = {
             "NVDA": {
@@ -285,9 +315,10 @@ def build_client(tmp_path):
         relationships,
         operations,
         guidance,
+        source_refresh,
     )
     app = FastAPI()
-    app.include_router(create_intelligence_router(service))
+    app.include_router(create_intelligence_router(service, store))
     return TestClient(app), company
 
 
@@ -373,6 +404,38 @@ def test_unknown_company_returns_not_found(tmp_path):
     response = client.get("/api/v3/companies/UNKNOWN")
 
     assert response.status_code == 404
+
+
+def test_source_refresh_job_and_health_distinguish_no_disclosure(tmp_path):
+    client, company = build_client(tmp_path)
+
+    initial = client.get("/api/v3/companies/NVDA/sources/health")
+    assert initial.status_code == 200
+    assert initial.json()["companyId"] == company.company_id
+    assert {item["status"] for item in initial.json()["coverage"]} == {"unavailable"}
+
+    with client:
+        accepted = client.post(
+            "/api/v3/companies/NVDA/sources/refresh",
+            json={"forms": ["10-K"], "maxFilings": 1, "includeExhibits": False},
+        )
+        assert accepted.status_code == 202
+        job_id = accepted.json()["jobId"]
+        for _ in range(100):
+            job = client.get(f"/api/v3/intelligence-jobs/{job_id}")
+            assert job.status_code == 200
+            if job.json()["status"] != "running":
+                break
+            time.sleep(0.01)
+
+    payload = job.json()
+    assert payload["status"] == "completed"
+    assert payload["result"]["status"] == "completed"
+    assert payload["result"]["items"][0]["status"] == "no_disclosure"
+    health = client.get("/api/v3/companies/NVDA/sources/health").json()
+    assert {item["status"] for item in health["coverage"]} == {"populated"}
+    assert health["lastRefresh"]["items"][0]["status"] == "no_disclosure"
+    assert client.post("/api/v3/intelligence-jobs/missing/cancel").status_code == 404
 
 
 def test_valuation_endpoint_returns_versioned_history_statistics_and_provenance(tmp_path):

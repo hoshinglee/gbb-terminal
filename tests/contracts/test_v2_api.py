@@ -18,6 +18,50 @@ class UnusedMarketData:
         return {"symbol": ticker, "expiration": expiration, "expirations": [], "calls": [], "puts": []}
 
 
+class PlannerMarketData:
+    def __init__(self):
+        self.expiration = (date.today() + timedelta(days=60)).isoformat()
+        self.metadata = {"NVDA": {"source": "Fixture"}}
+
+    async def quote(self, ticker):
+        return {"symbol": ticker.upper(), "price": 100, "dataStatus": {"source": "Fixture", "status": "Delayed"}}
+
+    async def options(self, ticker, expiration=None):
+        selected = expiration or self.expiration
+
+        def contracts(option_type):
+            return [
+                {
+                    "contract": f"{ticker.upper()}{option_type[0].upper()}{strike}",
+                    "strike": strike,
+                    "last": 4,
+                    "bid": 3.8,
+                    "ask": 4.2,
+                    "mid": 4,
+                    "volume": 50,
+                    "openInterest": 200,
+                    "iv": 30,
+                    "quoteQuality": "Two-Sided",
+                }
+                for strike in (80, 90, 95, 100, 105, 110, 120)
+            ]
+
+        return {
+            "expiration": selected,
+            "defaultExpiration": self.expiration,
+            "expirations": [self.expiration],
+            "calls": contracts("call"),
+            "puts": contracts("put"),
+            "source": "Fixture",
+            "dataStatus": {"source": "Fixture", "status": "Delayed", "qualityWarnings": []},
+        }
+
+
+class UnavailableEarningsIntelligence:
+    async def earnings_history(self, *args, **kwargs):
+        raise ValueError("SEC fixture is temporarily unavailable")
+
+
 class ObservatoryMarketData:
     def __init__(self):
         self.updated_at = {}
@@ -102,6 +146,37 @@ def test_v2_option_position_lifecycle_contract(tmp_path):
         assert [event["eventType"] for event in held.json()["events"]] == ["opened", "hold"]
 
 
+def test_v2_option_planner_and_scenario_contracts(tmp_path):
+    app = FastAPI()
+    store = LocalMarketStore(tmp_path / "option-planner.duckdb")
+    app.include_router(create_option_router(store, PlannerMarketData(), UnavailableEarningsIntelligence()))
+    target_date = (date.today() + timedelta(days=45)).isoformat()
+
+    with TestClient(app) as client:
+        planned = client.post("/api/v2/options/plans", json={
+            "ticker": "NVDA",
+            "outlook": "bullish",
+            "target_date": target_date,
+            "capital_budget": 2000,
+        })
+        assert planned.status_code == 200
+        payload = planned.json()
+        assert payload["ticker"] == "NVDA"
+        assert payload["candidates"]
+        assert all(candidate["positionKind"] != "short_call" for candidate in payload["candidates"])
+        assert payload["candidates"][0]["quotes"][0]["bid"] == 3.8
+        assert any("Historical earnings context is unavailable" in warning for warning in payload["warnings"])
+
+        scenario = client.post("/api/v2/options/scenarios", json={
+            "position": payload["candidates"][0]["position"],
+            "scenario_price": 115,
+            "scenario_date": target_date,
+        })
+        assert scenario.status_code == 200
+        assert scenario.json()["scenarioPrice"] == 115
+        assert scenario.json()["assumptions"]["model"] == "Cox-Ross-Rubinstein American Binomial"
+
+
 def test_v2_stock_and_market_observability_contracts():
     app = FastAPI()
     data = ObservatoryMarketData()
@@ -113,6 +188,10 @@ def test_v2_stock_and_market_observability_contracts():
         assert stock.status_code == 200
         assert stock.json()["quote"]["symbol"] == "NVDA"
         assert set(stock.json()["marketChart"]["intervals"]) == {"day", "week", "month", "year"}
+        five_year_stock = client.get("/api/v2/stocks/NVDA?period=5y")
+        assert five_year_stock.status_code == 200
+        unsupported_stock = client.get("/api/v2/stocks/NVDA?period=10y")
+        assert unsupported_stock.status_code == 400
         market = client.get("/api/v2/market-overview")
         assert market.status_code == 200
         assert market.json()["sectors"][0]["symbol"] == "XLK"

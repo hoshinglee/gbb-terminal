@@ -14,6 +14,77 @@ from .metrics import EvidenceContext, calculate_metrics, evidence_verdict, outco
 REQUIRED_PRICE_COLUMNS = ["Open", "High", "Low", "Close", "Volume"]
 
 
+def _position_state(position: float) -> str:
+    if position > 0:
+        return "LONG"
+    if position < 0:
+        return "SHORT"
+    return "CASH"
+
+
+def _rule_values(row: pd.Series, indicator_columns: list[str]) -> dict[str, float]:
+    return {
+        column: round(float(row[column]), 4)
+        for column in indicator_columns
+        if column in row and pd.notna(row[column])
+    }
+
+
+def _current_signal(frame: pd.DataFrame, strategy: Strategy, indicator_columns: list[str]) -> dict[str, Any]:
+    latest_index = frame.index[-1]
+    latest = frame.iloc[-1]
+    target_position = float(latest["signal_position"])
+    executed_position = float(latest["position"])
+    target_state = _position_state(target_position)
+    executed_state = _position_state(executed_position)
+    pending = target_position != executed_position
+    entry_criteria = getattr(strategy, "entry_criteria", "Strategy entry rule")
+    exit_criteria = getattr(strategy, "exit_criteria", "Strategy exit rule")
+    reason = str(latest.get("signal_reason") or "").strip()
+    if not reason:
+        reason = f"Target remains {target_state}; no transition rule matched on this observation."
+
+    previous_targets = frame["signal_position"].shift(1).fillna(0.0)
+    changes = frame["signal_position"].ne(previous_targets)
+    latest_transition = None
+    if bool(changes.any()):
+        signal_index = changes[changes].index[-1]
+        signal_row = frame.loc[signal_index]
+        signal_offset = int(frame.index.get_loc(signal_index))
+        execution_offset = signal_offset + 1
+        execution_available = execution_offset < len(frame)
+        transition_target = float(signal_row["signal_position"])
+        transition_prior = float(previous_targets.loc[signal_index])
+        transition_reason = str(signal_row.get("signal_reason") or "").strip()
+        latest_transition = {
+            "signalDate": signal_index.strftime("%Y-%m-%d"),
+            "executionDate": frame.index[execution_offset].strftime("%Y-%m-%d") if execution_available else None,
+            "fromState": _position_state(transition_prior),
+            "toState": _position_state(transition_target),
+            "executionPrice": round(float(frame.iloc[execution_offset]["open"]), 4) if execution_available else None,
+            "pendingAtNextOpen": not execution_available,
+            "reason": transition_reason or f"Target changed to {_position_state(transition_target)}.",
+            "ruleValues": _rule_values(signal_row, indicator_columns),
+        }
+
+    return {
+        "targetState": target_state,
+        "executedState": executed_state,
+        "signalPosition": target_position,
+        "executedPosition": executed_position,
+        "observationDate": latest_index.strftime("%Y-%m-%d"),
+        "pendingAtNextOpen": pending,
+        "executionTiming": "Signals are observed at the session close and position changes execute at the next session open.",
+        "entryCriteria": entry_criteria,
+        "exitCriteria": exit_criteria,
+        "entryMatched": bool(latest["entry_signal"]) if "entry_signal" in latest else None,
+        "exitMatched": bool(latest["exit_signal"]) if "exit_signal" in latest else None,
+        "reason": reason,
+        "ruleValues": _rule_values(latest, indicator_columns),
+        "latestTransition": latest_transition,
+    }
+
+
 def _validated_history(history: pd.DataFrame, label: str) -> pd.DataFrame:
     if history.empty:
         raise ValueError(f"{label} history is empty.")
@@ -268,6 +339,7 @@ def run_research_backtest(
         },
         "benchmarks": list(benchmark_columns),
         "regimes": regime_analysis(active, benchmark_columns.get("SPY", benchmark_columns["Buy & Hold"])),
+        "currentSignal": _current_signal(active, strategy, indicator_columns),
         "chart": chart,
         "marketChart": build_market_chart(
             market_history,

@@ -6,6 +6,8 @@ from datetime import date, datetime, timezone
 from typing import TYPE_CHECKING
 
 from .fact_models import FinancialFact, FinancialFactQuery
+from .collection_models import IntelligenceRefreshRequest, IntelligenceRefreshSummary, IntelligenceSourceHealth
+from .collection_service import IntelligenceRefreshService
 from .earnings import EarningsIntelligenceService
 from .earnings_models import EarningsHistory
 from .estimate_models import EstimateHistory, EstimateMetric
@@ -65,6 +67,7 @@ class CompanyIntelligenceService:
         relationships: RelationshipService | None = None,
         operations: OperationsIntelligenceService | None = None,
         guidance: GuidanceService | None = None,
+        source_refresh: IntelligenceRefreshService | None = None,
     ) -> None:
         self.identities = identities
         self.facts = facts
@@ -77,6 +80,7 @@ class CompanyIntelligenceService:
         self.relationships = relationships
         self.operations = operations
         self.guidance = guidance
+        self.source_refresh = source_refresh
 
     def company_overview(self, ticker: str, as_of: date | None = None) -> CompanyIdentity:
         company = self.identities.resolve_ticker(ticker, as_of=as_of)
@@ -264,3 +268,19 @@ class CompanyIntelligenceService:
         if self.guidance is None:
             raise RuntimeError("Guidance intelligence is not configured for this application instance.")
         return self.guidance.history(ticker, query)
+
+    def source_health(self, ticker: str) -> IntelligenceSourceHealth:
+        if self.source_refresh is None:
+            raise RuntimeError("Intelligence source refresh is not configured for this application instance.")
+        return self.source_refresh.health(ticker)
+
+    def refresh_sources(
+        self,
+        ticker: str,
+        request: IntelligenceRefreshRequest,
+        progress=None,
+        cancelled=None,
+    ) -> IntelligenceRefreshSummary:
+        if self.source_refresh is None:
+            raise RuntimeError("Intelligence source refresh is not configured for this application instance.")
+        return self.source_refresh.refresh(ticker, request, progress=progress, cancelled=cancelled)

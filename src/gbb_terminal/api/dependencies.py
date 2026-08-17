@@ -8,6 +8,11 @@ from ..intelligence.fact_repository import FinancialFactRepository
 from ..intelligence.fact_service import FinancialFactService
 from ..intelligence.metrics import NormalizedMetricsService
 from ..intelligence.company_service import CompanyIntelligenceService
+from ..intelligence.collection_repository import IntelligenceRefreshRepository
+from ..intelligence.collection_service import IntelligenceRefreshService
+from ..intelligence.collectors.sec import SECArchiveCollector
+from ..intelligence.document_extraction import DocumentExtractionService
+from ..intelligence.document_parser import PublicDocumentParser
 from ..intelligence.earnings import EarningsIntelligenceService
 from ..intelligence.earnings_repository import EarningsRepository
 from ..intelligence.evidence import EvidenceService
@@ -27,6 +32,9 @@ from ..market_data.providers.estimates import EmptyEstimateProvider, ManualEstim
 from ..settings import Settings, settings
 from ..storage.database import LocalMarketStore
 from ..strategy.catalogue import StrategyCatalogue, catalogue
+from ..universe.providers import WikipediaSP500Provider
+from ..universe.repository import UniverseRepository
+from ..universe.service import UniverseResearchService
 
 
 @dataclass(frozen=True)
@@ -45,7 +53,9 @@ class ApplicationServices:
     relationship_intelligence: RelationshipService
     operations_intelligence: OperationsIntelligenceService
     guidance_intelligence: GuidanceService
+    intelligence_refresh: IntelligenceRefreshService
     company_intelligence: CompanyIntelligenceService
+    universe_research: UniverseResearchService
 
 
 def build_services(configuration: Settings = settings) -> ApplicationServices:
@@ -78,21 +88,64 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
     )
     evidence_repository = EvidenceRepository(store.connection)
     evidence_intelligence = EvidenceService(evidence_repository, company_identity)
+    relationship_repository = RelationshipRepository(store.connection, evidence_repository)
     relationship_intelligence = RelationshipService(
-        RelationshipRepository(store.connection, evidence_repository),
+        relationship_repository,
         evidence_repository,
         company_identity,
     )
+    operations_repository = OperationsRepository(store.connection, evidence_repository)
     operations_intelligence = OperationsIntelligenceService(
-        OperationsRepository(store.connection, evidence_repository),
+        operations_repository,
         evidence_repository,
         company_identity,
     )
+    guidance_repository = GuidanceRepository(store.connection, evidence_repository)
     guidance_intelligence = GuidanceService(
-        GuidanceRepository(store.connection, evidence_repository),
+        guidance_repository,
         evidence_repository,
         company_identity,
         normalized_metrics,
+    )
+    intelligence_refresh = IntelligenceRefreshService(
+        company_identity,
+        evidence_repository,
+        IntelligenceRefreshRepository(store.connection),
+        SECArchiveCollector(market_data.sec),
+        PublicDocumentParser(),
+        DocumentExtractionService(
+            evidence_repository,
+            relationship_intelligence,
+            operations_repository,
+            guidance_repository,
+        ),
+        relationship_repository,
+        operations_repository,
+        guidance_repository,
+    )
+    company_intelligence = CompanyIntelligenceService(
+        company_identity,
+        financial_facts,
+        normalized_metrics,
+        historical_valuation,
+        market_data,
+        earnings_intelligence,
+        estimate_intelligence,
+        evidence_intelligence,
+        relationship_intelligence,
+        operations_intelligence,
+        guidance_intelligence,
+        intelligence_refresh,
+    )
+    universe_research = UniverseResearchService(
+        UniverseRepository(store.connection),
+        WikipediaSP500Provider(),
+        company_identity,
+        financial_facts,
+        normalized_metrics,
+        historical_valuation,
+        earnings_intelligence,
+        market_data,
     )
     return ApplicationServices(
         store=store,
@@ -109,17 +162,7 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
         relationship_intelligence=relationship_intelligence,
         operations_intelligence=operations_intelligence,
         guidance_intelligence=guidance_intelligence,
-        company_intelligence=CompanyIntelligenceService(
-            company_identity,
-            financial_facts,
-            normalized_metrics,
-            historical_valuation,
-            market_data,
-            earnings_intelligence,
-            estimate_intelligence,
-            evidence_intelligence,
-            relationship_intelligence,
-            operations_intelligence,
-            guidance_intelligence,
-        ),
+        intelligence_refresh=intelligence_refresh,
+        company_intelligence=company_intelligence,
+        universe_research=universe_research,
     )

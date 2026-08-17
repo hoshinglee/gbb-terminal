@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import duckdb
 
 
-CURRENT_SCHEMA_VERSION = 13
+CURRENT_SCHEMA_VERSION = 16
 
 
 def apply_company_identity_schema(connection: duckdb.DuckDBPyConnection) -> None:
@@ -424,6 +424,183 @@ def apply_guidance_schema(connection: duckdb.DuckDBPyConnection) -> None:
     )
 
 
+def apply_intelligence_collection_schema(connection: duckdb.DuckDBPyConnection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS evidence_document_contents (
+            document_id VARCHAR PRIMARY KEY REFERENCES evidence_documents(document_id),
+            content BLOB NOT NULL,
+            encoding VARCHAR,
+            parser_version VARCHAR,
+            stored_at TIMESTAMP NOT NULL,
+            parsed_at TIMESTAMP
+        )
+    """)
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS intelligence_refresh_runs (
+            refresh_id VARCHAR PRIMARY KEY,
+            company_id VARCHAR NOT NULL REFERENCES companies(company_id),
+            ticker VARCHAR NOT NULL,
+            status VARCHAR NOT NULL CHECK (status IN ('running', 'completed', 'partial', 'failed', 'cancelled')),
+            request JSON NOT NULL,
+            documents_discovered INTEGER NOT NULL,
+            documents_downloaded INTEGER NOT NULL,
+            documents_unchanged INTEGER NOT NULL,
+            documents_parsed INTEGER NOT NULL,
+            documents_failed INTEGER NOT NULL,
+            relationship_count INTEGER NOT NULL,
+            operating_observation_count INTEGER NOT NULL,
+            guidance_statement_count INTEGER NOT NULL,
+            coverage JSON NOT NULL,
+            warnings JSON NOT NULL,
+            model_version VARCHAR NOT NULL,
+            started_at TIMESTAMP NOT NULL,
+            completed_at TIMESTAMP
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS intelligence_refresh_company_index ON intelligence_refresh_runs(company_id, started_at)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS intelligence_refresh_items (
+            item_id VARCHAR PRIMARY KEY,
+            refresh_id VARCHAR NOT NULL REFERENCES intelligence_refresh_runs(refresh_id),
+            external_id VARCHAR NOT NULL,
+            source_url VARCHAR,
+            accession_number VARCHAR,
+            form VARCHAR,
+            status VARCHAR NOT NULL CHECK (
+                status IN ('discovered', 'unchanged', 'downloaded', 'parsed', 'no_disclosure',
+                           'parse_failed', 'extraction_failed', 'provider_failed', 'unsupported_format')
+            ),
+            document_id VARCHAR REFERENCES evidence_documents(document_id),
+            reason VARCHAR,
+            created_at TIMESTAMP NOT NULL
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS intelligence_refresh_item_run_index ON intelligence_refresh_items(refresh_id, created_at)"
+    )
+
+
+def apply_universe_schema(connection: duckdb.DuckDBPyConnection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS universe_snapshots (
+            snapshot_id VARCHAR PRIMARY KEY,
+            universe_key VARCHAR NOT NULL,
+            version INTEGER NOT NULL CHECK (version >= 1),
+            as_of_date DATE NOT NULL,
+            source VARCHAR NOT NULL,
+            source_url VARCHAR NOT NULL,
+            known_at TIMESTAMP NOT NULL,
+            retrieved_at TIMESTAMP NOT NULL,
+            content_hash VARCHAR NOT NULL,
+            constituent_count INTEGER NOT NULL,
+            quality_warnings JSON NOT NULL,
+            metadata JSON NOT NULL,
+            UNIQUE (universe_key, version),
+            UNIQUE (universe_key, content_hash)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS universe_snapshot_latest_index ON universe_snapshots(universe_key, version)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS universe_constituents (
+            snapshot_id VARCHAR NOT NULL REFERENCES universe_snapshots(snapshot_id),
+            symbol VARCHAR NOT NULL,
+            source_symbol VARCHAR NOT NULL,
+            company_name VARCHAR NOT NULL,
+            sector VARCHAR NOT NULL,
+            sub_industry VARCHAR NOT NULL,
+            cik VARCHAR NOT NULL,
+            date_added DATE,
+            company_id VARCHAR REFERENCES companies(company_id),
+            metadata JSON NOT NULL,
+            PRIMARY KEY (snapshot_id, symbol)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS universe_constituent_sector_index ON universe_constituents(snapshot_id, sector, symbol)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS universe_refresh_runs (
+            refresh_id VARCHAR PRIMARY KEY,
+            universe_key VARCHAR NOT NULL,
+            snapshot_id VARCHAR NOT NULL REFERENCES universe_snapshots(snapshot_id),
+            status VARCHAR NOT NULL CHECK (status IN ('running', 'completed', 'partial', 'failed', 'cancelled')),
+            profile VARCHAR NOT NULL,
+            request JSON NOT NULL,
+            total_count INTEGER NOT NULL,
+            completed_count INTEGER NOT NULL,
+            partial_count INTEGER NOT NULL,
+            skipped_count INTEGER NOT NULL,
+            failed_count INTEGER NOT NULL,
+            cancelled_count INTEGER NOT NULL,
+            warnings JSON NOT NULL,
+            started_at TIMESTAMP NOT NULL,
+            completed_at TIMESTAMP
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS universe_refresh_latest_index ON universe_refresh_runs(universe_key, started_at)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS universe_refresh_items (
+            item_id VARCHAR PRIMARY KEY,
+            refresh_id VARCHAR NOT NULL REFERENCES universe_refresh_runs(refresh_id),
+            symbol VARCHAR NOT NULL,
+            company_id VARCHAR REFERENCES companies(company_id),
+            status VARCHAR NOT NULL CHECK (
+                status IN ('queued', 'running', 'completed', 'partial', 'failed', 'skipped', 'cancelled')
+            ),
+            stage VARCHAR NOT NULL,
+            attempt_count INTEGER NOT NULL,
+            market_cap DOUBLE,
+            daily_change_percent DOUBLE,
+            price_observed_at TIMESTAMP,
+            price_status VARCHAR,
+            financial_metric_count INTEGER NOT NULL,
+            valuation_point_count INTEGER NOT NULL,
+            earnings_event_count INTEGER NOT NULL,
+            warnings JSON NOT NULL,
+            error VARCHAR,
+            updated_at TIMESTAMP NOT NULL,
+            UNIQUE (refresh_id, symbol)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS universe_refresh_item_status_index ON universe_refresh_items(refresh_id, status, symbol)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS universe_company_cache (
+            universe_key VARCHAR NOT NULL,
+            snapshot_id VARCHAR NOT NULL REFERENCES universe_snapshots(snapshot_id),
+            symbol VARCHAR NOT NULL,
+            company_id VARCHAR REFERENCES companies(company_id),
+            company_name VARCHAR NOT NULL,
+            sector VARCHAR NOT NULL,
+            sub_industry VARCHAR NOT NULL,
+            status VARCHAR NOT NULL CHECK (status IN ('completed', 'partial', 'failed', 'skipped')),
+            price DOUBLE,
+            daily_change_percent DOUBLE,
+            market_cap DOUBLE,
+            market_cap_source VARCHAR NOT NULL,
+            observation_timestamp TIMESTAMP,
+            known_at TIMESTAMP,
+            retrieved_at TIMESTAMP NOT NULL,
+            financial_metric_count INTEGER NOT NULL,
+            valuation_point_count INTEGER NOT NULL,
+            earnings_event_count INTEGER NOT NULL,
+            quality_warnings JSON NOT NULL,
+            last_success_at TIMESTAMP,
+            PRIMARY KEY (universe_key, symbol)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS universe_cache_sector_index ON universe_company_cache(universe_key, sector, daily_change_percent)"
+    )
+
+
 def record_schema_version(connection: duckdb.DuckDBPyConnection) -> None:
     apply_company_identity_schema(connection)
     apply_financial_fact_schema(connection)
@@ -433,6 +610,8 @@ def record_schema_version(connection: duckdb.DuckDBPyConnection) -> None:
     apply_relationship_schema(connection)
     apply_operations_schema(connection)
     apply_guidance_schema(connection)
+    apply_intelligence_collection_schema(connection)
+    apply_universe_schema(connection)
     connection.execute("""
         CREATE TABLE IF NOT EXISTS schema_migrations (
             version INTEGER PRIMARY KEY,
@@ -441,7 +620,31 @@ def record_schema_version(connection: duckdb.DuckDBPyConnection) -> None:
     """)
     exists = connection.execute("SELECT 1 FROM schema_migrations WHERE version = ?", [CURRENT_SCHEMA_VERSION]).fetchone()
     if not exists:
+        remove_relationship_extractor_v2_candidates(connection)
         connection.execute(
             "INSERT INTO schema_migrations VALUES (?, ?)",
             [CURRENT_SCHEMA_VERSION, datetime.now(timezone.utc).replace(tzinfo=None)],
         )
+
+
+def remove_relationship_extractor_v2_candidates(connection: duckdb.DuckDBPyConnection) -> None:
+    extraction_method = "deterministic_relationship_rules_v2"
+    connection.execute(
+        """DELETE FROM evidence_claim_links
+           WHERE claim_type = 'relationship'
+             AND claim_id IN (
+                 SELECT observation_id FROM relationship_observations WHERE extraction_method = ?
+             )""",
+        [extraction_method],
+    )
+    connection.execute(
+        "DELETE FROM relationship_observations WHERE extraction_method = ?",
+        [extraction_method],
+    )
+    connection.execute(
+        """DELETE FROM business_relationships
+           WHERE NOT EXISTS (
+               SELECT 1 FROM relationship_observations
+               WHERE relationship_observations.relationship_id = business_relationships.relationship_id
+           )"""
+    )

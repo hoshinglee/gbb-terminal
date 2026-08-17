@@ -1,0 +1,30 @@
+<!doctype html>
+<html xmlns:ix="http://www.xbrl.org/2013/inlineXBRL" xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:xbrldi="http://xbrl.org/2006/xbrldi">
+<body>
+<div style="display:none">
+  <xbrli:context id="noise">
+    <xbrli:entity><xbrli:identifier scheme="https://www.sec.gov/CIK">0001045810</xbrli:identifier><xbrli:segment><xbrldi:explicitMember dimension="us-gaap:FinancialInstrumentAxis">us-gaap:CorporateDebtSecuritiesMember</xbrldi:explicitMember></xbrli:segment></xbrli:entity>
+    <xbrli:period><xbrli:startDate>2024-01-29</xbrli:startDate><xbrli:endDate>2025-01-26</xbrli:endDate></xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="geo-multiple">
+    <xbrli:entity><xbrli:identifier scheme="https://www.sec.gov/CIK">0001045810</xbrli:identifier><xbrli:segment><xbrldi:explicitMember dimension="us-gaap:FinancialInstrumentAxis">us-gaap:CorporateDebtSecuritiesMember</xbrldi:explicitMember><xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">nvda:UnitedStatesMember</xbrldi:explicitMember></xbrli:segment></xbrli:entity>
+    <xbrli:period><xbrli:startDate>2024-01-29</xbrli:startDate><xbrli:endDate>2025-01-26</xbrli:endDate></xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="segment-2024">
+    <xbrli:entity><xbrli:identifier scheme="https://www.sec.gov/CIK">0001045810</xbrli:identifier><xbrli:segment><xbrldi:explicitMember dimension="srt:ProductOrServiceAxis">nvda:ComputeMember</xbrldi:explicitMember></xbrli:segment></xbrli:entity>
+    <xbrli:period><xbrli:startDate>2023-01-30</xbrli:startDate><xbrli:endDate>2024-01-28</xbrli:endDate></xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="segment-2025">
+    <xbrli:entity><xbrli:identifier scheme="https://www.sec.gov/CIK">0001045810</xbrli:identifier><xbrli:segment><xbrldi:explicitMember dimension="srt:ProductOrServiceAxis">nvda:ComputeMember</xbrldi:explicitMember></xbrli:segment></xbrli:entity>
+    <xbrli:period><xbrli:startDate>2024-01-29</xbrli:startDate><xbrli:endDate>2025-01-26</xbrli:endDate></xbrli:period>
+  </xbrli:context>
+  <xbrli:unit id="USD"><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>
+</div>
+<h2>Segment and Geography Facts</h2>
+<table>
+  <tr><td>Debt security value</td><td><ix:nonfraction name="us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" contextRef="noise" unitRef="USD">9</ix:nonfraction></td></tr>
+  <tr><td>United States revenue</td><td><ix:nonfraction name="us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" contextRef="geo-multiple" unitRef="USD">48</ix:nonfraction></td></tr>
+  <tr><td>Compute revenue 2024</td><td><ix:nonfraction name="us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" contextRef="segment-2024" unitRef="USD">60</ix:nonfraction></td></tr>
+  <tr><td>Compute revenue 2025</td><td><ix:nonfraction name="us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" contextRef="segment-2025" unitRef="USD">115</ix:nonfraction></td></tr>
+</table>
+</body></html>

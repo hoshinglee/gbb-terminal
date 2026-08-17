@@ -1,0 +1,34 @@
+<!doctype html>
+<html xmlns:ix="http://www.xbrl.org/2013/inlineXBRL" xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:xbrldi="http://xbrl.org/2006/xbrldi">
+<body>
+<div style="display:none">
+  <xbrli:context id="seg-2025">
+    <xbrli:entity><xbrli:identifier scheme="https://www.sec.gov/CIK">0001045810</xbrli:identifier>
+      <xbrli:segment><xbrldi:explicitMember dimension="srt:ProductOrServiceAxis">nvda:ComputeAndNetworkingMember</xbrldi:explicitMember></xbrli:segment>
+    </xbrli:entity>
+    <xbrli:period><xbrli:startDate>2024-01-29</xbrli:startDate><xbrli:endDate>2025-01-26</xbrli:endDate></xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="geo-2025">
+    <xbrli:entity><xbrli:identifier scheme="https://www.sec.gov/CIK">0001045810</xbrli:identifier>
+      <xbrli:segment><xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">nvda:UnitedStatesMember</xbrldi:explicitMember></xbrli:segment>
+    </xbrli:entity>
+    <xbrli:period><xbrli:startDate>2024-01-29</xbrli:startDate><xbrli:endDate>2025-01-26</xbrli:endDate></xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="kpi-2025">
+    <xbrli:entity><xbrli:identifier scheme="https://www.sec.gov/CIK">0001045810</xbrli:identifier></xbrli:entity>
+    <xbrli:period><xbrli:instant>2025-01-26</xbrli:instant></xbrli:period>
+  </xbrli:context>
+  <xbrli:unit id="USD"><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>
+  <xbrli:unit id="count"><xbrli:measure>xbrli:pure</xbrli:measure></xbrli:unit>
+</div>
+<h2>Note 17. Segment and Geographic Information</h2>
+<table>
+  <tr><td>Compute and Networking revenue</td><td><ix:nonfraction name="us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" contextRef="seg-2025" unitRef="USD" scale="6">115,000</ix:nonfraction></td></tr>
+  <tr><td>United States revenue</td><td><ix:nonfraction name="us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" contextRef="geo-2025" unitRef="USD" scale="6">48,000</ix:nonfraction></td></tr>
+  <tr><td>Active developer users</td><td><ix:nonfraction name="nvda:ActiveDeveloperUsers" contextRef="kpi-2025" unitRef="count">4200000</ix:nonfraction></td></tr>
+</table>
+<h2>Concentrations and Supply</h2>
+<p>Customer A accounted for 13% of our total revenue.</p>
+<p>TSMC serves as our foundry manufacturer.</p>
+</body>
+</html>

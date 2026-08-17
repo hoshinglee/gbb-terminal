@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { LifecycleWorkspace } from "@/features/option-lab/lifecycle-workspace"
 import { OptionContextBar } from "@/features/option-lab/option-context-bar"
+import { OptionsPlanner } from "@/features/option-lab/options-planner"
 import {
   applyContractToLeg,
   createOptionDraft,
@@ -32,6 +33,7 @@ import type {
   OptionChainContract,
   OptionChainResponse,
   OptionLifecycleEvent,
+  OptionPlanCandidate,
   OptionPositionCreate,
   OptionPositionResponse,
   OptionPositionState,
@@ -46,12 +48,11 @@ function errorMessage(error: unknown) {
   return "The Option Lab request failed unexpectedly."
 }
 
-function OptionJourney({ simulation, ledger }: { simulation: OptionSimulationResult | null; ledger: OptionPositionResponse | null }) {
-  const currentStage = ledger ? 3 : simulation ? 2 : 1
+function OptionJourney({ currentStage }: { currentStage: 1 | 2 | 3 }) {
   const stages = [
-    { number: 1, title: "Build", note: "Position and contracts" },
-    { number: 2, title: "Explore", note: "Payoff and exposure" },
-    { number: 3, title: "Journal", note: "Lifecycle decisions" },
+    { number: 1, title: "Plan", note: "Outlook, horizon, and risk" },
+    { number: 2, title: "Compare", note: "Validated structures" },
+    { number: 3, title: "Scenario", note: "Price and date outcome" },
   ]
   return <ol aria-label="Option Lab progress" className="grid overflow-hidden rounded-lg border sm:grid-cols-3">{stages.map((stage) => { const complete = stage.number < currentStage; const active = stage.number === currentStage; return <li key={stage.number} aria-current={active ? "step" : undefined} className={cn("flex items-center gap-3 border-b p-3 last:border-0 sm:border-b-0 sm:border-r sm:last:border-r-0", active && "bg-primary/8", complete && "bg-muted/35")}><span className={cn("grid size-7 shrink-0 place-items-center rounded-full border font-mono text-xs text-muted-foreground", active && "border-primary bg-primary text-primary-foreground", complete && "border-primary/50 text-primary")}>{complete ? <Check className="size-3.5" /> : active ? stage.number : <Circle className="size-3" />}</span><span><strong className={cn("block text-sm", active && "text-primary")}>{stage.title}</strong><small className="text-[10px] text-muted-foreground">{stage.note}</small></span></li> })}</ol>
 }
@@ -72,6 +73,10 @@ export function OptionLab({ initialTicker = "NVDA" }: { initialTicker?: string }
   const [runsLoading, setRunsLoading] = useState(false)
   const [positions, setPositions] = useState<OptionPositionState[]>([])
   const [positionsLoading, setPositionsLoading] = useState(false)
+  const [plannerStage, setPlannerStage] = useState<1 | 2 | 3>(1)
+  const [builderOpen, setBuilderOpen] = useState(false)
+  const [journalOpen, setJournalOpen] = useState(false)
+  const updatePlannerStage = useCallback((stage: 1 | 2 | 3) => setPlannerStage(stage), [])
 
   const refreshRuns = useCallback(async () => {
     setRunsLoading(true)
@@ -116,6 +121,7 @@ export function OptionLab({ initialTicker = "NVDA" }: { initialTicker?: string }
     if (nextDraft.ticker !== draft.ticker) {
       setChain(null)
       setChainError("")
+      setBuilderOpen(false)
     }
     setDraft(nextDraft)
     setSimulation(null)
@@ -126,6 +132,21 @@ export function OptionLab({ initialTicker = "NVDA" }: { initialTicker?: string }
     setDraft(replaceOptionTemplate(draft, template))
     setSimulation(null)
     setLedger(null)
+  }
+
+  const usePlannedCandidate = (candidate: OptionPlanCandidate) => {
+    setDraft({
+      ...candidate.position,
+      name: candidate.position.run_name || `${candidate.position.ticker} ${candidate.name}`,
+      research_run_id: null,
+    })
+    setChain(null)
+    setChainError("")
+    setSimulation(null)
+    setLedger(null)
+    setBuilderOpen(true)
+    toast.success(`${candidate.name} loaded into the detailed builder.`)
+    window.setTimeout(() => document.getElementById("option-builder-details")?.scrollIntoView({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }), 100)
   }
 
   const fetchChain = async (expiration?: string) => {
@@ -173,7 +194,7 @@ export function OptionLab({ initialTicker = "NVDA" }: { initialTicker?: string }
           observationTimestamp: chain.dataStatus?.observationTimestamp,
           knownAt: chain.dataStatus?.knownAt,
           qualityWarnings: chain.dataStatus?.qualityWarnings || [],
-        } : { source: "Manual Inputs", status: "User Assumptions" },
+        } : draft.data_provenance || { source: "Manual Inputs", status: "User Assumptions" },
       })
       setSimulation(result)
       setLedger(null)
@@ -229,6 +250,7 @@ export function OptionLab({ initialTicker = "NVDA" }: { initialTicker?: string }
         setSimulation(null)
       }
       setLedger(response)
+      setJournalOpen(true)
       setChain(null)
       setChainError("")
       toast.success(`Loaded paper ledger ${positionId.slice(0, 8)}.`)
@@ -251,6 +273,7 @@ export function OptionLab({ initialTicker = "NVDA" }: { initialTicker?: string }
     try {
       const response = await createOptionPosition({ ...draft, research_run_id: simulation?.runId || null })
       setLedger(response)
+      setJournalOpen(true)
       void refreshPositions()
       toast.success("Paper position saved locally. No order was sent.")
     } catch (error) {
@@ -277,17 +300,22 @@ export function OptionLab({ initialTicker = "NVDA" }: { initialTicker?: string }
     }
   }
 
-  const sourceLabel = chain ? [chain.source || chain.dataStatus?.source || "Yahoo Finance", chain.dataStatus?.status || "Delayed", chain.expiration].filter(Boolean).join(" · ") : "Manual inputs · Load a current public chain when useful"
+  const sourceLabel = chain
+    ? [chain.source || chain.dataStatus?.source || "Yahoo Finance", chain.dataStatus?.status || "Delayed", chain.expiration].filter(Boolean).join(" · ")
+    : draft.data_provenance?.source
+      ? [String(draft.data_provenance.source), String(draft.data_provenance.status || "Delayed"), String(draft.data_provenance.expiration || "")].filter(Boolean).join(" · ")
+      : "Manual inputs · Load a current public chain when useful"
   return <>
     <OptionContextBar draft={draft} chainReady={Boolean(chain)} chainLoading={chainLoading} running={running} runs={runs} runsLoading={runsLoading} positions={positions} positionsLoading={positionsLoading} onChange={changeDraft} onLoadChain={() => void fetchChain()} onSimulate={() => void simulate()} onRefreshRuns={() => void refreshRuns()} onLoadRun={loadRun} onRefreshPositions={() => void refreshPositions()} onLoadPosition={loadPaperPosition} />
     <div className="space-y-5 p-3 sm:p-4 xl:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1"><div><div className="mb-2 flex items-center gap-2"><Badge variant="outline" className="border-primary/30 text-primary">Option Lifecycle Canvas</Badge><Badge variant="secondary">Paper Simulation</Badge></div><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Explore the decisions between entry and expiry.</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Construct a position, inspect model behavior, then journal hold, close, roll, exercise, expiry, or assignment events without connecting a brokerage account.</p></div><div className="flex items-center gap-2 font-mono text-[10px] text-muted-foreground"><Database className="size-4" />{sourceLabel}</div></div>
-      <OptionJourney simulation={simulation} ledger={ledger} />
+      <div className="flex flex-wrap items-end justify-between gap-3 px-1"><div><div className="mb-2 flex items-center gap-2"><Badge variant="outline" className="border-primary/30 text-primary">Options Planner</Badge><Badge variant="secondary">Theoretical · Local First</Badge></div><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Turn an outlook into comparable option structures.</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Plan from a view, horizon, and risk budget; compare honest trade-offs; then model a price-and-date scenario before opening the advanced builder or optional paper journal.</p></div><div className="flex items-center gap-2 font-mono text-[10px] text-muted-foreground"><Database className="size-4" />{sourceLabel}</div></div>
+      <OptionJourney currentStage={plannerStage} />
       {templateError && <Alert><AlertCircle /><AlertTitle>Using Built-In Position Recipes</AlertTitle><AlertDescription>{templateError}</AlertDescription></Alert>}
       {chainError && <Alert variant="destructive"><AlertCircle /><AlertTitle>Current Chain Unavailable</AlertTitle><AlertDescription>{chainError} Manual contract assumptions remain available.</AlertDescription></Alert>}
-      <PositionBuilder draft={draft} templates={templates} chain={chain} chainLoading={chainLoading} chainError={chainError} onChange={changeDraft} onSelectTemplate={chooseTemplate} onLoadChain={(expiration) => void fetchChain(expiration)} onSelectContract={selectContract} />
-      <ScenarioWorkspace simulation={simulation} loading={running} />
-      <LifecycleWorkspace draft={draft} simulation={simulation} ledger={ledger} creating={creating} applying={applying} onDraftChange={setDraft} onCreate={createPaperLedger} onApply={applyLifecycle} />
+      <OptionsPlanner ticker={draft.ticker} interestRate={draft.interest_rate} dividendYield={draft.dividend_yield} onUseCandidate={usePlannedCandidate} onProgress={updatePlannerStage} />
+      <details id="option-builder-details" open={builderOpen} onToggle={(event) => setBuilderOpen(event.currentTarget.open)} className="rounded-lg border bg-card"><summary className="cursor-pointer px-4 py-4 text-sm font-semibold sm:px-6">Advanced Leg Builder <span className="ml-2 font-normal text-muted-foreground">Edit contracts, strikes, IV, and assumptions</span></summary><div className="border-t p-3 sm:p-4"><PositionBuilder draft={draft} templates={templates} chain={chain} chainLoading={chainLoading} chainError={chainError} onChange={changeDraft} onSelectTemplate={chooseTemplate} onLoadChain={(expiration) => void fetchChain(expiration)} onSelectContract={selectContract} /></div></details>
+      {(simulation || running) && <ScenarioWorkspace simulation={simulation} loading={running} />}
+      <details open={journalOpen} onToggle={(event) => setJournalOpen(event.currentTarget.open)} className="rounded-lg border bg-card"><summary className="cursor-pointer px-4 py-4 text-sm font-semibold sm:px-6">Optional Paper Journal <span className="ml-2 font-normal text-muted-foreground">Save and manage lifecycle decisions after a full simulation</span></summary><div className="border-t p-3 sm:p-4"><LifecycleWorkspace draft={draft} simulation={simulation} ledger={ledger} creating={creating} applying={applying} onDraftChange={setDraft} onCreate={createPaperLedger} onApply={applyLifecycle} /></div></details>
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed px-4 py-3 text-xs text-muted-foreground"><span><FlaskConical className="mr-1 inline size-3 text-primary" />Educational US equity-option research only. Outputs are theoretical and may use delayed public data.</span><span>No live brokerage execution.</span></div>
     </div>
   </>

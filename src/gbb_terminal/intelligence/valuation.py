@@ -71,7 +71,7 @@ class HistoricalValuationService:
             raise ValueError(f"No price observations are available for {ticker.upper()} within the requested as-of boundary.")
         price_dates = [timestamp.date() for timestamp in frame.index]
         close_times = [self.market_close(day) for day in price_dates]
-        snapshots = self._snapshots(company, close_times[-1])
+        snapshots = self._snapshots(company, close_times[0], close_times[-1])
         snapshot_times = [snapshot.known_at for snapshot in snapshots]
         grouped: dict[str, list[ValuationPoint]] = {metric_id: [] for metric_id in selected_metrics}
         common_warnings = list(price_warnings or [])
@@ -137,6 +137,7 @@ class HistoricalValuationService:
     def _snapshots(
         self,
         company,
+        minimum_known_at: datetime,
         maximum_known_at: datetime,
     ) -> list[_FundamentalSnapshot]:
         facts = self.metrics.facts.repository.query_facts(
@@ -147,30 +148,41 @@ class HistoricalValuationService:
             ),
         )
         snapshots = []
-        visible_facts = []
         ordered_facts = sorted(
             facts,
             key=lambda fact: (fact.provenance.known_at, fact.fact_id),
         )
+        visible_facts = [fact for fact in ordered_facts if fact.provenance.known_at <= minimum_known_at]
+        if visible_facts:
+            baseline_known_at = max(fact.provenance.known_at for fact in visible_facts)
+            snapshots.append(self._fundamental_snapshot(company, visible_facts, baseline_known_at))
         for known_at, new_facts in groupby(
-            ordered_facts,
+            (fact for fact in ordered_facts if fact.provenance.known_at > minimum_known_at),
             key=lambda fact: fact.provenance.known_at,
         ):
             visible_facts.extend(new_facts)
-            result = self.metrics._calculate_from_facts(
-                company,
-                visible_facts,
-                MetricPeriodKind.TTM,
-                known_at,
-            )
-            latest_period_end = max((metric.period_end for metric in result.metrics), default=None)
-            values = {
-                metric.metric_id: metric
-                for metric in result.metrics
-                if latest_period_end is not None and metric.period_end == latest_period_end
-            }
-            snapshots.append(_FundamentalSnapshot(known_at, latest_period_end, values))
+            snapshots.append(self._fundamental_snapshot(company, visible_facts, known_at))
         return snapshots
+
+    def _fundamental_snapshot(
+        self,
+        company,
+        visible_facts,
+        known_at: datetime,
+    ) -> _FundamentalSnapshot:
+        result = self.metrics._calculate_from_facts(
+            company,
+            visible_facts,
+            MetricPeriodKind.TTM,
+            known_at,
+        )
+        latest_period_end = max((metric.period_end for metric in result.metrics), default=None)
+        values = {
+            metric.metric_id: metric
+            for metric in result.metrics
+            if latest_period_end is not None and metric.period_end == latest_period_end
+        }
+        return _FundamentalSnapshot(known_at, latest_period_end, values)
 
     def _point(
         self,

@@ -13,6 +13,20 @@ Company Intelligence studies a business through a durable `company_id`. Market w
 | Primary ticker | The security selected as the current default for navigation. It does not define company identity. |
 | Provenance | Source, dataset, observation time, `known_at`, retrieval time, status, cache state, and quality warnings attached to an identity observation. |
 
+## Canonical Browser Experience
+
+Release 0.10 retires Stock Observatory as a separate React product. `/?lab=intelligence&ticker=NVDA` is the canonical individual-company destination; an older `/?lab=stock&ticker=NVDA` URL is replaced in browser history with the canonical route while preserving `NVDA`.
+
+Company Intelligence is organized by research question:
+
+- **Overview:** current delayed/cached price, daily movement, browser-local watchlist, business classification, latest TTM context, valuation regime, and market-data provenance.
+- **Financials:** every available annual, quarterly, and TTM normalized period. These histories never inherit the market or valuation window.
+- **Valuation:** a local historical window and fixed statistics. Regime labels describe position within the security's own history and are never recommendation labels.
+- **Earnings:** all supported source-backed events, a local comparison benchmark, and a three-year default or five-year event-market window. Selecting an event focuses a marked candlestick/volume chart.
+- **Operations, Network, Guidance, Sources:** persisted source-backed business intelligence with independent unavailable/failure states.
+
+Primary financial values use neutral text. Comparable improvement/deterioration and observed market reaction use paired arrows/text plus color. `NM`, unavailable, stale, low-sample, and provider-failure states remain visually distinct from economic deterioration.
+
 ## Canonical Models
 
 `CompanyIdentity` contains:
@@ -128,7 +142,7 @@ The raw Company Facts and submissions payloads also remain in `provider_cache`. 
 
 ## Current Boundary
 
-Release 0.9 extends the strict V3 boundary with versioned evidence documents, exact source spans, typed claim associations, source-backed relationships, a persisted business network, versioned operating disclosures, and immutable guidance history. Every domain remains independently loadable so incomplete public coverage cannot erase available financial or earnings evidence. Existing V2 stock, strategy, and option APIs continue accepting tickers unchanged.
+Release 0.10 keeps V3 company-business APIs separate from the reusable V2 ticker-based quote/OHLCV contract. The browser composes those responses without merging their identities: price and option requests remain security observations, while facts, evidence, relationships, operations, and guidance resolve to durable `company_id`. The V2 stock endpoint now accepts three- and five-year windows for event-market context; its response contract is otherwise unchanged.
 
 See [API Application](api.md) for exact V3 endpoints, filters, response counts, provenance, error semantics, and the company-versus-security boundary.
 

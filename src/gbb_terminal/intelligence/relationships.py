@@ -22,7 +22,7 @@ from .relationship_repository import RelationshipRepository
 from .service import CompanyIdentityService
 
 
-RELATIONSHIP_EXTRACTION_METHOD = "deterministic_relationship_rules_v1"
+RELATIONSHIP_EXTRACTION_METHOD = "deterministic_relationship_rules_v3"
 
 
 class RelationshipExtractor:
@@ -49,6 +49,32 @@ class RelationshipExtractor:
     competitor_pattern = re.compile(
         r"\b(?:We|The\s+Company)\s+compete(?:s)?\s+with\s+"
         r"(?P<name>[A-Z][A-Za-z0-9&.'’\- ]{1,100}?)(?:[.,;]|\s+in\s+the\s+market)",
+    )
+    named_role_list_pattern = re.compile(
+        r"\b(?P<role>foundries|suppliers|contract\s+manufacturers|manufacturers|distributors)"
+        r"\s*,?\s+(?:including|such\s+as)\s+(?P<names>.{2,500}?)"
+        r"(?=(?:,\s*)?\b(?:to|for)\b|;|\.(?:\s|$)|$)",
+        re.IGNORECASE,
+    )
+    purchase_from_pattern = re.compile(
+        r"\b(?:We|The\s+Company)\s+(?:purchase|source|procure)\s+.{0,100}?\s+from\s+(?P<names>.{2,500}?)"
+        r"(?=;|\.(?:\s|$)|$)",
+        re.IGNORECASE,
+    )
+    competition_list_pattern = re.compile(
+        r"\b(?:such\s+as|include(?:s|d)?)\s+(?P<names>.{2,500}?)(?=;|\.(?:\s|$)|$)",
+        re.IGNORECASE,
+    )
+    alias_pattern = re.compile(
+        r",\s+or\s+[A-Z][A-Za-z0-9&.'’\-]{1,40}(?=\s*,|\s+and\b|$)",
+    )
+    legal_suffix_comma_pattern = re.compile(
+        r",\s+(?=(?:Inc\.?|Incorporated|Corp\.?|Corporation|Co\.?|Ltd\.?|Limited|LLC|plc)\b)",
+        re.IGNORECASE,
+    )
+    legal_entity_pattern = re.compile(
+        r"\b(?:Inc\.?|Incorporated|Corp\.?|Corporation|Company|Co\.?|Ltd\.?|Limited|LLC|plc)\.?$",
+        re.IGNORECASE,
     )
 
     def __init__(self, repository: RelationshipRepository) -> None:
@@ -115,6 +141,41 @@ class RelationshipExtractor:
                         RelationshipDirection.MARKET,
                     )
                 )
+            for match in self.named_role_list_pattern.finditer(sentence):
+                relationship_type, direction = self._role(match.group("role"))
+                candidates.extend(
+                    self._list_candidates(
+                        company_id,
+                        document,
+                        span,
+                        match.group("names"),
+                        relationship_type,
+                        direction,
+                    )
+                )
+            for match in self.purchase_from_pattern.finditer(sentence):
+                candidates.extend(
+                    self._list_candidates(
+                        company_id,
+                        document,
+                        span,
+                        match.group("names"),
+                        RelationshipType.SUPPLIER,
+                        RelationshipDirection.UPSTREAM,
+                    )
+                )
+            if span.section and "compet" in span.section.casefold():
+                for match in self.competition_list_pattern.finditer(sentence):
+                    candidates.extend(
+                        self._list_candidates(
+                            company_id,
+                            document,
+                            span,
+                            match.group("names"),
+                            RelationshipType.COMPETITOR,
+                            RelationshipDirection.MARKET,
+                        )
+                    )
         unique: dict[tuple, RelationshipCandidate] = {}
         for candidate in candidates:
             key = (
@@ -126,6 +187,44 @@ class RelationshipExtractor:
             )
             unique[key] = candidate
         return list(unique.values())
+
+    def _list_candidates(
+        self,
+        company_id: str,
+        document: EvidenceDocument,
+        span: EvidenceSpan,
+        names: str,
+        relationship_type: RelationshipType,
+        direction: RelationshipDirection,
+    ) -> list[RelationshipCandidate]:
+        normalized = self.alias_pattern.sub("", names)
+        normalized = re.split(r",\s+or\s+(?:companies|businesses|other\s+organizations)\b", normalized, maxsplit=1)[0]
+        normalized = self.legal_suffix_comma_pattern.sub(" ", normalized)
+        candidates = []
+        for raw_name in re.split(r"\s*,\s*|\s+and\s+", normalized):
+            name = raw_name.strip(" •,.;:-")
+            name = re.sub(r"^(?:and|or)\s+", "", name, flags=re.IGNORECASE)
+            if not self._looks_like_counterparty(name):
+                continue
+            candidates.append(
+                self._candidate(
+                    company_id,
+                    document,
+                    span,
+                    name,
+                    relationship_type,
+                    direction,
+                )
+            )
+        return candidates
+
+    def _looks_like_counterparty(self, name: str) -> bool:
+        if not 2 <= len(name) <= 160 or len(name.split()) > 14:
+            return False
+        normalized = name.casefold()
+        if normalized.startswith(("companies", "businesses", "other ", "certain ", "third-party")):
+            return False
+        return self.repository.resolve_company_name(name) is not None or bool(self.legal_entity_pattern.search(name))
 
     def _candidate(
         self,
@@ -156,13 +255,20 @@ class RelationshipExtractor:
     @staticmethod
     def _role(role: str) -> tuple[RelationshipType, RelationshipDirection]:
         normalized = " ".join(role.casefold().split())
-        if normalized == "supplier":
+        if normalized in {"supplier", "suppliers"}:
             return RelationshipType.SUPPLIER, RelationshipDirection.UPSTREAM
-        if normalized in {"foundry", "manufacturer"}:
+        if normalized in {
+            "foundry",
+            "foundries",
+            "manufacturer",
+            "manufacturers",
+            "contract manufacturer",
+            "contract manufacturers",
+        }:
             return RelationshipType.MANUFACTURER_FOUNDRY, RelationshipDirection.UPSTREAM
-        if normalized == "customer":
+        if normalized in {"customer", "customers"}:
             return RelationshipType.CUSTOMER, RelationshipDirection.DOWNSTREAM
-        if normalized == "distributor":
+        if normalized in {"distributor", "distributors"}:
             return RelationshipType.DISTRIBUTOR, RelationshipDirection.DOWNSTREAM
         if normalized == "strategic partner":
             return RelationshipType.STRATEGIC_PARTNER, RelationshipDirection.BIDIRECTIONAL

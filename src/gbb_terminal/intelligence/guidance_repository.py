@@ -167,6 +167,25 @@ class GuidanceRepository:
         ).fetchall()
         return [self._row_to_statement(row) for row in rows]
 
+    def latest_comparable_statement(
+        self,
+        company_id: str,
+        topic: str,
+        metric_id: str | None,
+        fiscal_year: int | None,
+        fiscal_period: str | None,
+    ) -> GuidanceStatement | None:
+        rows = self.list_statements(company_id, GuidanceQuery())
+        comparable = [
+            statement
+            for statement in rows
+            if self._normalize_text(statement.topic) == self._normalize_text(topic)
+            and statement.metric_id == metric_id
+            and statement.fiscal_year == fiscal_year
+            and statement.fiscal_period == fiscal_period
+        ]
+        return max(comparable, key=lambda statement: (statement.revision, statement.known_at)) if comparable else None
+
     def list_evaluations(self, statement_id: str, as_of: datetime) -> list[GuidanceEvaluation]:
         rows = self.connection.execute(
             f"""SELECT {EVALUATION_COLUMNS} FROM guidance_evaluations
@@ -177,6 +196,14 @@ class GuidanceRepository:
 
     def count_statements(self) -> int:
         return int(self.connection.execute("SELECT count(*) FROM guidance_statements").fetchone()[0])
+
+    def count_company_statements(self, company_id: str) -> int:
+        return int(
+            self.connection.execute(
+                "SELECT count(*) FROM guidance_statements WHERE company_id = ?",
+                [company_id],
+            ).fetchone()[0]
+        )
 
     def count_evaluations(self) -> int:
         return int(self.connection.execute("SELECT count(*) FROM guidance_evaluations").fetchone()[0])

@@ -15,6 +15,15 @@ const prompts = [
   "Enter a 20-bar Darvas breakout after 3 confirmations when volume is 1.5 times its 20-day average.",
 ]
 
+export const starterStrategies = [
+  { templateId: "sma-crossover", title: "Trend Following", thesis: "Stay invested while a faster trend remains above a slower trend." },
+  { templateId: "rsi-mean-reversion", title: "Buy The Dip", thesis: "Enter after an oversold reading and leave after recovery." },
+  { templateId: "donchian-breakout", title: "Breakout", thesis: "Enter new channel highs and leave on shorter-term weakness." },
+  { templateId: "benchmark-relative-strength", title: "Relative Strength", thesis: "Own one stock only while it outperforms a visible reference." },
+  { templateId: "macd-trend", title: "Momentum", thesis: "Follow a MACD trend and optionally add a visible trailing stop." },
+  { templateId: "relative-strength-rotation", title: "Ranked Leaders", thesis: "Rank a small explicit universe and hold its strongest members." },
+]
+
 const ruleClassName = "flex flex-wrap items-center gap-1.5 text-sm leading-8 sm:text-base"
 
 function RuleSentence({ template }: { template: StrategyTemplate }) {
@@ -37,7 +46,10 @@ function RuleSentence({ template }: { template: StrategyTemplate }) {
 export function StrategyComposer({ templates, onOpenCommand }: { templates: StrategyTemplate[]; onOpenCommand: () => void }) {
   const { state, dispatch } = useResearchWorkspace()
   const selection = state.selection
-  const quickStarts = templates.filter((template) => ["sma-crossover", "rsi-mean-reversion", "darvas-volume-breakout"].includes(template.template_id))
+  const quickStarts = starterStrategies.flatMap((starter) => {
+    const template = templates.find((item) => item.template_id === starter.templateId)
+    return template ? [{ ...starter, template }] : []
+  })
   if (selection.kind === "template") return (
     <Card className="h-full overflow-y-auto rounded-none border-0 bg-card/80 shadow-none">
       <CardHeader className="border-b"><div className="flex items-start justify-between gap-3"><div><div className="mb-2 flex gap-2"><Badge>{selection.template.family}</Badge><Badge variant="outline">{selection.origin === "catalogue" ? "Saved Configuration" : "Validated Template"}</Badge></div><CardTitle className="text-xl">{selection.instance.name}</CardTitle><CardDescription>{selection.instance.description}</CardDescription></div><Button variant="outline" size="sm" onClick={onOpenCommand}><BookOpen />Change</Button></div></CardHeader>
@@ -49,7 +61,7 @@ export function StrategyComposer({ templates, onOpenCommand }: { templates: Stra
   return (
     <Card className="h-full overflow-y-auto rounded-none border-0 bg-card/80 shadow-none">
       <CardHeader><Badge variant="outline" className="w-fit border-primary/30 text-primary"><Sparkles />Strategy Composer</Badge><CardTitle className="text-2xl">Express the idea first.</CardTitle><CardDescription>Describe the signal in plain language, or start from a validated research pattern.</CardDescription></CardHeader>
-      <CardContent className="space-y-5"><Textarea autoFocus value={instruction === "Describe your strategy here…" ? "" : instruction} onChange={(event) => dispatch({ type: "edit-instruction", instruction: event.target.value })} placeholder="Long when the 10-day SMA crosses above the 50-day SMA; exit on the reverse crossover…" className="min-h-36 resize-none border-primary/20 bg-background/70 text-base leading-7" /><div className="flex flex-wrap gap-2">{prompts.map((prompt) => <button key={prompt} type="button" onClick={() => dispatch({ type: "edit-instruction", instruction: prompt })} className="rounded-full border bg-muted/30 px-3 py-1.5 text-left text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground">{prompt}</button>)}</div><div className="flex items-center gap-3"><div className="h-px flex-1 bg-border" /><span className="font-mono text-[9px] text-muted-foreground">OR USE A VALIDATED PATTERN</span><div className="h-px flex-1 bg-border" /></div><div className="grid gap-2 sm:grid-cols-3">{quickStarts.map((template) => <button key={template.template_id} type="button" onClick={() => dispatch({ type: "select-template", template })} className="group rounded-lg border bg-background/50 p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"><div className="flex items-center justify-between"><span className="text-sm font-medium">{template.name}</span><ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" /></div><p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">{template.description}</p></button>)}</div><Button variant="outline" onClick={onOpenCommand}><BookOpen />Browse All Templates And Saved Strategies</Button></CardContent>
+      <CardContent className="space-y-5"><Textarea autoFocus value={instruction === "Describe your strategy here…" ? "" : instruction} onChange={(event) => dispatch({ type: "edit-instruction", instruction: event.target.value })} placeholder="Long when the 10-day SMA crosses above the 50-day SMA; exit on the reverse crossover…" className="min-h-36 resize-none border-primary/20 bg-background/70 text-base leading-7" /><div className="flex flex-wrap gap-2">{prompts.map((prompt) => <button key={prompt} type="button" onClick={() => dispatch({ type: "edit-instruction", instruction: prompt })} className="rounded-full border bg-muted/30 px-3 py-1.5 text-left text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground">{prompt}</button>)}</div><div className="flex items-center gap-3"><div className="h-px flex-1 bg-border" /><span className="font-mono text-[9px] text-muted-foreground">OR START WITH A RESEARCH THESIS</span><div className="h-px flex-1 bg-border" /></div><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{quickStarts.map(({ template, title, thesis }) => <button key={template.template_id} type="button" onClick={() => dispatch({ type: "select-template", template })} className="group rounded-lg border bg-background/50 p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"><div className="flex items-center justify-between gap-2"><span className="text-sm font-medium">{title}</span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" /></div><p className="mt-2 text-xs leading-5 text-muted-foreground">{thesis}</p><Badge variant="outline" className="mt-3 text-[9px]">{template.rule_graph.kind === "ranked_portfolio" ? "Small Portfolio" : template.name}</Badge></button>)}</div><Button variant="outline" onClick={onOpenCommand}><BookOpen />Browse All Templates And Saved Strategies</Button></CardContent>
     </Card>
   )
 }

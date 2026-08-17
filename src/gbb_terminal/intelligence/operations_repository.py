@@ -187,6 +187,20 @@ class OperationsRepository:
         ).fetchall()
         return [self._row_to_definition(row) for row in rows]
 
+    def latest_definition(
+        self,
+        company_id: str,
+        category,
+        definition_key: str,
+    ) -> OperatingMetricDefinition | None:
+        row = self.connection.execute(
+            f"""SELECT {DEFINITION_COLUMNS} FROM operating_metric_definitions
+                WHERE company_id = ? AND category = ? AND definition_key = ?
+                ORDER BY version DESC, known_at DESC LIMIT 1""",
+            [company_id, category.value, definition_key],
+        ).fetchone()
+        return self._row_to_definition(row) if row else None
+
     def list_observations(
         self,
         definition_id: str,
@@ -205,6 +219,16 @@ class OperationsRepository:
 
     def count_observations(self) -> int:
         return int(self.connection.execute("SELECT count(*) FROM operating_metric_observations").fetchone()[0])
+
+    def count_company_observations(self, company_id: str) -> int:
+        return int(
+            self.connection.execute(
+                """SELECT count(*) FROM operating_metric_observations o
+                   JOIN operating_metric_definitions d ON d.definition_id = o.definition_id
+                   WHERE d.company_id = ?""",
+                [company_id],
+            ).fetchone()[0]
+        )
 
     def _optional_definition(self, definition_id: str) -> OperatingMetricDefinition | None:
         row = self.connection.execute(

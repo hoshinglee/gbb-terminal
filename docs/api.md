@@ -25,10 +25,21 @@ V3 separates company-business research from V2 security-market observability. A 
 | `POST /api/v3/companies/{ticker}/relationships/{relationship_id}/overrides` | Append an evidence-backed human correction with an explicit correction note. |
 | `GET /api/v3/companies/{ticker}/operations` | Return versioned segment, exact issuer geography, and custom KPI series with optional `categories` and timezone-aware `as_of`. |
 | `GET /api/v3/companies/{ticker}/guidance` | Return immutable guidance and commitment chronology with optional statement `types`, statuses, and timezone-aware `as_of`. |
+| `GET /api/v3/companies/{ticker}/sources/health` | Return current module coverage, cached/parsed/failed document counts, and latest source-refresh diagnostics. |
+| `POST /api/v3/companies/{ticker}/sources/refresh` | Start a cancellable local SEC source-refresh job and return `202` with its job ID. |
+| `GET /api/v3/intelligence-jobs/{job_id}` | Return persisted refresh progress, terminal state, diagnostics, and result. |
+| `POST /api/v3/intelligence-jobs/{job_id}/cancel` | Request cooperative cancellation after the current document. |
+| `GET /api/v3/universes/sp500` | Return current-composition snapshot metadata, active-snapshot cache coverage, sector counts, latest refresh summary, and warnings. |
+| `POST /api/v3/universes/sp500/refresh` | Start a bounded, resumable, cancellable local company-research refresh and return `202` with its job ID. |
+| `GET /api/v3/universes/sp500/sectors/{sector_symbol}/constituents` | Return all current-snapshot members in the selected sector, top daily movers, unavailable rows, market-cap source, and timing. |
+| `GET /api/v3/universe-jobs/{job_id}` | Return persisted universe-refresh progress and terminal result. |
+| `POST /api/v3/universe-jobs/{job_id}/cancel` | Request cooperative universe-refresh cancellation. |
 
 All V3 responses include `apiVersion: "v3"`. Response fields use camelCase; internal Python domain models remain snake_case. V3 query and response schemas reject unknown fields. A missing canonical company returns `404`; invalid filters or domain inputs return `400`; invalid/unknown query parameters return `422`.
 
 Company overview provenance includes source, dataset, observation, `knownAt`, retrieval, provider status, cache state, quota, and quality warnings. Every raw financial fact includes accession, filing, frame, economic period, exact/fallback `knownAt` semantics, raw unit/value, provider context, and source metadata. Metric responses expose `asOf`, definition version, warnings, and the complete set of source fact IDs used by their non-null values. Valuation aligns each adjusted close with only SEC facts known by that US market close; non-positive multiple denominators return `nm`, while missing inputs return `unavailable`. See [Historical Point-In-Time Valuation](historical-valuation.md).
+
+Universe responses deliberately distinguish the current public membership snapshot from historical index evidence. `maxCompanies` bounds development or recovery work; `concurrency`, `maxAttempts`, `freshHours`, `force`, and `refreshSnapshot` control resilient local preparation without changing universe identity. See [S&P 500 Research Universe Cache](universe-cache.md).
 
 Earnings responses classify SEC acceptance time in New York market hours, align after-close/weekend/holiday events to the next observed session, and preserve date-only ambiguity. They distinguish normalized reported facts from calculated reactions and state that historical reactions do not predict the next event. See [Earnings Events And Reaction Analytics](earnings-intelligence.md).
 
@@ -49,16 +60,18 @@ V3 does not extend `/api/v2/stocks/{ticker}` with fundamentals. V2 remains the c
 | `GET /api/v2/strategy-templates` | Return typed built-in templates and parameter metadata. |
 | `POST /api/v2/strategy-proposals` | Translate natural language into a safe proposal and clarification list. |
 | `POST /api/v2/strategies` | Validate and deduplicate a canonical `StrategyInstance`. |
-| `POST /api/v2/research-runs` | Execute and persist an immutable, fingerprinted single-stock or ranked-portfolio run from a strategy configuration and `research_design`. |
+| `POST /api/v2/research-runs` | Execute and persist an immutable, fingerprinted single-stock or ranked-portfolio run from a strategy configuration and `research_design`; results include deterministic current target/executed state and latest transition context. |
 | `GET /api/v2/research-runs/{id}` | Load one persisted run using the same snake-case ResearchRun contract returned at creation. |
 | `POST /api/v2/parameter-searches` | Run exhaustive or seeded Optuna walk-forward search, evaluate an untouched final window, and persist the selected run. |
 | `GET /api/v2/chart-data` | Return date-aligned OHLCV, indicators, and source metadata. |
+
+`results.currentSignal` is calculated from the same close-observed target series and one-session-lag execution frame as the backtest. It includes `targetState`, `executedState`, `observationDate`, `pendingAtNextOpen`, rule values, execution timing, and `latestTransition`. React treats the field as read-only. Older persisted runs may omit it and remain backward compatible.
 
 ## V2 observability endpoints
 
 | Endpoint | Definition |
 | --- | --- |
-| `GET /api/v2/stocks/{ticker}?period=1y` | Return quote evidence and day/week/month/year OHLCV with technical indicators and provenance. |
+| `GET /api/v2/stocks/{ticker}?period=1y` | Return quote evidence and day/week/month/year OHLCV with technical indicators and provenance. Supported windows are `1mo`, `3mo`, `6mo`, `1y`, `2y`, `3y`, and `5y`; Company Intelligence uses the last two for event-market context. |
 | `GET /api/v2/market-overview` | Return SPY context, sector breadth inputs, three-month relative strength, cross-asset proxies, provider status, and generation time. |
 | `GET /api/v2/data-providers` | Return configured free-provider adapter status. |
 | `GET /api/v2/public-data/*` | Return SEC, FINRA, FRED, or OCC payloads with provider metadata and stale-cache fallback where available. |
@@ -71,6 +84,8 @@ Market overview rows are independently available or unavailable. A failed Yahoo 
 | --- | --- |
 | `GET /api/v2/options/templates` | Return grouped Recipe V2 metadata, leg roles, and structural policies. |
 | `GET /api/v2/options/chains/{ticker}?expiration=YYYY-MM-DD` | Return every provider-reported expiry and every contract for the selected current or cached expiry. |
+| `POST /api/v2/options/plans` | Turn outlook, horizon, ownership, and risk-budget inputs into a small comparison of existing validated option structures using a current/cached chain. |
+| `POST /api/v2/options/scenarios` | Value one validated option position at a user-supplied future price and date with server-side American pricing. |
 | `POST /api/v2/options/simulations` | Calculate theoretical evidence and persist an immutable, versioned local simulation run. |
 | `GET /api/v2/options/simulations` | List recent immutable simulation runs and their summary evidence. |
 | `GET /api/v2/options/simulations/{id}` | Reload one exact simulation request and result. |
@@ -80,6 +95,10 @@ Market overview rows are independently available or unavailable. A failed Yahoo 
 | `POST /api/v2/options/positions/{id}/events` | Apply and persist one validated lifecycle transition. |
 
 Option-chain responses include the selected and default expiration, all available expirations, quote provenance, quote-quality warnings, and normalized bid/ask/last/mid/spread, volume, open interest, IV, moneyness, and last-trade fields. An unavailable requested expiry is rejected rather than silently replaced.
+
+`POST /api/v2/options/plans` accepts snake-case `ticker`, `outlook`, `target_date`, optional target price/range, `shares_owned`, `acquiring_shares_acceptable`, optional `maximum_loss`/`capital_budget`, and model rate/dividend assumptions. Each response candidate embeds a complete `OptionSimulationRequest`; therefore selecting it reuses the same structural Pydantic validation as full simulation. Candidate responses include executable-side quote snapshots and never include an uncovered short call. Optional earnings context is allowed to fail independently and returns a visible warning rather than blanking the plan.
+
+`POST /api/v2/options/scenarios` accepts that position plus `scenario_price` and `scenario_date`. It does not persist a run. The response includes theoretical position/option/share value, P&L, remaining days, expiry break-even relation, aggregate Greeks, model assumptions, provenance, and beyond-expiry/stale-quote warnings. Pricing remains Python-only; React does not reproduce the option model.
 
 Legacy `/api/*` routes remain compatible during migration. `POST /api/strategy/propose` and its V2 counterpart validate provider-authored JSON, return clarification metadata, and expose only server-generated compatibility YAML to the existing backtest flow. Internal semantic keys and YAML are omitted from ordinary catalogue views; advanced export remains available through an intentional future workflow.
 
