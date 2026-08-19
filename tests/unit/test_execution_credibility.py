@@ -151,3 +151,41 @@ def test_trailing_stop_tracks_from_actual_next_open_entry():
     assert closed_trade["exitPrice"] == 116
     assert result["chart"][4]["signalPosition"] == 0
     assert result["chart"][4]["position"] == 1
+    assert result["currentSignal"]["latestTransition"] == {
+        "signalDate": index[4].strftime("%Y-%m-%d"),
+        "executionDate": index[5].strftime("%Y-%m-%d"),
+        "fromState": "LONG",
+        "toState": "CASH",
+        "executionPrice": 116.0,
+        "pendingAtNextOpen": False,
+        "reason": "Trailing stop reached at 8% from the favorable close.",
+        "ruleValues": {"price": 118.0},
+    }
+
+
+def test_current_signal_uses_the_backtest_final_signal_and_indicator_values(
+    price_history,
+    benchmark_history,
+):
+    instance = catalogue.create_instance(
+        "sma-crossover",
+        {"fast_window": 5, "slow_window": 20},
+    )
+
+    result = run_research_backtest(
+        price_history,
+        {"SPY": benchmark_history},
+        catalogue.build(instance),
+    )
+    current = result["currentSignal"]
+    latest_chart = result["chart"][-1]
+
+    expected_target = "LONG" if latest_chart["signalPosition"] > 0 else "CASH"
+    expected_executed = "LONG" if latest_chart["position"] > 0 else "CASH"
+    assert current["targetState"] == expected_target
+    assert current["executedState"] == expected_executed
+    assert current["signalPosition"] == latest_chart["signalPosition"]
+    assert current["executedPosition"] == latest_chart["position"]
+    assert current["observationDate"] == latest_chart["date"]
+    assert current["ruleValues"] == latest_chart["indicators"]
+    assert "next session open" in current["executionTiming"]

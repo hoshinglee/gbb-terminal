@@ -183,6 +183,64 @@ Implementation status: INT-09 through INT-13 storage, domain, strict APIs, evide
 - Reconcile objective outcomes through deterministic rules and label manual or interpretive assessments explicitly.
 - Keep original wording and evidence available; LLM summaries never replace source statements.
 
+## Release 0.10 — Personal Research Completion
+
+Implementation status: INT-18 public-document collection, INT-14/INT-16/INT-17 Company Intelligence consolidation, INT-15 universe caching, MKT-01 sector constituent drill-down, STR-01 Strategy Lab simplification, and OPT-01 Options Planner are implemented on the Release 0.10 branch. The integrated automated and connected-browser acceptance sweep is complete; public-launch environment stabilization remains intentionally deferred to the release-readiness checklist.
+
+### INT-14 — Canonical Company Research
+
+- Retire Stock Observatory from primary React navigation and canonicalize legacy stock URLs without losing ticker context.
+- Retain current price, daily move, browser-local watchlist navigation, market-data provenance, and reusable V2 OHLCV contracts inside Company Intelligence.
+- Keep technical-strategy and option-chain work in their purpose-built laboratories rather than duplicating them on the company overview.
+
+### INT-16 — Independent Time Controls And Event Evidence
+
+- Load every available normalized annual, quarterly, and TTM period independently from price and valuation windows.
+- Give valuation its own historical window and fixed point-in-time history/statistics.
+- Keep every supported earnings event and place a marked, focused daily candlestick/volume chart in Event Evidence with a three-year default and five-year maximum.
+
+### INT-17 — Financial Visual Semantics
+
+- Keep absolute financial values neutral and add positive/negative treatment only to comparable changes and observed market reactions.
+- Label valuation as Below History, Typical Range, Above History, Extreme vs History, NM, unavailable, or low sample without implying cheap/expensive recommendations.
+- Pair every semantic color with text or an icon and keep provider/stale/missing states distinct from deterioration.
+
+### INT-18 — Public Document Collection
+
+- Discover, cache, version, parse, and extract supported SEC filings and relevant exhibits through a resilient local refresh job.
+- Require inspectable evidence spans for persisted relationships, operating observations, and guidance statements.
+- Expose source health, diagnostics, progress, cancellation, CLI parity, and explicit failure/no-disclosure states.
+
+### INT-15 — S&P 500 Local Research Universe
+
+- Persist provider-neutral, versioned current-composition snapshots without representing them as licensed historical membership.
+- Prepare approximately three years of market, SEC financial, valuation, and earnings context through bounded resumable jobs.
+- Preserve per-company completion, partial, failed, skipped, and cancelled states with retry diagnostics and stale-cache reuse.
+- Expose matching FastAPI, CLI, and Market Pulse download/refresh controls without hard-coding membership in React.
+
+### MKT-01 — Sector Constituent Drill-Down
+
+- Keep sector selection inside Market Pulse and rank the top 20 daily gainers and losers.
+- Size treemap rectangles by calculated point-in-time market capitalization and color them by daily movement.
+- Isolate missing-cap constituents in an explicitly labelled equal-area fallback instead of inventing capitalization.
+- Preserve direct Company Intelligence navigation plus an accessible, narrow-layout table alternative.
+
+### STR-01 — Idea → Backtest → Current Signal
+
+- Offer six understandable starter theses while preserving natural-language, saved-strategy, and editable declarative-rule paths.
+- Keep the ordinary path to ticker, strategy, timeframe, and Run; move research-engine controls under Advanced Validation.
+- Return target and executed state, observation date, next-open timing, causal rule values, and latest transition from the backtest engine itself.
+- Put honest benchmark evidence, current signal, and latest trade first while retaining equity, market replay, full ledger, parameter search, and robustness evidence.
+
+### OPT-01 — Plan → Compare → Scenario
+
+- Start from outlook, horizon, optional target/range, owned shares, willingness to acquire, acceptable loss, and capital budget rather than requiring chain fluency.
+- Build only existing validated long-option, covered/cash-secured, and defined-risk vertical structures; never surface an uncovered short call in the normal planner.
+- Compare executable-side quote inputs, entry debit/credit, capital and gross collateral, terminal risk/reward shape, break-even, expiry/strikes, and aggregate Greeks without claiming an optimum.
+- Price future price/date scenarios only in Python and preserve explicit model, IV, rate, dividend, quote-quality, and beyond-expiry warnings.
+- Keep the detailed builder, immutable simulations, and paper lifecycle backward compatible and optional after planning.
+- Show source-backed historical earnings movement and separately labelled selected-expiry ATM straddle context without treating the difference as mispricing.
+
 ## Cross-Release Usefulness Enhancements
 
 1. Compare saved stock and option research runs in one project workspace.

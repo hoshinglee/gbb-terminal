@@ -6,15 +6,16 @@ GBB Terminal is an educational research workbench, not an execution system, brok
 
 ## Runtime layout
 
-- `app/web/`: Vite, React, TypeScript, shadcn/ui source for all five research canvases.
+- `app/web/`: Vite, React, TypeScript, shadcn/ui source for all four research canvases.
 - `app/static/react/`: ignored production build output served by FastAPI when present.
 - `app/index.html` and `app/static/*.js`: retained vanilla migration fallback; primary navigation no longer depends on it.
 - `src/gbb_terminal/api/`: FastAPI application, schemas, and route groups.
 - `src/gbb_terminal/strategy/`: strategy contracts, templates, safe factory, and indicators.
 - `src/gbb_terminal/backtesting/`: signal execution, costs, metrics, parameter search, and portfolio ranking. Option-specific scenario paths remain under `options/`.
-- `src/gbb_terminal/options/`: option contracts, American pricing, scenario simulation, strategy templates, and lifecycle transitions.
+- `src/gbb_terminal/options/`: option contracts, deterministic planner selection, American pricing, scenario simulation, strategy templates, and lifecycle transitions.
 - `src/gbb_terminal/intelligence/`: canonical company identity, financial/earnings analysis, versioned evidence documents and spans, and source-backed business intelligence.
 - `src/gbb_terminal/market_data/`: provider-neutral service and public provider adapters.
+- `src/gbb_terminal/universe/`: current research-universe snapshots, resilient bulk preparation, and sector constituent reads.
 - `src/gbb_terminal/storage/`: DuckDB system of record.
 - `src/gbb_terminal/llm/`: optional language-model translation only.
 - `src/gbb_terminal/observability/`: application logging.
@@ -33,9 +34,11 @@ The root route selects `app/static/react/index.html` only when a production fron
 5. Immutable research or ledger records are persisted.
 6. The API returns data plus assumptions and provenance for browser rendering.
 
-The React Strategy Lab keeps one reducer-backed research workspace. Natural-language, template, and catalogue selections are mutually exclusive, preventing stale template parameters from surviving a selection change. The React Option Lab keeps position-draft, chain-snapshot, simulation, and persisted-ledger state separate so editing an assumption cannot silently mutate an earlier journal state. Stock Observatory separates selected symbol/window, OHLCV evidence, and current option-chain context. Market Pulse accepts partial rows so one public-symbol outage cannot erase every available sector or macro observation. Company Intelligence loads identity, normalized financials, valuation, earnings, relationships, operations, and guidance into separate typed response states with `Promise.allSettled`, so one unavailable dataset does not erase successful evidence. Lightweight Charts owns market and event series; accessible SVG owns numeric option scenarios and the one-hop network; shadcn/ui owns interaction components, progressive disclosure, and evidence navigation.
+The React Strategy Lab keeps one reducer-backed research workspace. Natural-language, template, and catalogue selections are mutually exclusive, preventing stale template parameters from surviving a selection change. Its Current Signal panel renders the final target/executed state, causal indicator values, and latest transition returned by the same Python signal and next-open execution frame as the historical run; there is no browser signal calculator. The React Option Lab keeps planner inputs/comparison/scenario, detailed position draft, chain snapshot, immutable simulation, and persisted ledger state separate. A candidate embeds the existing validated simulation request, and the server alone prices the primary future price/date scenario. Editing a draft cannot silently mutate an earlier comparison, simulation, or journal state. Market Pulse accepts partial rows so one public-symbol outage cannot erase every available sector or macro observation, and its separate universe job prepares current constituent research without converting membership into historical backtest evidence. Company Intelligence is the canonical individual-stock canvas and composes ticker-based quote/OHLCV evidence with company-based identity, annual/quarterly/TTM metrics, valuation, earnings, relationships, operations, guidance, and source health through separate typed states and `Promise.allSettled`. One unavailable dataset therefore does not erase successful evidence. Lightweight Charts owns event and valuation series; accessible SVG owns numeric option scenarios, constituent treemaps, and the one-hop network; shadcn/ui owns interaction components, progressive disclosure, and evidence navigation.
 
-Cross-lab links carry only a validated ticker in the URL. Strategy rules, option legs, model assumptions, and research results are never encoded into navigation state. The Stock watchlist is browser-local navigation metadata and is not an authenticated portfolio or DuckDB research record.
+`options/planner.py` is a deterministic domain adapter around the existing engines. It selects a provider-reported expiry, chooses chain contracts through declared strike rules, applies ask-to-buy/bid-to-sell quote direction, validates every candidate as `OptionSimulationRequest`, and derives comparison/scenario evidence from `simulation.py`. It never generates a new strategy class, invokes an LLM, or permits an uncovered short-call candidate. `api/routes/options.py` owns only provider orchestration and optional Company Intelligence enrichment; earnings-provider failure is isolated as a plan warning.
+
+Cross-lab links carry only a validated ticker in the URL. Strategy rules, option legs, model assumptions, and research results are never encoded into navigation state. The Company Intelligence watchlist is browser-local navigation metadata and is not an authenticated portfolio or DuckDB research record. Legacy `lab=stock` URLs canonicalize to `lab=intelligence` without copying or mutating research state.
 
 Company Intelligence has a separate identity boundary. Price and option requests continue using normalized tickers, while business-data consumers resolve that security through `CompanyIdentityService` into a stable `company_id`. CIK identifies the SEC filer; ticker/exchange mappings carry validity periods so ticker changes, alternate share classes, and delistings cannot rewrite company history. Evidence documents then attach to the durable company rather than a mutable ticker. See [Company Intelligence](company-intelligence.md).
 

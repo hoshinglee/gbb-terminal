@@ -18,6 +18,12 @@ class PositionSide(StrEnum):
     SHORT = "short"
 
 
+class OptionOutlook(StrEnum):
+    BULLISH = "bullish"
+    BEARISH = "bearish"
+    NEUTRAL = "neutral"
+
+
 class PositionKind(StrEnum):
     CUSTOM = "custom"
     LONG_CALL = "long_call"
@@ -121,6 +127,41 @@ class OptionSimulationRequest(BaseModel):
                 raise ValueError("A conversion requires exactly 100 shares for every put/call contract pair.")
             if len({leg.strike for leg in self.legs}) != 1:
                 raise ValueError("A conversion requires the put and call to use the same strike.")
+        return self
+
+
+class OptionPlanRequest(BaseModel):
+    ticker: str = Field(min_length=1, max_length=12)
+    outlook: OptionOutlook
+    target_date: date
+    target_price: float | None = Field(default=None, gt=0)
+    target_price_low: float | None = Field(default=None, gt=0)
+    target_price_high: float | None = Field(default=None, gt=0)
+    shares_owned: int = Field(default=0, ge=0)
+    acquiring_shares_acceptable: bool = False
+    maximum_loss: float | None = Field(default=None, gt=0)
+    capital_budget: float | None = Field(default=None, gt=0)
+    interest_rate: float = Field(default=0.04, ge=-0.05, le=0.5)
+    dividend_yield: float = Field(default=0.0, ge=0, le=0.5)
+
+    @model_validator(mode="after")
+    def validate_research_horizon(self) -> "OptionPlanRequest":
+        if self.target_date < date.today():
+            raise ValueError("The option-planning horizon cannot be in the past.")
+        if self.target_price_low is not None and self.target_price_high is not None and self.target_price_low > self.target_price_high:
+            raise ValueError("Target price range minimum cannot exceed its maximum.")
+        return self
+
+
+class OptionScenarioRequest(BaseModel):
+    position: OptionSimulationRequest
+    scenario_price: float = Field(gt=0)
+    scenario_date: date
+
+    @model_validator(mode="after")
+    def scenario_is_not_historical(self) -> "OptionScenarioRequest":
+        if self.scenario_date < date.today():
+            raise ValueError("The option scenario date cannot be in the past.")
         return self
 
 

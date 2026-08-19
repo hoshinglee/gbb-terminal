@@ -9,7 +9,7 @@ flowchart LR
     Investor[Hobbyist Investor]
 
     subgraph Browser[Browser]
-        ReactUI[React Research App<br/>Strategy + Options + Stock + Market + Company Intelligence]
+        ReactUI[React Research App<br/>Strategy + Options + Market + Company Intelligence]
         LegacyUI[Explicit Vanilla Migration Fallback]
         Charts[Lightweight Charts]
         Scenarios[Accessible Scenario SVG]
@@ -143,28 +143,39 @@ flowchart TB
 
 The reducer clears incompatible selection data whenever the user switches among an instruction, template, or saved strategy. Canvas layout preference is presentation-only browser state and does not enter strategy identity or research reproducibility.
 
-## Frontend Option Lifecycle Canvas
+## Frontend Options Planner And Lifecycle Canvas
 
 ```mermaid
 flowchart TB
-    subgraph Build[Build Position]
-        Recipes[Core Position Recipes]
-        Legs[Editable Leg Cards]
-        Chain[Current Chain Side Sheet]
-        Assumptions[Model Assumptions Side Sheet]
-        Recipes --> Legs
-        Chain -->|Fill selected leg only| Legs
-        Assumptions --> Draft
-        Legs --> Draft[Typed Position Draft]
+    subgraph Plan["Plan → Compare → Scenario"]
+        Intent["Ticker + Outlook + Horizon + Risk Budget"]
+        Planner["Deterministic Python Planner"]
+        Compare["Validated Structure Comparison"]
+        Scenario["Server-Priced Price/Date Scenario"]
+        Earnings["Optional Earnings Event Context"]
+        Intent --> Planner --> Compare --> Scenario
+        Earnings --> Compare
     end
 
-    subgraph Explore[Explore Evidence]
-        Simulate[American-Model Simulation]
-        Run[Immutable Simulation Run]
-        Payoff[Expiry Payoff]
-        Surface[Price × Time Slices]
-        Paths[Underlying + Position P&L Paths]
-        Greeks[Scaled Greeks + Probability]
+    subgraph Build["Advanced Detailed Builder"]
+        Recipes["Core Position Recipes"]
+        Legs["Editable Leg Cards"]
+        Chain["Current Chain Side Sheet"]
+        Assumptions["Model Assumptions Side Sheet"]
+        Draft["Typed Position Draft"]
+        Compare -->|"Preserve plan and load candidate"| Draft
+        Recipes --> Legs --> Draft
+        Chain -->|"Fill selected leg only"| Legs
+        Assumptions --> Draft
+    end
+
+    subgraph Explore["Optional Full Simulation"]
+        Simulate["American-Model Simulation"]
+        Run["Immutable Simulation Run"]
+        Payoff["Expiry Payoff"]
+        Surface["Price × Time Slices"]
+        Paths["Underlying + Position P&L Paths"]
+        Greeks["Scaled Greeks + Probability"]
         Draft --> Simulate
         Simulate --> Run
         Simulate --> Payoff
@@ -173,11 +184,11 @@ flowchart TB
         Simulate --> Greeks
     end
 
-    subgraph Journal[Journal Lifecycle]
-        Position[Persisted Paper Position]
-        Decision{Validated Event}
-        State[Complete State After Event]
-        Ledger[Immutable Event Timeline]
+    subgraph Journal["Optional Paper Lifecycle"]
+        Position["Persisted Paper Position"]
+        Decision{"Validated Event"}
+        State["Complete State After Event"]
+        Ledger["Immutable Event Timeline"]
         Run --> Position
         Position --> Decision
         Decision --> State
@@ -185,8 +196,11 @@ flowchart TB
         State --> Decision
     end
 
-    Yahoo[Yahoo Current Chain] --> Chain
-    OptionAPI[FastAPI Option Routes] --> Simulate
+    Yahoo["Yahoo Current Chain"] --> Planner
+    Yahoo --> Chain
+    OptionAPI["FastAPI Option Routes"] --> Planner
+    OptionAPI --> Scenario
+    OptionAPI --> Simulate
     OptionAPI --> Position
     OptionAPI --> Decision
     Run --> DuckDB[(DuckDB)]
@@ -194,9 +208,9 @@ flowchart TB
     Ledger --> DuckDB
 ```
 
-Simulation state and persisted ledger state are intentionally separate. Editing a new draft invalidates stale scenario evidence but never rewrites an earlier paper-position event. The browser sends only validated JSON option contracts; all pricing, collateral, cash, share, and realized-P&L transitions remain in Python.
+Planner comparison, primary scenario, detailed draft, full simulation, and persisted ledger state are intentionally separate. Selecting a candidate copies its already validated request into the builder without deleting the comparison. Editing a new draft invalidates stale full-simulation evidence but never rewrites an earlier paper-position event. The browser sends only validated JSON option contracts; all selection rules, pricing, collateral, cash, share, and realized-P&L transitions remain in Python.
 
-## Option Lifecycle Request Sequence
+## Options Planner And Lifecycle Request Sequence
 
 ```mermaid
 sequenceDiagram
@@ -204,21 +218,35 @@ sequenceDiagram
     participant UI as React Option Lab
     participant API as FastAPI Option Routes
     participant Data as MarketData Service
-    participant Engine as Option Pricing/Lifecycle
+    participant Engine as Option Planner/Pricing/Lifecycle
+    participant Intel as Company Intelligence
     participant DB as DuckDB
     participant Yahoo as Yahoo Finance
 
-    User->>UI: Choose recipe and selected leg
-    UI->>API: GET chain for selected expiry
+    User->>UI: Enter outlook, horizon, ownership, and risk budget
+    UI->>API: POST option plan
     API->>Data: Request newest snapshot
     Data->>DB: Check daily/fresh cache
     alt Cached snapshot available
         DB-->>Data: Chain plus provenance
     else Provider required
-        Data->>Yahoo: Fetch selected current expiry
+        Data->>Yahoo: Fetch current expiry list and selected expiry
         Yahoo-->>Data: All expiries and all selected-date contracts
         Data->>DB: Cache ticker/expiry snapshot independently
     end
+    API->>Intel: Request optional historical earnings context
+    Intel-->>API: Context or isolated warning
+    API->>Engine: Build existing validated structures
+    Engine-->>API: Cost, risk, Greeks, quotes, trade-offs
+    API-->>UI: Side-by-side comparison and provenance
+    User->>UI: Ask what-if price and date
+    UI->>API: POST option scenario
+    API->>Engine: Server-side American valuation
+    Engine-->>API: Value, P&L, break-even relation, Greeks, warnings
+    API-->>UI: Modeled scenario plus provenance
+    opt Detailed research
+    User->>UI: Load candidate into detailed builder
+    UI->>API: GET chain for selected expiry when editing
     API-->>UI: Current/cached chain and warnings
     User->>UI: Simulate exact draft
     UI->>API: POST simulation
@@ -236,44 +264,39 @@ sequenceDiagram
     API->>Engine: Validate and calculate next complete state
     API->>DB: Transactionally append event and update current state
     DB-->>UI: Reconciled ledger
+    end
 ```
 
 ## Frontend Observability Canvases
 
 ```mermaid
 flowchart LR
-    subgraph Stock[React Stock Observatory]
-        StockContext[Ticker + Window]
-        Watchlist[Browser-Local Watchlist]
-        Quote[Quote + Provenance]
-        Replay[Day/Week/Month/Year OHLCV<br/>Volume + RSI + MACD]
-        OptionContext[Expiry-Aware Current Chain]
-        StockContext --> Quote
-        StockContext --> Replay
-        StockContext --> OptionContext
-        Watchlist --> StockContext
-    end
-
     subgraph Market[React Market Pulse]
         Benchmark[SPY Context]
         Breadth[Sector Breadth]
         Relative[3M Relative Strength]
         Macro[Cross-Asset Proxies]
         Providers[Provider Readiness]
+        Universe[Current S&P 500 Snapshot<br/>Coverage + Refresh Job]
+        Constituents[Selected Sector Constituents]
+        Treemap[Market-Cap Treemap<br/>Equal-Area Missing-Cap Region]
         Benchmark --> Breadth
         Benchmark --> Relative
+        Universe --> Constituents --> Treemap
     end
 
     subgraph Intelligence[React Company Intelligence]
-        CompanyContext[Canonical Company Context]
-        Fundamentals[Normalized TTM Financials]
-        Valuation[Point-In-Time Valuation]
+        CompanyContext[Canonical Company + Security Context]
+        Overview[Quote + Day Move + Watchlist + Provenance]
+        Fundamentals[All Annual + Quarterly + TTM History]
+        Valuation[Independent Historical Valuation Window]
         Events[Earnings Event History]
-        EventDetail[Selected Event Evidence + Reaction]
+        EventDetail[Selected Event Evidence<br/>3Y/5Y Focused Candles + Volume]
         Network[Persisted Business Network]
         Operations[Segments + Geography + KPIs]
         Guidance[Guidance + Commitment Timeline]
-        Sources[Exact Source Evidence Dialogs]
+        Sources[Source Health + Exact Evidence]
+        CompanyContext --> Overview
         CompanyContext --> Fundamentals
         CompanyContext --> Valuation
         CompanyContext --> Events --> EventDetail
@@ -282,14 +305,15 @@ flowchart LR
         CompanyContext --> Guidance --> Sources
     end
 
-    StockAPI[GET /api/v2/stocks/:ticker] --> Quote
-    StockAPI --> Replay
-    ChainAPI[GET /api/v2/options/chains/:ticker] --> OptionContext
+    StockAPI[GET /api/v2/stocks/:ticker<br/>3Y default / 5Y maximum in Events] --> Overview
+    StockAPI --> EventDetail
     MarketAPI[GET /api/v2/market-overview] --> Benchmark
     MarketAPI --> Breadth
     MarketAPI --> Relative
     MarketAPI --> Macro
     MarketAPI --> Providers
+    UniverseAPI[GET/POST /api/v3/universes/sp500/*] --> Universe
+    UniverseAPI --> Constituents
     IntelligenceAPI[GET /api/v3/companies/:ticker/*] --> CompanyContext
     IntelligenceAPI --> Fundamentals
     IntelligenceAPI --> Valuation
@@ -297,22 +321,23 @@ flowchart LR
     IntelligenceAPI --> Network
     IntelligenceAPI --> Operations
     IntelligenceAPI --> Guidance
-    DuckDB[(DuckDB Cache)] --> StockAPI
-    DuckDB --> ChainAPI
+    DuckDB[(DuckDB Local System Of Record)] --> StockAPI
     DuckDB --> MarketAPI
     DuckDB --> IntelligenceAPI
+    DuckDB --> UniverseAPI
     Yahoo[Yahoo Finance] --> StockAPI
-    Yahoo --> ChainAPI
     Yahoo --> MarketAPI
     Yahoo --> IntelligenceAPI
+    Yahoo --> UniverseAPI
     SEC[SEC EDGAR] --> IntelligenceAPI
-    Relative -->|Validated ticker link| StockContext
-    StockContext -->|Ticker only| Strategy[Strategy Lab]
-    StockContext -->|Ticker only| Options[Option Lab]
-    StockContext -->|Ticker only| CompanyContext
+    SEC --> UniverseAPI
+    Wikipedia[Current Public Composition Snapshot] --> UniverseAPI
+    Constituents -->|Validated company ticker| CompanyContext
+    CompanyContext -->|Ticker only| Strategy[Strategy Lab]
+    CompanyContext -->|Ticker only| Options[Option Lab]
 ```
 
-Stock and market state never becomes strategy identity or option-position state. Cross-lab navigation carries only a validated symbol. Market overview rows fail independently, so an unavailable ETF or macro proxy remains visible with warnings while successful current or cached rows continue rendering.
+Company and market state never becomes strategy identity or option-position state. Cross-lab navigation carries only a validated symbol. Company datasets and Market Pulse rows fail independently, so an unavailable provider does not erase successful current, cached, or source-backed evidence.
 
 ## Research Run And Data Retrieval
 
@@ -377,7 +402,12 @@ Provider extraction does not choose business metrics. The intelligence engine ca
 
 ```mermaid
 flowchart LR
-    Public[Permitted Public Document] --> Document[Versioned Evidence Document<br/>source + external ID + content hash]
+    Company[Canonical Company + CIK] --> Discovery[SEC Submission + Filing Index Discovery]
+    Discovery --> Job[(Local Refresh Job<br/>progress + cancellation)]
+    Discovery --> Download[Missing / Forced Archive Download]
+    Download --> Raw[(Verified Raw Document Content)]
+    Raw --> Parser[Deterministic HTML / iXBRL Parser]
+    Parser --> Document[Versioned Evidence Document<br/>source + external ID + content hash]
     Document --> Span[Exact Evidence Span<br/>location + extraction method]
     Span --> Relationship[Relationship Observation]
     Span --> Definition[Operating Definition]
@@ -397,6 +427,9 @@ flowchart LR
     Series --> OperationsUI[Compatible Mix / Growth + Reorganization]
     Timeline --> GuidanceUI[Original Wording + Outcome Method]
     Span --> SourceUI[Exact Source Dialog]
+    Job --> SourcesUI[Sources Health + Refresh Diagnostics]
+    Parser --> Diagnostics[No Disclosure / Provider / Format / Parse / Extraction State]
+    Diagnostics --> SourcesUI
 
     AsOf{known_at and as_of boundary} --> Graph
     AsOf --> OperationsUI
@@ -516,6 +549,56 @@ erDiagram
         boolean cancel_requested
     }
 
+    UNIVERSE_SNAPSHOTS {
+        string snapshot_id PK
+        string universe_key
+        int version
+        date as_of_date
+        timestamp known_at
+        string content_hash
+        int constituent_count
+    }
+
+    UNIVERSE_CONSTITUENTS {
+        string snapshot_id PK
+        string symbol PK
+        string company_id FK
+        string cik
+        string sector
+        string sub_industry
+    }
+
+    UNIVERSE_REFRESH_RUNS {
+        string refresh_id PK
+        string snapshot_id FK
+        string status
+        json request
+        int completed_count
+        int partial_count
+        int failed_count
+    }
+
+    UNIVERSE_REFRESH_ITEMS {
+        string item_id PK
+        string refresh_id FK
+        string symbol
+        string company_id FK
+        string status
+        string stage
+        string error
+    }
+
+    UNIVERSE_COMPANY_CACHE {
+        string universe_key PK
+        string symbol PK
+        string snapshot_id FK
+        string company_id FK
+        double daily_change_percent
+        double market_cap
+        string market_cap_source
+        string status
+    }
+
     COMPANIES {
         string company_id PK
         string cik UK
@@ -562,6 +645,35 @@ erDiagram
         timestamp known_at
         string content_hash
         string parse_status
+    }
+
+    EVIDENCE_DOCUMENT_CONTENTS {
+        string document_id PK
+        blob content
+        string parser_version
+        timestamp stored_at
+        timestamp parsed_at
+    }
+
+    INTELLIGENCE_REFRESH_RUNS {
+        string refresh_id PK
+        string company_id FK
+        string ticker
+        string status
+        json request
+        json coverage
+        json warnings
+        timestamp started_at
+        timestamp completed_at
+    }
+
+    INTELLIGENCE_REFRESH_ITEMS {
+        string item_id PK
+        string refresh_id FK
+        string external_id
+        string status
+        string document_id FK
+        string reason
     }
 
     EVIDENCE_SPANS {
@@ -646,7 +758,11 @@ erDiagram
     COMPANIES ||--o{ COMPANY_SECURITY_MAPPINGS : identifies
     COMPANIES ||--o{ SEC_FINANCIAL_FACTS : reports
     COMPANIES ||--o{ EVIDENCE_DOCUMENTS : publishes
+    COMPANIES ||--o{ INTELLIGENCE_REFRESH_RUNS : refreshes
     EVIDENCE_DOCUMENTS ||--o{ EVIDENCE_SPANS : contains
+    EVIDENCE_DOCUMENTS ||--|| EVIDENCE_DOCUMENT_CONTENTS : stores
+    INTELLIGENCE_REFRESH_RUNS ||--o{ INTELLIGENCE_REFRESH_ITEMS : diagnoses
+    EVIDENCE_DOCUMENTS o|--o{ INTELLIGENCE_REFRESH_ITEMS : reports
     EVIDENCE_SPANS ||--o{ EVIDENCE_CLAIM_LINKS : supports
     COMPANIES ||--o{ BUSINESS_RELATIONSHIPS : discloses
     BUSINESS_RELATIONSHIPS ||--o{ RELATIONSHIP_OBSERVATIONS : accumulates
@@ -655,6 +771,12 @@ erDiagram
     OPERATING_METRIC_DEFINITIONS ||--o{ OPERATING_METRIC_OBSERVATIONS : measures
     COMPANIES ||--o{ GUIDANCE_STATEMENTS : issues
     GUIDANCE_STATEMENTS ||--o{ GUIDANCE_EVALUATIONS : evaluates
+    UNIVERSE_SNAPSHOTS ||--o{ UNIVERSE_CONSTITUENTS : contains
+    UNIVERSE_SNAPSHOTS ||--o{ UNIVERSE_REFRESH_RUNS : prepares
+    UNIVERSE_REFRESH_RUNS ||--o{ UNIVERSE_REFRESH_ITEMS : diagnoses
+    UNIVERSE_SNAPSHOTS ||--o{ UNIVERSE_COMPANY_CACHE : scopes
+    COMPANIES o|--o{ UNIVERSE_CONSTITUENTS : identifies
+    COMPANIES o|--o{ UNIVERSE_COMPANY_CACHE : enriches
 ```
 
 The relationships shown are logical domain relationships; DuckDB does not currently declare every one as a foreign-key constraint. Cache tables are intentionally independent so provider outages and schema evolution do not block research records.
@@ -678,4 +800,4 @@ flowchart LR
     LegacyRoute --> Legacy
 ```
 
-When the React build exists, `/` serves Strategy Lab while `/?lab=options`, `/?lab=stock`, `/?lab=market`, and `/?lab=intelligence` select the other lazy-loaded canvases from the same generated application. Without generated assets, `/` falls back to the vanilla application. `/legacy` remains available until connected-browser parity gates allow explicit retirement.
+When the React build exists, `/` serves Strategy Lab while `/?lab=options`, `/?lab=market`, and `/?lab=intelligence` select the other lazy-loaded canvases from the same generated application. A legacy `/?lab=stock&ticker=...` URL is replaced with the Company Intelligence route while retaining the ticker. Without generated assets, `/` falls back to the vanilla application. `/legacy` remains available until connected-browser parity gates allow explicit retirement.

@@ -6,6 +6,8 @@ import type {
   MarketOverviewResponse,
   OptionChainResponse,
   OptionLifecycleEvent,
+  OptionPlanRequest,
+  OptionPlanResult,
   OptionPositionCreate,
   OptionPositionResponse,
   OptionPositionState,
@@ -14,6 +16,8 @@ import type {
   OptionSimulationResult,
   OptionSimulationRunDetail,
   OptionSimulationRunSummary,
+  OptionScenarioRequest,
+  OptionScenarioResult,
   ParameterSearchResponse,
   ParameterValue,
   PricePoint,
@@ -28,9 +32,14 @@ import type {
   EarningsHistoryResponse,
   HistoricalValuationResponse,
   GuidanceHistoryResponse,
+  IntelligenceSourceHealthResponse,
+  LocalIntelligenceJob,
   OperatingIntelligenceResponse,
   RelationshipHistoryResponse,
   RelationshipNetworkResponse,
+  LocalUniverseJob,
+  SectorConstituentSnapshot,
+  UniverseStatusResponse,
 } from "@/lib/types"
 
 export class ApiError extends Error {
@@ -159,6 +168,20 @@ export function loadOptionChain(ticker: string, expiration?: string) {
   return request<OptionChainResponse>(`/api/v2/options/chains/${encodeURIComponent(ticker.trim().toUpperCase())}${parameters}`)
 }
 
+export function planOptionPositions(plan: OptionPlanRequest) {
+  return request<OptionPlanResult>("/api/v2/options/plans", {
+    method: "POST",
+    body: JSON.stringify(plan),
+  })
+}
+
+export function runOptionScenario(scenario: OptionScenarioRequest) {
+  return request<OptionScenarioResult>("/api/v2/options/scenarios", {
+    method: "POST",
+    body: JSON.stringify(scenario),
+  })
+}
+
 export function simulateOptionPosition(position: OptionSimulationRequest) {
   return request<OptionSimulationResult>("/api/v2/options/simulations", {
     method: "POST",
@@ -233,4 +256,63 @@ export function loadCompanyOperations(ticker: string) {
 
 export function loadCompanyGuidance(ticker: string) {
   return request<GuidanceHistoryResponse>(`/api/v3/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/guidance`)
+}
+
+export function loadCompanySourceHealth(ticker: string) {
+  return request<IntelligenceSourceHealthResponse>(`/api/v3/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/sources/health`)
+}
+
+export function refreshCompanySources(ticker: string) {
+  return request<{ apiVersion: "v3"; jobId: string; status: "running" }>(
+    `/api/v3/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/sources/refresh`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    },
+  )
+}
+
+export function loadIntelligenceJob(jobId: string) {
+  return request<LocalIntelligenceJob>(`/api/v3/intelligence-jobs/${encodeURIComponent(jobId)}`)
+}
+
+export function cancelIntelligenceJob(jobId: string) {
+  return request<{ jobId: string; cancelRequested: boolean }>(
+    `/api/v3/intelligence-jobs/${encodeURIComponent(jobId)}/cancel`,
+    { method: "POST" },
+  )
+}
+
+export function loadSp500UniverseStatus() {
+  return request<UniverseStatusResponse>("/api/v3/universes/sp500")
+}
+
+export function refreshSp500Universe(options: { force?: boolean; refreshSnapshot?: boolean } = {}) {
+  return request<{ apiVersion: "v3"; jobId: string; status: "running" }>(
+    "/api/v3/universes/sp500/refresh",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        force: options.force ?? false,
+        refreshSnapshot: options.refreshSnapshot ?? true,
+      }),
+    },
+  )
+}
+
+export function loadUniverseJob(jobId: string) {
+  return request<LocalUniverseJob>(`/api/v3/universe-jobs/${encodeURIComponent(jobId)}`)
+}
+
+export function cancelUniverseJob(jobId: string) {
+  return request<{ jobId: string; cancelRequested: boolean }>(
+    `/api/v3/universe-jobs/${encodeURIComponent(jobId)}/cancel`,
+    { method: "POST" },
+  )
+}
+
+export function loadSectorConstituents(sectorSymbol: string) {
+  return request<SectorConstituentSnapshot>(
+    `/api/v3/universes/sp500/sectors/${encodeURIComponent(sectorSymbol.trim().toUpperCase())}/constituents`,
+  )
 }

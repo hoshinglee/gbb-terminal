@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
 
-import { StrategyComposer } from "@/features/strategy-lab/strategy-composer"
+import { starterStrategies, StrategyComposer } from "@/features/strategy-lab/strategy-composer"
 import { ResearchWorkspaceProvider, useResearchWorkspace } from "@/features/strategy-lab/workspace"
 import type { CatalogueStrategy, StrategyTemplate } from "@/lib/types"
 
@@ -66,6 +66,30 @@ function Harness() {
 }
 
 describe("StrategyComposer selection state", () => {
+  it("offers six understandable starter theses", () => {
+    expect(starterStrategies).toHaveLength(6)
+    expect(starterStrategies.map((starter) => starter.title)).toEqual([
+      "Trend Following",
+      "Buy The Dip",
+      "Breakout",
+      "Relative Strength",
+      "Momentum",
+      "Ranked Leaders",
+    ])
+  })
+
+  it("loads a starter thesis from the keyboard", async () => {
+    const user = userEvent.setup()
+    render(<ResearchWorkspaceProvider><Harness /></ResearchWorkspaceProvider>)
+    const starter = screen.getByRole("button", { name: /Trend Following/ })
+
+    starter.focus()
+    await user.keyboard("{Enter}")
+
+    expect(screen.getByText("SMA Crossover")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Edit Fast SMA/ })).toBeInTheDocument()
+  })
+
   it("replaces template parameters when a catalogue strategy is loaded", async () => {
     const user = userEvent.setup()
     render(<ResearchWorkspaceProvider><Harness /></ResearchWorkspaceProvider>)

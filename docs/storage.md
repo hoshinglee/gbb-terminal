@@ -22,6 +22,14 @@ Price-history writes merge observations by `(symbol, price_date)` instead of del
 | `evidence_documents` | Versioned public documents with source identity, publication-aware timing, content fingerprint, provenance, and parse state. |
 | `evidence_spans` | Independently retrievable exact source text with document location and extraction metadata. |
 | `evidence_claim_links` | Additive support, context, or contradiction links between typed claims and source spans. |
+| `evidence_document_contents` | Verified raw source bytes, parser version, storage time, and successful parse time for each immutable evidence version. |
+| `intelligence_refresh_runs` | SEC refresh request, terminal state, source/module counts, coverage, warnings, and timestamps. |
+| `intelligence_refresh_items` | Per-document unchanged, parsed, unsupported, failed, extraction-failed, or no-disclosure diagnostics. |
+| `universe_snapshots` | Versioned current-composition source snapshots with content hash, timing, provenance, and limitations. |
+| `universe_constituents` | Snapshot-specific ticker, CIK, GICS classification, source metadata, and optional stable company link. |
+| `universe_refresh_runs` | Bulk profile request, coverage counts, terminal state, warnings, and timestamps. |
+| `universe_refresh_items` | Per-company queued/running/completed/partial/failed/skipped/cancelled state and prepared-data counts. |
+| `universe_company_cache` | Current local price, daily move, point-in-time market cap, source timing, quality warnings, and profile coverage. |
 | `business_relationships` | Stable economic edges keyed by source company, normalized counterparty, type, and direction. |
 | `relationship_observations` | Append-only resolution, exposure, validity, confidence, extraction, and override history for relationship edges. |
 | `operating_metric_definitions` | Versioned segment, geography, and KPI definitions with reporting basis and evidence. |
@@ -54,6 +62,14 @@ Schema version 11 adds `business_relationships` and `relationship_observations`.
 Schema version 12 adds `operating_metric_definitions` and `operating_metric_observations`. Definition changes append explicit versions and supersession links; observations retain exact fiscal period, unit, source timing, and evidence.
 
 Schema version 13 adds `guidance_statements` and `guidance_evaluations`. Original wording and revisions are immutable, while outcomes and withdrawals append auditable evaluation records.
+
+Schema version 14 adds raw evidence content plus Company Intelligence refresh runs and per-document diagnostics. It does not rewrite existing evidence or structured claims.
+
+Schema version 15 adds versioned research-universe snapshots, snapshot membership, resilient bulk-run diagnostics, and the local company-research cache. Cache coverage is read against the active snapshot; removed constituents do not inflate current counts, while their existing company and research history remains intact. Current membership is never written into historical research-run universe identity.
+
+Schema version 16 removes relationship observations produced by the superseded `deterministic_relationship_rules_v2` list grammar, which could classify product categories as counterparties. It removes only those deterministic observations and orphaned edges; source documents, evidence spans, human overrides, and unrelated relationship versions remain intact. The stricter v3 extractor accepts an unambiguous registered company or a disclosed legal-entity name before creating a list-derived edge.
+
+SEC financial facts are inserted and acceptance metadata is enriched through set-based DuckDB operations. This keeps large public Company Facts payloads append-safe without accumulating one transaction version per row.
 
 Runtime `data/` is excluded from Git.
 

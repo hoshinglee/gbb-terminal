@@ -40,8 +40,16 @@ def test_existing_database_migrates_without_losing_prices(tmp_path):
             "operating_metric_observations",
             "guidance_statements",
             "guidance_evaluations",
+            "evidence_document_contents",
+            "intelligence_refresh_runs",
+            "intelligence_refresh_items",
+            "universe_snapshots",
+            "universe_constituents",
+            "universe_refresh_runs",
+            "universe_refresh_items",
+            "universe_company_cache",
         } <= tables
-    assert store.connection.execute("SELECT max(version) FROM schema_migrations").fetchone()[0] == 13
+    assert store.connection.execute("SELECT max(version) FROM schema_migrations").fetchone()[0] == 16
     research_columns = {row[1] for row in store.connection.execute("PRAGMA table_info('research_runs')").fetchall()}
     assert {"strategy_key", "reproducibility_key"} <= research_columns
     assert "option_simulation_runs" in tables
@@ -166,6 +174,10 @@ def test_local_job_records_progress_result_and_cancellation(tmp_path):
     assert store.get_job(completed_id)["progress"] == 0.5
     store.update_job(completed_id, result={"best": 20})
     assert store.get_job(completed_id)["status"] == "completed"
+    failed_id = store.create_job("parameter_search", {"ticker": "FAIL"})
+    store.update_job(failed_id, result={"reason": "provider"}, final_status="failed")
+    assert store.get_job(failed_id)["status"] == "failed"
+    assert store.get_job(failed_id)["result"] == {"reason": "provider"}
     cancelled_id = store.create_job("parameter_search", {"ticker": "MSFT"})
     assert store.request_job_cancellation(cancelled_id) is True
     assert store.job_cancellation_requested(cancelled_id) is True

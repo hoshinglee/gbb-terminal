@@ -263,6 +263,16 @@ class RelationshipRepository:
     def count_observations(self) -> int:
         return int(self.connection.execute("SELECT count(*) FROM relationship_observations").fetchone()[0])
 
+    def count_company_observations(self, company_id: str) -> int:
+        return int(
+            self.connection.execute(
+                """SELECT count(*) FROM relationship_observations o
+                   JOIN business_relationships r ON r.relationship_id = o.relationship_id
+                   WHERE r.source_company_id = ?""",
+                [company_id],
+            ).fetchone()[0]
+        )
+
     def _require_source_evidence(self, company_id: str, span_ids: list[str], known_at: datetime):
         spans = []
         for span_id in span_ids:

@@ -61,12 +61,12 @@ The evidence layer does not infer that public disclosure is exhaustive. Empty re
 | `GET /api/v3/companies/{ticker}/evidence/spans/{span_id}` | Inspect one exact source span independently. |
 | `GET /api/v3/companies/{ticker}/evidence/claims/{claim_type}/{claim_id}` | Inspect all spans attached to one structured claim. |
 
-These V3 endpoints are intentionally read-only. Provider ingestion and deterministic extraction remain service/repository workflows rather than public browser commands until source-specific collectors are implemented.
+The evidence inspection endpoints remain read-only. Release 0.10 adds explicit SEC source-refresh and health endpoints plus a local CLI; see [Public Document Collection](public-document-collection.md).
 
 ## Storage
 
-DuckDB schema version 10 adds `evidence_documents`, `evidence_spans`, and `evidence_claim_links`. All source text, metadata, timestamps, parse state, and claim associations persist locally. Downloaded source files and runtime databases remain excluded from Git.
+DuckDB schema version 10 adds `evidence_documents`, `evidence_spans`, and `evidence_claim_links`. Schema version 14 adds verified raw document content and refresh diagnostics. All source text, metadata, timestamps, parse state, and claim associations persist locally. Downloaded source files and runtime databases remain excluded from Git.
 
 ## Current Boundary
 
-INT-09 establishes the reusable document, span, claim-link, storage, service, and API foundation. INT-10, INT-12, and INT-13 will add source-specific extraction and structured business claims. INT-11 will render persisted relationships as an interactive network only after relationship evidence is trustworthy.
+INT-09 through INT-13 establish the reusable evidence and structured business domains. INT-18 supplies the SEC-first collection pipeline that populates those domains while preserving explicit incomplete, failed, and unsupported states.

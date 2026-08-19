@@ -1,138 +1,111 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
+  CandlestickSeries,
   ColorType,
   createChart,
   createSeriesMarkers,
   CrosshairMode,
   HistogramSeries,
-  LineSeries,
+  type CandlestickData,
   type Time,
 } from "lightweight-charts"
 
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { chartKeyboardIndex } from "@/lib/chart-keyboard"
-import type { EarningsEventAnalysis, EarningsReactionPathPoint } from "@/lib/types"
+import type { EarningsEventAnalysis, MarketChartPayload, MarketChartPoint } from "@/lib/types"
 
-function percent(value: number | null) {
-  return value === null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`
+export type EventMarketPeriod = "3y" | "5y"
+
+function compactVolume(value: number) {
+  return Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value)
 }
 
-export function EarningsReactionChart({ analysis }: { analysis: EarningsEventAnalysis }) {
+export function EarningsReactionChart({
+  analysis,
+  marketChart,
+  period,
+  onPeriodChange,
+  loading = false,
+}: {
+  analysis: EarningsEventAnalysis
+  marketChart: MarketChartPayload | null
+  period: EventMarketPeriod
+  onPeriodChange: (period: EventMarketPeriod) => void
+  loading?: boolean
+}) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+  const [hover, setHover] = useState<{ candle: CandlestickData<Time>; point: MarketChartPoint } | null>(null)
   const [keyboardIndex, setKeyboardIndex] = useState<number | null>(null)
-  const points = analysis.reaction.path
+  const points = useMemo(() => marketChart?.intervals.day || [], [marketChart])
   const anchorIndex = useMemo(
-    () => Math.max(points.findIndex((point) => point.relativeSession === 0), 0),
-    [points],
+    () => analysis.reaction.anchorSession
+      ? points.findIndex((point) => analysis.reaction.anchorSession! >= point.periodStart && analysis.reaction.anchorSession! <= point.periodEnd)
+      : -1,
+    [analysis.reaction.anchorSession, points],
   )
 
   useEffect(() => {
-    setHoverIndex(null)
+    setHover(null)
     setKeyboardIndex(null)
-  }, [analysis.event.eventId])
+  }, [analysis.event.eventId, points])
 
   useEffect(() => {
     if (!containerRef.current || !points.length) return
     const chart = createChart(containerRef.current, {
       autoSize: true,
-      height: 510,
-      layout: {
-        background: { type: ColorType.Solid, color: "#0b1411" },
-        textColor: "#789087",
-        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-      },
+      height: 500,
+      layout: { background: { type: ColorType.Solid, color: "#0b1411" }, textColor: "#789087", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" },
       grid: { vertLines: { color: "#16221e" }, horzLines: { color: "#22302a" } },
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: "#293832" },
-      timeScale: { borderColor: "#293832", rightOffset: 2 },
+      timeScale: { borderColor: "#293832", rightOffset: 3 },
     })
-    const price = chart.addSeries(LineSeries, {
-      title: analysis.event.ticker,
-      color: "#b6f559",
-      lineWidth: 2,
-      priceLineVisible: false,
-    }, 0)
-    price.setData(points.map((point) => ({ time: point.sessionDate as Time, value: point.close })))
-    if (analysis.reaction.anchorSession) {
-      createSeriesMarkers(price, [{
-        time: analysis.reaction.anchorSession as Time,
-        position: "belowBar",
+    const candles = chart.addSeries(CandlestickSeries, { upColor: "#b6f559", downColor: "#ff6a6a", borderVisible: false, wickUpColor: "#b6f559", wickDownColor: "#ff6a6a" }, 0)
+    candles.setData(points.map((point) => ({ time: point.date as Time, open: point.open, high: point.high, low: point.low, close: point.close })))
+    const volume = chart.addSeries(HistogramSeries, { priceFormat: { type: "volume" }, priceLineVisible: false, lastValueVisible: false }, 1)
+    volume.setData(points.map((point) => ({ time: point.date as Time, value: point.volume, color: point.close >= point.open ? "#b6f55970" : "#ff6a6a70" })))
+    if (anchorIndex >= 0) {
+      createSeriesMarkers(candles, [{
+        time: points[anchorIndex].date as Time,
+        position: "aboveBar",
         color: "#f8bd5e",
-        shape: "arrowUp",
-        text: "Earnings Anchor",
+        shape: "arrowDown",
+        text: `${analysis.event.fiscalPeriod || "FY"} ${analysis.event.fiscalYear || ""} earnings`,
       }])
     }
-    const volume = chart.addSeries(HistogramSeries, {
-      title: "Volume",
-      color: "#64d5c766",
-      priceFormat: { type: "volume" },
-      priceLineVisible: false,
-      lastValueVisible: false,
-    }, 1)
-    volume.setData(points.filter((point) => point.volume !== null).map((point) => ({
-      time: point.sessionDate as Time,
-      value: point.volume || 0,
-      color: point.relativeSession === 0 ? "#f8bd5e" : "#64d5c766",
-    })))
-    const reaction = chart.addSeries(LineSeries, {
-      title: "Stock Reaction",
-      color: "#64d5c7",
-      lineWidth: 2,
-      priceLineVisible: false,
-      priceFormat: { type: "custom", formatter: (value: number) => `${value.toFixed(1)}%` },
-    }, 2)
-    reaction.setData(points.map((point) => ({ time: point.sessionDate as Time, value: point.cumulativeReturn })))
-    const adjusted = chart.addSeries(LineSeries, {
-      title: `${analysis.reaction.benchmarkTicker}-Adjusted`,
-      color: "#a78bfa",
-      lineWidth: 2,
-      priceLineVisible: false,
-      priceFormat: { type: "custom", formatter: (value: number) => `${value.toFixed(1)}%` },
-    }, 2)
-    adjusted.setData(points.filter((point) => point.benchmarkAdjustedReturn !== null).map((point) => ({
-      time: point.sessionDate as Time,
-      value: point.benchmarkAdjustedReturn || 0,
-    })))
-    chart.panes()[0]?.setHeight(300)
-    chart.panes()[1]?.setHeight(70)
-    chart.panes()[2]?.setHeight(120)
+    chart.panes()[0]?.setHeight(410)
+    chart.panes()[1]?.setHeight(90)
     chart.timeScale().fitContent()
+    if (anchorIndex >= 0) {
+      chart.timeScale().setVisibleLogicalRange({ from: Math.max(anchorIndex - 70, 0), to: Math.min(anchorIndex + 40, points.length - 1) })
+    }
     chart.subscribeCrosshairMove((parameter) => {
-      const index = points.findIndex((point) => point.sessionDate === String(parameter.time || ""))
-      setHoverIndex(index >= 0 ? index : null)
-      if (index >= 0) setKeyboardIndex(null)
+      const candle = parameter.seriesData.get(candles)
+      const date = parameter.time ? String(parameter.time) : ""
+      const point = points.find((candidate) => candidate.date === date)
+      setKeyboardIndex(null)
+      setHover(candle && point && "open" in candle ? { candle: candle as CandlestickData<Time>, point } : null)
     })
     return () => chart.remove()
-  }, [analysis.event.ticker, analysis.reaction.anchorSession, analysis.reaction.benchmarkTicker, points])
+  }, [analysis.event.fiscalPeriod, analysis.event.fiscalYear, analysis.event.eventId, anchorIndex, points])
 
-  if (!points.length) return <div className="grid h-80 place-items-center px-6 text-center text-sm text-muted-foreground">Reaction chart unavailable because the event lacks sufficient aligned price history.</div>
-  const selectedIndex = keyboardIndex ?? hoverIndex ?? anchorIndex
-  const selected: EarningsReactionPathPoint = points[selectedIndex] || points[anchorIndex]
+  if (loading) return <Skeleton className="h-[560px] w-full" />
+  if (!points.length) return <div className="grid h-72 place-items-center rounded-lg border border-dashed px-6 text-center text-sm text-muted-foreground">Market history is unavailable. Reported facts and event reaction calculations remain available above.</div>
+  const selectedIndex = keyboardIndex ?? (hover ? points.indexOf(hover.point) : anchorIndex >= 0 ? anchorIndex : points.length - 1)
+  const selectedPoint = points[Math.max(selectedIndex, 0)] || points.at(-1)!
+  const selectedCandle = keyboardIndex !== null ? selectedPoint : hover?.candle || selectedPoint
   const moveSelection = (key: string) => {
-    const next = chartKeyboardIndex(key, keyboardIndex ?? anchorIndex, points.length)
+    const next = chartKeyboardIndex(key, keyboardIndex ?? (anchorIndex >= 0 ? anchorIndex : null), points.length)
     if (next !== null) setKeyboardIndex(next)
     return next !== null
   }
   return <div className="overflow-hidden rounded-lg border bg-[#0b1411]">
-    <div aria-hidden="true" className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-background/85 px-3 py-2 font-mono text-[10px]">
-      <Badge variant="outline">{selected.sessionDate}</Badge>
-      <span>{analysis.event.ticker} ${selected.close.toFixed(2)}</span>
-      <span className="text-chart-2">Reaction {percent(selected.cumulativeReturn)}</span>
-      <span className="text-chart-4">Adjusted {percent(selected.benchmarkAdjustedReturn)}</span>
-      <span className="text-muted-foreground">Session {selected.relativeSession >= 0 ? "+" : ""}{selected.relativeSession}</span>
-    </div>
-    <div
-      ref={containerRef}
-      role="group"
-      tabIndex={0}
-      aria-label={`${analysis.event.ticker} price, volume, and earnings reaction chart`}
-      aria-describedby="earnings-chart-help earnings-chart-current-value"
-      aria-keyshortcuts="ArrowLeft ArrowRight Home End"
-      className="h-[510px] w-full focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
-      onKeyDown={(event) => { if (moveSelection(event.key)) event.preventDefault() }}
-    />
-    <p id="earnings-chart-help" className="sr-only">Use Left and Right Arrow to inspect adjacent trading sessions. Home selects the first session and End selects the last.</p>
-    <p id="earnings-chart-current-value" aria-live="polite" className="sr-only">{selected.sessionDate}. Close ${selected.close.toFixed(2)}. Stock reaction {percent(selected.cumulativeReturn)}. Benchmark-adjusted reaction {percent(selected.benchmarkAdjustedReturn)}.</p>
+    <div className="flex flex-wrap items-center gap-2 border-b bg-background/80 px-3 py-2"><span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">Event Market Window</span><Button size="sm" variant={period === "3y" ? "secondary" : "ghost"} aria-pressed={period === "3y"} onClick={() => onPeriodChange("3y")}>3 Years</Button><Button size="sm" variant={period === "5y" ? "secondary" : "ghost"} aria-pressed={period === "5y"} onClick={() => onPeriodChange("5y")}>5 Years</Button><span className="ml-auto text-[10px] text-muted-foreground">Selected event is marked and centered when market history covers it.</span></div>
+    <div aria-hidden="true" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-background/85 px-3 py-2 font-mono text-[10px]"><Badge variant="outline" className="border-primary/30 text-primary">{analysis.event.ticker}</Badge><span>{selectedPoint.date}</span><span>O {selectedCandle.open.toFixed(2)}</span><span>H {selectedCandle.high.toFixed(2)}</span><span>L {selectedCandle.low.toFixed(2)}</span><span>C {selectedCandle.close.toFixed(2)}</span><span>V {compactVolume(selectedPoint.volume)}</span>{anchorIndex < 0 ? <span className="text-chart-3">Selected event is outside this market window</span> : selectedPoint.date === points[anchorIndex].date ? <span className="text-chart-3">Earnings event</span> : null}</div>
+    <div ref={containerRef} role="group" tabIndex={0} aria-label={`${analysis.event.ticker} candlestick and volume chart focused on the selected earnings event`} aria-describedby="earnings-chart-help earnings-chart-current-value" aria-keyshortcuts="ArrowLeft ArrowRight Home End" className="h-[500px] w-full focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" onKeyDown={(event) => { if (moveSelection(event.key)) event.preventDefault() }} />
+    <p id="earnings-chart-help" className="sr-only">Use Left and Right Arrow to inspect adjacent trading sessions. Home selects the first session and End selects the latest.</p>
+    <p id="earnings-chart-current-value" aria-live="polite" className="sr-only">{selectedPoint.date}. Open {selectedCandle.open.toFixed(2)}, high {selectedCandle.high.toFixed(2)}, low {selectedCandle.low.toFixed(2)}, close {selectedCandle.close.toFixed(2)}, volume {selectedPoint.volume}.</p>
   </div>
 }

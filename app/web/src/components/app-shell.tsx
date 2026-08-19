@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { BarChart3, Building2, FlaskConical, Gauge, LineChart, Orbit } from "lucide-react"
+import { BarChart3, Building2, FlaskConical, Gauge, Orbit } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import type { LabId } from "@/lib/navigation"
@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils"
 const navigation = [
   { id: "strategy", label: "Strategy Lab", icon: FlaskConical, href: "/" },
   { id: "options", label: "Option Lab", icon: Orbit, href: "/?lab=options" },
-  { id: "stock", label: "Stock Observatory", icon: LineChart, href: "/?lab=stock" },
   { id: "market", label: "Market Pulse", icon: Gauge, href: "/?lab=market" },
   { id: "intelligence", label: "Company Intelligence", icon: Building2, href: "/?lab=intelligence" },
 ] as const
@@ -16,7 +15,6 @@ const navigation = [
 const mainIds: Record<LabId, string> = {
   strategy: "strategy-main",
   options: "option-main",
-  stock: "stock-main",
   market: "market-main",
   intelligence: "intelligence-main",
 }
@@ -39,7 +37,7 @@ export function AppShell({ children, activeLab = "strategy" }: { children: React
           <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]" /><span className="font-mono text-[9px] text-primary">LOCAL · READY</span></div>
           <p className="m-0 text-xs leading-5 text-muted-foreground">Educational US equity and options research. No brokerage execution.</p>
           <a href="/legacy" className="block text-[10px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Open Migration Fallback</a>
-          <Badge variant="outline" className="font-mono text-[9px]">v0.9 evidence network</Badge>
+          <Badge variant="outline" className="font-mono text-[9px]">v0.10 personal research</Badge>
         </div>
       </aside>
       <header className="border-b bg-background/95 px-3 py-3 lg:hidden">

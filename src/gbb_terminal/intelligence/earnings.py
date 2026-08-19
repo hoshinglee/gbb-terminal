@@ -419,7 +419,7 @@ class EarningsIntelligenceService:
     def _filing_url(cik: str, accession: str) -> str:
         compact_cik = str(int(cik))
         compact_accession = accession.replace("-", "")
-        return f"https://www.sec.gov/Archives/edgar/data/{compact_cik}/{compact_accession}/{accession}-index.html"
+        return f"https://www.sec.gov/Archives/edgar/data/{compact_cik}/{compact_accession}/{accession}-index.htm"
 
     @staticmethod
     def _aggregate(analyses: list[EarningsEventAnalysis]) -> EarningsAggregate:

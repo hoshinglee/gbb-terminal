@@ -12,6 +12,7 @@ from .evidence_models import (
     EvidenceClaimLinkCreate,
     EvidenceClaimSpan,
     EvidenceDocument,
+    EvidenceDocumentContent,
     EvidenceDocumentCreate,
     EvidenceDocumentQuery,
     EvidenceParseStatus,
@@ -97,6 +98,15 @@ class EvidenceRepository:
         ).fetchone()
         return self._row_to_document(row) if row else None
 
+    def latest_document(self, company_id: str, source: str, external_id: str) -> EvidenceDocument | None:
+        row = self.connection.execute(
+            f"""SELECT {DOCUMENT_COLUMNS} FROM evidence_documents
+                WHERE company_id = ? AND source = ? AND external_id = ?
+                ORDER BY version DESC LIMIT 1""",
+            [company_id, source, external_id],
+        ).fetchone()
+        return self._row_to_document(row) if row else None
+
     def list_documents(self, company_id: str, query: EvidenceDocumentQuery | None = None) -> list[EvidenceDocument]:
         request = query or EvidenceDocumentQuery()
         conditions, parameters = self._document_filters(company_id, request)
@@ -118,6 +128,68 @@ class EvidenceRepository:
                 f"SELECT count(*) FROM evidence_documents WHERE {' AND '.join(conditions)}",
                 parameters,
             ).fetchone()[0]
+        )
+
+    def count_documents_by_status(self, company_id: str, status: EvidenceParseStatus) -> int:
+        return int(
+            self.connection.execute(
+                "SELECT count(*) FROM evidence_documents WHERE company_id = ? AND parse_status = ?",
+                [company_id, status.value],
+            ).fetchone()[0]
+        )
+
+    def count_spans(self, company_id: str) -> int:
+        return int(
+            self.connection.execute(
+                """SELECT count(*) FROM evidence_spans s
+                   JOIN evidence_documents d ON d.document_id = s.document_id
+                   WHERE d.company_id = ?""",
+                [company_id],
+            ).fetchone()[0]
+        )
+
+    def save_content(
+        self,
+        document_id: str,
+        content: bytes,
+        encoding: str | None = None,
+        parser_version: str | None = None,
+    ) -> EvidenceDocumentContent:
+        document = self._require_document(document_id)
+        if sha256(content).hexdigest() != document.content_hash:
+            raise ValueError("Evidence content does not match the document content hash.")
+        now = self._utc_now()
+        self.connection.execute(
+            """INSERT OR IGNORE INTO evidence_document_contents
+               (document_id, content, encoding, parser_version, stored_at, parsed_at)
+               VALUES (?, ?, ?, ?, ?, NULL)""",
+            [document_id, content, encoding, parser_version, now],
+        )
+        if parser_version:
+            self.connection.execute(
+                "UPDATE evidence_document_contents SET parser_version = ? WHERE document_id = ?",
+                [parser_version, document_id],
+            )
+        saved = self.get_content(document_id)
+        if saved is None:
+            raise RuntimeError(f"Evidence content {document_id} was not persisted.")
+        return saved
+
+    def get_content(self, document_id: str) -> EvidenceDocumentContent | None:
+        row = self.connection.execute(
+            """SELECT document_id, content, encoding, parser_version, stored_at, parsed_at
+               FROM evidence_document_contents WHERE document_id = ?""",
+            [document_id],
+        ).fetchone()
+        if row is None:
+            return None
+        return EvidenceDocumentContent(
+            document_id=row[0],
+            content=bytes(row[1]),
+            encoding=row[2],
+            parser_version=row[3],
+            stored_at=self._aware_utc(row[4]),
+            parsed_at=self._aware_utc(row[5]),
         )
 
     def save_span(self, span: EvidenceSpanCreate) -> EvidenceSpan:
@@ -200,6 +272,37 @@ class EvidenceRepository:
                SET parse_status = 'failed', parse_error = ?, updated_at = ?
                WHERE document_id = ?""",
             [error.strip()[:2000], self._utc_now(), document_id],
+        )
+        return self._require_document(document_id)
+
+    def mark_parsed(self, document_id: str, parser_version: str) -> EvidenceDocument:
+        document = self._require_document(document_id)
+        if document.parse_status == EvidenceParseStatus.FAILED:
+            raise ValueError("A failed document must be stored as a new version before it can be parsed again.")
+        now = self._utc_now()
+        self.connection.execute(
+            """UPDATE evidence_documents SET parse_status = 'parsed', parse_error = NULL, updated_at = ?
+               WHERE document_id = ?""",
+            [now, document_id],
+        )
+        self.connection.execute(
+            """UPDATE evidence_document_contents SET parser_version = ?, parsed_at = ?
+               WHERE document_id = ?""",
+            [parser_version, now, document_id],
+        )
+        return self._require_document(document_id)
+
+    def retry_parse(self, document_id: str) -> EvidenceDocument:
+        self._require_document(document_id)
+        if self.connection.execute(
+            "SELECT count(*) FROM evidence_spans WHERE document_id = ?",
+            [document_id],
+        ).fetchone()[0]:
+            raise ValueError("A document with evidence spans cannot be reset for parsing.")
+        self.connection.execute(
+            """UPDATE evidence_documents SET parse_status = 'pending', parse_error = NULL, updated_at = ?
+               WHERE document_id = ?""",
+            [self._utc_now(), document_id],
         )
         return self._require_document(document_id)
 

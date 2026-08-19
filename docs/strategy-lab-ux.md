@@ -21,6 +21,20 @@ The first complete React vertical slice now implements this direction:
 
 At the 0.4.3 release boundary, Option Lab, Stock Observatory, and Market Pulse remained in the vanilla fallback. Release 0.5 ports Option Lab, and release 0.6 ports Stock Observatory and Market Pulse. The fallback remains until connected-browser parity checks are complete.
 
+## Release 0.10 — Idea → Backtest → Current Signal
+
+Release 0.10 keeps the established research engine and simplifies its ordinary path:
+
+1. Keep the default ticker or enter another US symbol.
+2. Choose one of six plain-language research theses, select a saved strategy, or describe an instruction.
+3. Run once and review honest benchmark-aware evidence plus the current deterministic target state.
+
+The starter theses map to existing validated templates: Trend Following, Buy The Dip, Breakout, Relative Strength, Momentum, and Ranked Leaders. Default template parameters make the common path require only ticker, strategy, and Run; editable rule chips remain available for deliberate changes.
+
+Every individual-stock backtest now returns `currentSignal` from the same signal frame and next-open execution model used for historical results. It records target and executed state, observation date, pending next-open status, entry/exit rule state, current indicator values, and the latest signal-to-execution transition. Ranked portfolios expose current target holdings and the latest scheduled ranking through the same result boundary. React does not calculate either signal.
+
+The primary evidence surface keeps losing strategies and passive underperformance visible, then shows Current Signal and the latest trade/transition without opening the ledger. Equity/drawdown and the full ledger remain first-level tabs. Walk-forward search, Optuna results, parameter stability, Deflated Sharpe, market regimes, and detailed assumptions are consolidated under **Advanced Validation**.
+
 ## Recommended Experience
 
 ```text
@@ -35,7 +49,7 @@ At the 0.4.3 release boundary, Option Lab, Stock Observatory, and Market Pulse r
 │ + Add Filter  + Add Exit      │                                             │
 │ Risk ▾  Search Range ▾        │                                             │
 ├───────────────────────────────┴─────────────────────────────────────────────┤
-│ Overview | Equity & Drawdown | Trades | Robustness | Assumptions            │
+│ Evidence & Signal | Equity & Drawdown | Full Ledger | Advanced Validation   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -63,7 +77,7 @@ At the 0.4.3 release boundary, Option Lab, Stock Observatory, and Market Pulse r
 
 - Keep the financial chart visible while the strategy is configured.
 - Preview indicators and signal markers before running a full research job.
-- Replace the long evidence page with tabs for Overview, Equity & Drawdown, Trades, Robustness, and Assumptions.
+- Use first-level tabs for Evidence & Signal, Equity & Drawdown, and the Full Trade Ledger; keep robustness and assumptions together under Advanced Validation.
 - Keep verdicts subordinate to the actual return, drawdown, exposure, and holdout evidence.
 
 ## shadcn/ui Mapping
@@ -99,8 +113,9 @@ Use TradingView Lightweight Charts for candlesticks, volume, linked panes, cross
 3. **Complete:** port Strategy Lab as the first vertical slice, including component and browser contract tests.
 4. **Complete:** add Lightweight Charts with candles, volume, indicators, markers, and linked hover details.
 5. **Complete in source:** port Option Lab in 0.5 and Stock Observatory/Market Pulse in 0.6.
-6. **Next:** complete connected-browser, narrow-layout, and keyboard review before retiring the vanilla fallback.
-7. **Later:** remove the vanilla implementation only after every primary workflow passes browser tests.
+6. **Complete:** add the Release 0.10 current-signal contract, latest transition summary, six starter theses, and Advanced Validation disclosure.
+7. **Complete:** validate the normal live-data workflow, narrow layout, ledger, and advanced evidence in a connected browser.
+8. **Later:** remove the vanilla implementation only after every primary workflow passes browser tests.
 
 ## Acceptance Criteria
 
@@ -110,6 +125,8 @@ Use TradingView Lightweight Charts for candlesticks, volume, linked panes, cross
 - Advanced assumptions are discoverable but do not occupy the main canvas.
 - Keyboard users can select strategies, edit rules, run research, and inspect evidence.
 - Existing API payloads and historical results remain unchanged throughout the frontend migration.
+- Current signal output matches the final deterministic signal and executed position in the backtest frame.
+- Older persisted results without the new field remain readable and ask for a fresh run rather than inventing a browser signal.
 
 ## References
 

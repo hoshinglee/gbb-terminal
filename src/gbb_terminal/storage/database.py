@@ -578,40 +578,73 @@ class LocalMarketStore:
 
     def create_job(self, job_type: str, request: dict) -> str:
         job_id, now = str(uuid4()), datetime.now(timezone.utc).replace(tzinfo=None)
-        self.connection.execute(
-            """INSERT INTO local_jobs
-               (job_id, job_type, status, progress, request, result, error, cancel_requested, created_at, updated_at)
-               VALUES (?, ?, 'running', 0, ?, NULL, NULL, FALSE, ?, ?)""",
-            [job_id, job_type, json.dumps(request), now, now],
-        )
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(
+                """INSERT INTO local_jobs
+                   (job_id, job_type, status, progress, request, result, error, cancel_requested, created_at, updated_at)
+                   VALUES (?, ?, 'running', 0, ?, NULL, NULL, FALSE, ?, ?)""",
+                [job_id, job_type, json.dumps(request), now, now],
+            )
+        finally:
+            cursor.close()
         return job_id
 
-    def update_job(self, job_id: str, progress: float | None = None, result: dict | None = None, error: str | None = None) -> None:
+    def update_job(
+        self,
+        job_id: str,
+        progress: float | None = None,
+        result: dict | None = None,
+        error: str | None = None,
+        final_status: str | None = None,
+    ) -> None:
         now = datetime.now(timezone.utc).replace(tzinfo=None)
-        if result is not None:
-            self.connection.execute("UPDATE local_jobs SET status = 'completed', progress = 1, result = ?, updated_at = ? WHERE job_id = ?", [json.dumps(result), now, job_id])
-        elif error is not None:
-            status = "cancelled" if "cancel" in error.lower() else "failed"
-            self.connection.execute("UPDATE local_jobs SET status = ?, error = ?, updated_at = ? WHERE job_id = ?", [status, error, now, job_id])
-        elif progress is not None:
-            self.connection.execute("UPDATE local_jobs SET progress = ?, updated_at = ? WHERE job_id = ?", [min(max(progress, 0), 1), now, job_id])
+        cursor = self.connection.cursor()
+        try:
+            if result is not None:
+                status = final_status or "completed"
+                if status not in {"completed", "failed", "cancelled"}:
+                    raise ValueError("A finished local job must be completed, failed, or cancelled.")
+                cursor.execute(
+                    "UPDATE local_jobs SET status = ?, progress = 1, result = ?, updated_at = ? WHERE job_id = ?",
+                    [status, json.dumps(result), now, job_id],
+                )
+            elif error is not None:
+                status = "cancelled" if "cancel" in error.lower() else "failed"
+                cursor.execute("UPDATE local_jobs SET status = ?, error = ?, updated_at = ? WHERE job_id = ?", [status, error, now, job_id])
+            elif progress is not None:
+                cursor.execute("UPDATE local_jobs SET progress = ?, updated_at = ? WHERE job_id = ?", [min(max(progress, 0), 1), now, job_id])
+        finally:
+            cursor.close()
 
     def get_job(self, job_id: str) -> dict | None:
-        row = self.connection.execute(
-            """SELECT job_id, job_type, status, progress, request, result, error, cancel_requested, created_at, updated_at
-               FROM local_jobs WHERE job_id = ?""",
-            [job_id],
-        ).fetchone()
+        cursor = self.connection.cursor()
+        try:
+            row = cursor.execute(
+                """SELECT job_id, job_type, status, progress, request, result, error, cancel_requested, created_at, updated_at
+                   FROM local_jobs WHERE job_id = ?""",
+                [job_id],
+            ).fetchone()
+        finally:
+            cursor.close()
         if row is None:
             return None
         return {"jobId": row[0], "jobType": row[1], "status": row[2], "progress": row[3], "request": json.loads(row[4]), "result": json.loads(row[5]) if row[5] else None, "error": row[6], "cancelRequested": row[7], "createdAt": row[8].isoformat(), "updatedAt": row[9].isoformat()}
 
     def request_job_cancellation(self, job_id: str) -> bool:
         now = datetime.now(timezone.utc).replace(tzinfo=None)
-        self.connection.execute("UPDATE local_jobs SET cancel_requested = TRUE, updated_at = ? WHERE job_id = ? AND status = 'running'", [now, job_id])
-        row = self.connection.execute("SELECT cancel_requested FROM local_jobs WHERE job_id = ?", [job_id]).fetchone()
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute("UPDATE local_jobs SET cancel_requested = TRUE, updated_at = ? WHERE job_id = ? AND status = 'running'", [now, job_id])
+            row = cursor.execute("SELECT cancel_requested FROM local_jobs WHERE job_id = ?", [job_id]).fetchone()
+        finally:
+            cursor.close()
         return bool(row and row[0])
 
     def job_cancellation_requested(self, job_id: str) -> bool:
-        row = self.connection.execute("SELECT cancel_requested FROM local_jobs WHERE job_id = ?", [job_id]).fetchone()
+        cursor = self.connection.cursor()
+        try:
+            row = cursor.execute("SELECT cancel_requested FROM local_jobs WHERE job_id = ?", [job_id]).fetchone()
+        finally:
+            cursor.close()
         return bool(row and row[0])

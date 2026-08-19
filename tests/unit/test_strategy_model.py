@@ -54,9 +54,13 @@ def test_every_template_executes(price_history, benchmark_history):
         if catalogue.is_portfolio(template.template_id):
             result = run_ranked_portfolio({"AAA": price_history, "BBB": price_history * 1.01, "CCC": price_history * 0.99}, benchmark_history, instance)
             assert result["marketChart"] is None
+            assert result["currentSignal"]["targetState"] in {"PORTFOLIO", "CASH"}
+            assert result["currentSignal"]["ruleValues"]["targetHoldings"]
         else:
             result = run_research_backtest(price_history, {"SPY": benchmark_history}, catalogue.build(instance))
             assert result["marketChart"]["intervals"]["day"]
+            assert result["currentSignal"]["targetState"] in {"LONG", "SHORT", "CASH"}
+            assert result["currentSignal"]["observationDate"] == result["chart"][-1]["date"]
         assert result["chart"]
         assert result["verdict"]["label"] in {"Robust Candidate", "Promising But Unstable", "Insufficient Evidence", "Does Not Justify Complexity"}
 

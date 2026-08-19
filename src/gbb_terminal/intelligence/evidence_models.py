@@ -89,6 +89,17 @@ class EvidenceDocument(EvidenceDocumentCreate):
     updated_at: datetime
 
 
+class EvidenceDocumentContent(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    document_id: str
+    content: bytes
+    encoding: str | None = None
+    parser_version: str | None = None
+    stored_at: datetime
+    parsed_at: datetime | None = None
+
+
 class EvidenceSpanCreate(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 

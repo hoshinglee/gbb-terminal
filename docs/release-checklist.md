@@ -125,12 +125,43 @@ This checklist separates research correctness from launch-environment stabilizat
 - [x] Prevent failed document parsing from creating unsupported evidence spans.
 - [x] Expose read-only strict V3 document, detail, span, and claim-evidence contracts with incomplete-coverage warnings.
 - [x] Cover duplicate ingestion, changed documents, as-of filtering, independent span retrieval, multiple spans per claim, parser failure, migration, and API source traceability.
-- [ ] Add permitted public-document collectors and deterministic parsing workflows for supported companies.
+- [x] Add permitted public-document collectors and deterministic parsing workflows for supported companies.
 - [x] Complete INT-10 source-backed customer/supplier relationship persistence and deterministic extraction, including unresolved counterparties, evidence accumulation, history, and audited overrides.
 - [x] Complete INT-11 interactive company relationship graph with direction, filters, keyboard-accessible table fallback, focused navigation, evidence/history dialogs, and incomplete-disclosure context.
 - [x] Complete INT-12 versioned segment, geography, and company-specific KPI intelligence with reorganization boundaries, compatible comparisons, source evidence, and explicit missing coverage.
 - [x] Complete INT-13 immutable guidance and management-commitment history with linked revisions, original wording, normalized ranges, evidence, and rule-based outcomes.
 - [x] Complete connected-browser review of evidence context, resolved and unresolved business-network navigation, responsive graph overflow, keyboard interaction, source history, and explicit incomplete-disclosure states.
+
+## Release 0.10 — Personal Research Completion
+
+### INT-18 — Public Document Collection
+
+- [x] Discover supported SEC filings, filing indexes, primary documents, and relevant EX-99 exhibits with acceptance-aware `known_at`.
+- [x] Persist verified raw source content, parser versions, append-safe evidence versions, refresh runs, and per-document diagnostics.
+- [x] Parse HTML, XHTML, XML, plain text, inline-XBRL dimensions, and custom-taxonomy facts without executing source code.
+- [x] Populate relationships, operating disclosures, and guidance only through inspectable evidence spans.
+- [x] Distinguish no disclosure, provider failure, unsupported format, parser failure, and extraction failure.
+- [x] Add idempotent refresh, provider throttling/retries, progress, cancellation, source health, strict API contracts, CLI commands, and React Sources controls.
+- [x] Cover realistic SEC fixtures, dimensional/custom facts, source-backed extraction, repeated refreshes, cancellation, migration, local jobs, and browser-component behavior.
+- [x] Reconcile a bounded live SEC refresh for NVDA and inspect the resulting Company Intelligence source health in a connected browser.
+
+### Remaining 0.10 Work
+
+- [x] Complete INT-14, INT-16, and INT-17 Company Intelligence consolidation, independent time controls, event charts, and semantic visual hierarchy.
+- [x] Complete INT-15 provider-neutral S&P 500 snapshots, resilient bulk jobs, resume/retry, and coverage diagnostics.
+- [x] Complete MKT-01 sector constituent treemap drill-down.
+- [x] Complete STR-01 Idea → Backtest → Current Signal.
+- [x] Complete OPT-01 Options Planner Plan → Compare → Scenario.
+- [x] Start option planning from ticker, outlook, horizon, optional target/range, share context, acceptable loss, and capital budget.
+- [x] Compare only existing Pydantic-validated structures with debit/credit, capital/collateral, maximum loss/gain, break-even, expiry/strikes, aggregate Greeks, bid/ask quality, and plain-language trade-offs.
+- [x] Exclude uncovered short calls from normal suggestions; gate covered calls and cash-secured puts on explicit share context.
+- [x] Price the primary future price/date scenario on the server and expose value, P&L, remaining time, break-even relation, Greeks, assumptions, provenance, and warnings.
+- [x] Preserve plan context while opening the existing leg builder; keep full simulation and DuckDB journal optional and backward compatible.
+- [x] Add source-preserving historical earnings movement and selected-expiry straddle context without a forecast or mispricing claim.
+- [x] Cover bullish, bearish, neutral, owned-share, acquire-share, low-budget, quote direction, provider-context failure, API, keyboard, narrow-layout, and live NVDA workflows.
+- [x] Run the integrated Release 0.10 unit, integration, contract, frontend, browser, and real-data acceptance sweep.
+- [x] Pass 164 Python tests, 50 frontend tests, Python lint, TypeScript typecheck, production build, and `git diff --check` on the integrated branch.
+- [x] Complete connected-browser flows for Company Intelligence, intelligence refresh, S&P 500/sector drill-down, Strategy Current Signal, and live NVDA option planning/scenarios, including narrow layouts and no console errors.
 
 ## Deferred Launch Stability — Former Release 0.3 Gates
 

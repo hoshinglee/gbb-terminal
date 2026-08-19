@@ -155,6 +155,36 @@ export interface EquityPoint extends PricePoint {
   turnover: number
 }
 
+export type SignalRuleValue = number | string | boolean | null
+
+export interface SignalTransition {
+  signalDate: string
+  executionDate: string | null
+  fromState: string
+  toState: string
+  executionPrice: number | null
+  pendingAtNextOpen: boolean
+  reason: string
+  ruleValues: Record<string, SignalRuleValue>
+}
+
+export interface CurrentSignal {
+  targetState: string
+  executedState: string
+  signalPosition: number
+  executedPosition: number
+  observationDate: string
+  pendingAtNextOpen: boolean
+  executionTiming: string
+  entryCriteria: string
+  exitCriteria: string
+  entryMatched: boolean | null
+  exitMatched: boolean | null
+  reason: string
+  ruleValues: Record<string, SignalRuleValue>
+  latestTransition: SignalTransition | null
+}
+
 export interface BacktestResult {
   strategy: { name: string; description: string; parameters?: Record<string, unknown> }
   strategyYaml?: string
@@ -166,6 +196,7 @@ export interface BacktestResult {
   evaluationPeriod: { start: string; end: string; sessions: number }
   benchmarks?: string[]
   regimes?: Array<{ regime: string; sessions: number; strategyReturn: number; averageExposure: number }>
+  currentSignal?: CurrentSignal
   chart: EquityPoint[]
   marketChart: MarketChartPayload | null
   trades: Trade[]
@@ -275,6 +306,7 @@ export interface MarketOverviewResponse {
 
 export type OptionType = "call" | "put"
 export type PositionSide = "long" | "short"
+export type OptionOutlook = "bullish" | "bearish" | "neutral"
 export type OptionPositionKind =
   | "custom"
   | "long_call"
@@ -518,6 +550,125 @@ export interface OptionSimulationRunSummary {
 
 export interface OptionSimulationRunDetail extends Omit<OptionSimulationRunSummary, "summary"> {
   result: Omit<OptionSimulationResult, "runId" | "createdAt" | "modelVersion">
+}
+
+export interface OptionPlanRequest {
+  ticker: string
+  outlook: OptionOutlook
+  target_date: string
+  target_price?: number | null
+  target_price_low?: number | null
+  target_price_high?: number | null
+  shares_owned: number
+  acquiring_shares_acceptable: boolean
+  maximum_loss?: number | null
+  capital_budget?: number | null
+  interest_rate: number
+  dividend_yield: number
+}
+
+export interface OptionPlanQuote {
+  legId: string
+  contractSymbol?: string | null
+  optionType: OptionType
+  side: PositionSide
+  strike: number
+  bid: number
+  ask: number
+  last: number
+  spread: number
+  spreadPercent: number | null
+  quoteQuality: "Two-Sided" | "Incomplete Quote"
+  premiumUsed: number
+  premiumSource: "manual" | "ask" | "bid" | "last" | "mid"
+  impliedVolatility: number
+  volume: number
+  openInterest: number
+  lastTradeAt?: string | null
+}
+
+export interface OptionPlanCandidate {
+  candidateId: string
+  name: string
+  positionKind: OptionPositionKind
+  tradeoff: string
+  position: OptionSimulationRequest
+  expiration: string
+  strikes: number[]
+  netDebit: number
+  netCredit: number
+  capitalRequired: number
+  collateral: number
+  maximumLoss: number | "Unlimited"
+  maximumGain: number | "Unlimited"
+  profitCharacter: string
+  breakEvens: number[]
+  greeks: { delta: number; gamma: number; theta: number; vega: number }
+  quotes: OptionPlanQuote[]
+  quoteQuality: "Two-Sided" | "Incomplete Quote"
+  withinBudget: boolean
+  warnings: string[]
+}
+
+export interface OptionPlanResult {
+  ticker: string
+  outlook: OptionOutlook
+  targetDate: string
+  underlyingPrice: number
+  expiration: string
+  generatedAt: string
+  candidates: OptionPlanCandidate[]
+  earningsContext: null | {
+    historicalMedianAbsoluteMovePercent: number | null
+    sampleSize: number
+    asOf: string
+    eventSource: string
+    priceSource: string
+    warnings: string[]
+    interpretation: string
+  }
+  impliedMoveContext: null | {
+    movePercent: number
+    straddlePrice: number
+    strike: number
+    expiration: string
+    quoteMethod: string
+    interpretation: string
+  }
+  dataProvenance: DataStatus
+  warnings: string[]
+  limitations: string[]
+}
+
+export interface OptionScenarioRequest {
+  position: OptionSimulationRequest
+  scenario_price: number
+  scenario_date: string
+}
+
+export interface OptionScenarioResult {
+  ticker: string
+  positionKind: OptionPositionKind
+  scenarioPrice: number
+  scenarioDate: string
+  modeledPositionValue: number
+  modeledOptionValue: number
+  modeledShareValue: number
+  pnl: number
+  pnlPercent: number | null
+  breakEvens: number[]
+  breakEvenRelation: string
+  remainingDays: number
+  greeks: { delta: number; gamma: number; theta: number; vega: number }
+  assumptions: {
+    model: string
+    interestRate: number
+    dividendYield: number
+    impliedVolatilities: number[]
+    contractMultiplier: number
+  }
+  dataProvenance: Record<string, unknown>
+  warnings: string[]
 }
 
 export interface CompanyReference {
@@ -978,4 +1129,166 @@ export interface GuidanceHistoryResponse {
   asOf: string
   records: GuidanceRecord[]
   warnings: string[]
+}
+
+export type IntelligenceRefreshStatus = "running" | "completed" | "partial" | "failed" | "cancelled"
+export type IntelligenceCoverageStatus = "populated" | "no_disclosure" | "parser_failed" | "extraction_failed" | "provider_failed" | "unsupported_format" | "unavailable"
+
+export interface IntelligenceModuleCoverage {
+  module: string
+  status: IntelligenceCoverageStatus
+  recordCount: number
+  evidenceSpanCount: number
+  message: string
+}
+
+export interface IntelligenceRefreshItem {
+  itemId: string
+  refreshId: string
+  externalId: string
+  sourceUrl: string | null
+  accessionNumber: string | null
+  form: string | null
+  status: "discovered" | "unchanged" | "downloaded" | "parsed" | "no_disclosure" | "parse_failed" | "extraction_failed" | "provider_failed" | "unsupported_format"
+  documentId: string | null
+  reason: string | null
+  createdAt: string
+}
+
+export interface IntelligenceRefreshSummary {
+  refreshId: string
+  companyId: string
+  ticker: string
+  status: IntelligenceRefreshStatus
+  startedAt: string
+  completedAt: string | null
+  documentsDiscovered: number
+  documentsDownloaded: number
+  documentsUnchanged: number
+  documentsParsed: number
+  documentsFailed: number
+  relationshipCount: number
+  operatingObservationCount: number
+  guidanceStatementCount: number
+  coverage: IntelligenceModuleCoverage[]
+  items: IntelligenceRefreshItem[]
+  warnings: string[]
+  modelVersion: string
+}
+
+export interface IntelligenceSourceHealthResponse {
+  apiVersion: "v3"
+  companyId: string
+  ticker: string
+  lastRefresh: IntelligenceRefreshSummary | null
+  documentCount: number
+  parsedDocumentCount: number
+  failedDocumentCount: number
+  coverage: IntelligenceModuleCoverage[]
+  warnings: string[]
+}
+
+export interface LocalIntelligenceJob {
+  jobId: string
+  jobType: "intelligence_refresh"
+  status: "running" | "completed" | "failed" | "cancelled"
+  progress: number
+  request: Record<string, unknown>
+  result: IntelligenceRefreshSummary | null
+  error: string | null
+  cancelRequested: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type UniverseRefreshStatus = "running" | "completed" | "partial" | "failed" | "cancelled"
+export type UniverseItemStatus = "queued" | "running" | "completed" | "partial" | "failed" | "skipped" | "cancelled"
+
+export interface UniverseSnapshotSummary {
+  snapshotId: string
+  universeKey: "sp500"
+  version: number
+  asOfDate: string
+  source: string
+  sourceUrl: string
+  knownAt: string
+  retrievedAt: string
+  constituentCount: number
+  qualityWarnings: string[]
+}
+
+export interface UniverseRefreshSummary {
+  refreshId: string
+  universeKey: "sp500"
+  snapshotId: string
+  status: UniverseRefreshStatus
+  profile: string
+  totalCount: number
+  completedCount: number
+  partialCount: number
+  skippedCount: number
+  failedCount: number
+  cancelledCount: number
+  warnings: string[]
+  startedAt: string
+  completedAt: string | null
+}
+
+export interface UniverseStatusResponse {
+  apiVersion: "v3"
+  universeKey: "sp500"
+  snapshot: UniverseSnapshotSummary | null
+  latestRefresh: UniverseRefreshSummary | null
+  cachedCount: number
+  completedCount: number
+  partialCount: number
+  failedCount: number
+  unavailableCount: number
+  sectorCounts: Record<string, number>
+  warnings: string[]
+}
+
+export interface SectorConstituentResearch {
+  symbol: string
+  companyName: string
+  sector: string
+  subIndustry: string
+  companyId: string | null
+  price: number | null
+  dailyChangePercent: number | null
+  marketCap: number | null
+  marketCapSource: string
+  dataStatus: string
+  observationTimestamp: string | null
+  knownAt: string | null
+  qualityWarnings: string[]
+}
+
+export interface SectorConstituentSnapshot {
+  apiVersion: "v3"
+  universeKey: "sp500"
+  snapshotId: string
+  sectorSymbol: string
+  sectorName: string
+  constituentCount: number
+  availableCount: number
+  constituents: SectorConstituentResearch[]
+  gainers: SectorConstituentResearch[]
+  losers: SectorConstituentResearch[]
+  unavailable: SectorConstituentResearch[]
+  generatedAt: string
+  warnings: string[]
+}
+
+export interface LocalUniverseJob {
+  jobId: string
+  jobType: "sp500_universe_refresh"
+  status: "running" | "completed" | "failed" | "cancelled"
+  progress: number
+  request: Record<string, unknown>
+  result: UniverseRefreshSummary | null
+  error: string | null
+  cancelRequested: boolean
+  createdAt: string
+  updatedAt: string
 }

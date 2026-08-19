@@ -10,13 +10,13 @@ from .shared import bad_request
 
 def create_stock_router(data: MarketData) -> APIRouter:
     router = APIRouter(prefix="/api/v2", tags=["Stock Research"])
-    supported_periods = {"1mo", "3mo", "6mo", "1y", "2y"}
+    supported_periods = {"1mo", "3mo", "6mo", "1y", "2y", "3y", "5y"}
 
     @router.get("/stocks/{ticker}")
     async def stock_overview(ticker: str, period: str = "1y"):
         try:
             if period not in supported_periods:
-                raise ValueError("Period must be 1mo, 3mo, 6mo, 1y, or 2y.")
+                raise ValueError("Period must be 1mo, 3mo, 6mo, 1y, 2y, 3y, or 5y.")
             history = await data.history(ticker, period)
             close = history["Close"].dropna()
             if len(close) < 2:

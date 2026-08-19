@@ -119,6 +119,20 @@ class CompanyIdentityRepository:
             raise
         return self.get_company(company_id)
 
+    def enrich_classification(
+        self,
+        company_id: str,
+        sector: str | None,
+        industry: str | None,
+    ) -> CompanyIdentity:
+        self.connection.execute(
+            """UPDATE companies
+               SET sector = coalesce(?, sector), industry = coalesce(?, industry), updated_at = ?
+               WHERE company_id = ?""",
+            [sector, industry, self._utc_now(), company_id],
+        )
+        return self.get_company(company_id)
+
     def change_primary_ticker(
         self,
         company_id: str,

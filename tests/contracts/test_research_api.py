@@ -58,9 +58,13 @@ def test_research_run_contract_persists_data_and_reproducibility_identity(tmp_pa
         }
         assert set(run["results"]["marketChart"]["intervals"]) == {"day", "week", "month", "year"}
         assert run["results"]["marketChart"]["intervals"]["day"][-1]["indicators"]["macdSignal"] is not None
+        assert run["results"]["currentSignal"]["observationDate"] == run["results"]["chart"][-1]["date"]
+        assert run["results"]["currentSignal"]["signalPosition"] == run["results"]["chart"][-1]["signalPosition"]
+        assert run["results"]["currentSignal"]["executionTiming"].endswith("next session open.")
         restored = client.get(f"/api/v2/research-runs/{run['run_id']}")
         assert restored.status_code == 200
         assert restored.json()["reproducibility_key"] == run["reproducibility_key"]
+        assert restored.json()["results"]["currentSignal"] == run["results"]["currentSignal"]
         assert store.get_research_run(run["run_id"])["strategy_key"] == run["strategy_key"]
         assert run["research_design"] == {"ticker": "AAPL", "benchmark": "SPY", "universe": [], "timeframe": "1y", "relative_strength_reference": "market", "relative_strength_symbol": None, "execution": {"initial_capital": 100000, "commission_bps": 0.0, "slippage_bps": 0.0, "annual_cash_rate": 0.0, "signal_lag_sessions": 1, "fill_price": "next_open"}}
 

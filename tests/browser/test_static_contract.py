@@ -45,39 +45,46 @@ def test_react_research_canvas_sources_are_present():
     evidence = Path("app/web/src/features/strategy-lab/evidence-workspace.tsx").read_text()
     chart = Path("app/web/src/features/strategy-lab/market-workspace-chart.tsx").read_text()
     option_lab = Path("app/web/src/features/option-lab/option-lab.tsx").read_text()
+    options_planner = Path("app/web/src/features/option-lab/options-planner.tsx").read_text()
     lifecycle = Path("app/web/src/features/option-lab/lifecycle-workspace.tsx").read_text()
-    stock_observatory = Path("app/web/src/features/stock-observatory/stock-observatory.tsx").read_text()
     market_pulse = Path("app/web/src/features/market-pulse/market-pulse.tsx").read_text()
     company_intelligence = Path("app/web/src/features/company-intelligence/company-intelligence.tsx").read_text()
     earnings_chart = Path("app/web/src/features/company-intelligence/earnings-reaction-chart.tsx").read_text()
+    financial_history = Path("app/web/src/features/company-intelligence/financial-history.tsx").read_text()
+    valuation_chart = Path("app/web/src/features/company-intelligence/valuation-history-chart.tsx").read_text()
     relationship_network = Path("app/web/src/features/company-intelligence/relationship-network.tsx").read_text()
     operations_intelligence = Path("app/web/src/features/company-intelligence/operations-intelligence.tsx").read_text()
     guidance_timeline = Path("app/web/src/features/company-intelligence/guidance-timeline.tsx").read_text()
     source_dialog = Path("app/web/src/features/company-intelligence/source-evidence-dialog.tsx").read_text()
-    assert '"version": "0.9.0"' in package
+    assert '"version": "0.10.0"' in package
     assert '"react"' in package
     assert '"lightweight-charts"' in package
     assert 'import("@/features/strategy-lab/strategy-lab")' in application
     assert 'import("@/features/option-lab/option-lab")' in application
-    assert 'import("@/features/stock-observatory/stock-observatory")' in application
     assert 'import("@/features/market-pulse/market-pulse")' in application
     assert 'import("@/features/company-intelligence/company-intelligence")' in application
     assert "<StrategyLab />" in application
     assert "<OptionLab initialTicker={initialTicker} />" in application
-    assert "<StockObservatory initialTicker={initialTicker} />" in application
     assert "<MarketPulse />" in application
     assert "<CompanyIntelligence initialTicker={initialTicker} />" in application
     assert "PositionBuilder" in option_lab
     assert "ScenarioWorkspace" in option_lab
     assert "LifecycleWorkspace" in option_lab
+    assert "OptionsPlanner" in option_lab
+    assert "What if {plan?.ticker} is $X on date Y?" in options_planner
+    assert "Use In Detailed Builder" in options_planner
+    assert "The normal planner never suggests an uncovered short call" in options_planner
     assert "applyOptionLifecycleEvent" in option_lab
     assert "Journal Next Decision" in lifecycle
-    assert "MarketWorkspaceChart" in stock_observatory
-    assert "Current Option Context" in stock_observatory
     assert "summarizeSectors" in market_pulse
     assert "Provider Readiness" in market_pulse
     assert "Historical Earnings Reaction" in company_intelligence
-    assert "TTM Financial Progression" in company_intelligence
+    assert "Complete Normalized Financial History" in financial_history
+    assert "Trailing Twelve Months" in financial_history
+    assert "Quarterly History" in financial_history
+    assert "Annual History" in financial_history
+    assert "Historical Valuation Path" in company_intelligence
+    assert "Historical context · not a trading signal" in valuation_chart
     assert "Reported Facts" in company_intelligence
     assert "Calculated Market Reaction" in company_intelligence
     assert "Historical Evidence, Not A Forecast" in company_intelligence
@@ -95,10 +102,12 @@ def test_react_research_canvas_sources_are_present():
     assert "Historical Record, Not Model Forecast" in guidance_timeline
     assert "Exact source excerpts remain authoritative" in source_dialog
     assert 'aria-keyshortcuts="ArrowLeft ArrowRight Home End"' in earnings_chart
+    assert "CandlestickSeries" in earnings_chart
     assert "createSeriesMarkers" in earnings_chart
     assert "StrategyCommand" in strategy_lab
     assert "ProposalReviewDialog" in strategy_lab
-    assert 'value="robustness"' in evidence
+    assert 'value="advanced"' in evidence
+    assert "CurrentSignalPanel" in evidence
     assert "createSeriesMarkers" in chart
     assert 'marketChart?.intervals[interval]' in chart
     assert 'maxSize="68%"' in strategy_lab
@@ -117,10 +126,10 @@ def test_react_research_canvas_sources_are_present():
     app_shell = Path("app/web/src/components/app-shell.tsx").read_text()
     assert 'const mainId = mainIds[activeLab]' in app_shell
     assert 'href: "/?lab=options"' in app_shell
-    assert 'href: "/?lab=stock"' in app_shell
     assert 'href: "/?lab=market"' in app_shell
     assert 'href: "/?lab=intelligence"' in app_shell
-    assert "v0.9 evidence network" in app_shell
+    assert "Stock Observatory" not in app_shell
+    assert "v0.10 personal research" in app_shell
     assert 'legacy?panel=stock' not in app_shell
     assert 'legacy?panel=market' not in app_shell
     assert 'aria-label="Mobile research laboratories"' in app_shell

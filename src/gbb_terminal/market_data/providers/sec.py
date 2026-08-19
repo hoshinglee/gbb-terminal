@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import PurePosixPath
+from urllib.parse import quote
 from xml.etree import ElementTree
 
 from ..models import DataEnvelope
@@ -9,6 +11,7 @@ from .base import BaseProvider
 
 class SECProvider(BaseProvider):
     name = "SEC EDGAR"
+    minimum_interval_seconds = 0.12
 
     def company_tickers(self) -> DataEnvelope[list[dict]]:
         payload = self.request_json("https://www.sec.gov/files/company_tickers_exchange.json")
@@ -42,6 +45,35 @@ class SECProvider(BaseProvider):
         retrieved_at = datetime.now(timezone.utc)
         return DataEnvelope("sec_company_facts", normalized, payload, retrieved_at, retrieved_at, retrieved_at, self.delayed_status, self.name, ["Company facts may be amended; historical research must join facts to filing acceptance timestamps."])
 
+    def submission_file(self, name: str) -> DataEnvelope[dict]:
+        safe_name = self._safe_archive_name(name)
+        payload = self.request_json(f"https://data.sec.gov/submissions/{quote(safe_name)}")
+        retrieved_at = datetime.now(timezone.utc)
+        return DataEnvelope(
+            "sec_submission_history",
+            safe_name,
+            payload,
+            retrieved_at,
+            retrieved_at,
+            retrieved_at,
+            self.delayed_status,
+            self.name,
+            ["Historical submission metadata is point-in-time only when joined to each filing acceptance timestamp."],
+        )
+
+    def filing_index(self, cik: str, accession: str) -> dict:
+        _, base = self._filing_base(cik, accession)
+        return self.request_json(f"{base}/index.json")
+
+    def filing_index_page(self, cik: str, accession: str) -> bytes:
+        _, base = self._filing_base(cik, accession)
+        return self.request_bytes(f"{base}/{quote(accession)}-index.htm")
+
+    def filing_document(self, cik: str, accession: str, document: str) -> bytes:
+        safe_name = self._safe_archive_name(document)
+        _, base = self._filing_base(cik, accession)
+        return self.request_bytes(f"{base}/{quote(safe_name)}")
+
     def thirteen_f_holdings(self, cik: str, accession: str) -> DataEnvelope[list[dict]]:
         normalized, base = self._filing_base(cik, accession)
         index = self.request_json(f"{base}/index.json")
@@ -69,10 +101,32 @@ class SECProvider(BaseProvider):
 
     @staticmethod
     def recent_forms(payload: dict, forms: set[str]) -> list[dict]:
-        recent = payload.get("filings", {}).get("recent", {})
-        keys = ("accessionNumber", "filingDate", "reportDate", "acceptanceDateTime", "form", "primaryDocument")
-        rows = [dict(zip(keys, values)) for values in zip(*(recent.get(key, []) for key in keys))]
+        rows = SECProvider.filing_rows(payload.get("filings", {}).get("recent", {}))
         return [row for row in rows if row["form"] in forms]
+
+    @staticmethod
+    def filing_rows(payload: dict) -> list[dict]:
+        keys = (
+            "accessionNumber",
+            "filingDate",
+            "reportDate",
+            "acceptanceDateTime",
+            "form",
+            "primaryDocument",
+            "primaryDocDescription",
+            "items",
+        )
+        lengths = [len(payload.get(key, [])) for key in keys if payload.get(key)]
+        row_count = max(lengths, default=0)
+        rows = []
+        for index in range(row_count):
+            row = {
+                key: payload.get(key, [])[index] if index < len(payload.get(key, [])) else ""
+                for key in keys
+            }
+            if row["accessionNumber"] and row["form"]:
+                rows.append(row)
+        return rows
 
     @staticmethod
     def acceptance_times(payload: dict) -> dict[str, datetime]:
@@ -147,3 +201,10 @@ class SECProvider(BaseProvider):
         normalized = "".join(character for character in cik if character.isdigit()).zfill(10)
         accession_path = accession.replace("-", "")
         return normalized, f"https://www.sec.gov/Archives/edgar/data/{int(normalized)}/{accession_path}"
+
+    @staticmethod
+    def _safe_archive_name(value: str) -> str:
+        name = value.strip()
+        if not name or PurePosixPath(name).name != name or name in {".", ".."}:
+            raise ValueError("SEC archive document names must be simple file names.")
+        return name

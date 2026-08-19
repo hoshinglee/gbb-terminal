@@ -25,17 +25,12 @@ describe("research canvas accessibility", () => {
     expect(screen.getAllByRole("link", { name: "Option Lab" })[0]).toHaveAttribute("href", "/?lab=options")
   })
 
-  it("exposes Stock Observatory and Market Pulse without legacy routing", () => {
-    const { rerender } = render(<AppShell activeLab="stock"><div>Stock canvas</div></AppShell>)
-
-    expect(screen.getByRole("main")).toHaveAttribute("id", "stock-main")
-    expect(screen.getAllByRole("link", { name: "Stock Observatory" })[0]).toHaveAttribute("href", "/?lab=stock")
-    expect(screen.getAllByRole("link", { name: "Stock Observatory" })[0]).toHaveAttribute("aria-current", "page")
-
-    rerender(<AppShell activeLab="market"><div>Market canvas</div></AppShell>)
+  it("exposes Market Pulse without a separate Stock Observatory destination", () => {
+    render(<AppShell activeLab="market"><div>Market canvas</div></AppShell>)
     expect(screen.getByRole("main")).toHaveAttribute("id", "market-main")
     expect(screen.getAllByRole("link", { name: "Market Pulse" })[0]).toHaveAttribute("href", "/?lab=market")
     expect(screen.getAllByRole("link", { name: "Market Pulse" })[0]).toHaveAttribute("aria-current", "page")
+    expect(screen.queryByRole("link", { name: "Stock Observatory" })).not.toBeInTheDocument()
   })
 
   it("exposes Company Intelligence as a first-class keyboard destination", () => {

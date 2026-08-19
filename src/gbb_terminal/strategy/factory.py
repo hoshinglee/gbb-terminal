@@ -81,15 +81,17 @@ class DeclarativeStrategy(Strategy):
         risk = self.configuration.get("risk", {})
         if risk.get("atr_stop_multiple") is not None:
             frame["risk_atr"] = IndicatorRegistry.calculate(history, {"type": "atr", "window": int(risk.get("atr_window", 14))})
-        position, current, entry_price = [], 0, None
+        position, signal_reasons, current, entry_price = [], [], 0, None
         favorable_price, entry_atr, pending_entry_atr, holding_days = None, None, None, 0
         pending_entry = False
         for row_number, (open_price, close, enter, exit_trade) in enumerate(
             zip(frame["open"], frame["close"], entry_signal.fillna(False), exit_signal.fillna(False))
         ):
+            signal_reason = ""
             if current == 0 and bool(enter):
                 current, pending_entry = active_value, True
                 pending_entry_atr = float(frame["risk_atr"].iloc[row_number]) if "risk_atr" in frame and pd.notna(frame["risk_atr"].iloc[row_number]) else None
+                signal_reason = f"Entry criteria matched: {self.entry_criteria}."
             elif current != 0:
                 if pending_entry:
                     entry_price = float(open_price)
@@ -106,11 +108,27 @@ class DeclarativeStrategy(Strategy):
                 atr_hit = entry_atr is not None and risk.get("atr_stop_multiple") is not None and (float(close) - float(entry_price)) * active_value <= -entry_atr * float(risk["atr_stop_multiple"])
                 time_hit = risk.get("max_holding_days") is not None and holding_days >= int(risk["max_holding_days"])
                 if bool(exit_trade) or stop_hit or target_hit or trailing_hit or atr_hit or time_hit:
+                    if bool(exit_trade):
+                        signal_reason = f"Exit criteria matched: {self.exit_criteria}."
+                    elif stop_hit:
+                        signal_reason = f"Fixed stop loss reached at {float(risk['stop_loss_percent']):g}%."
+                    elif target_hit:
+                        signal_reason = f"Profit target reached at {float(risk['take_profit_percent']):g}%."
+                    elif trailing_hit:
+                        signal_reason = f"Trailing stop reached at {float(risk['trailing_stop_percent']):g}% from the favorable close."
+                    elif atr_hit:
+                        signal_reason = f"ATR stop reached at {float(risk['atr_stop_multiple']):g} times entry ATR."
+                    else:
+                        signal_reason = f"Maximum holding period reached at {int(risk['max_holding_days'])} sessions."
                     current, entry_price = 0, None
                     favorable_price, entry_atr, pending_entry_atr, holding_days = None, None, None, 0
                     pending_entry = False
             position.append(current)
+            signal_reasons.append(signal_reason)
         frame["position"] = position
+        frame["entry_signal"] = entry_signal.fillna(False).astype(bool)
+        frame["exit_signal"] = exit_signal.fillna(False).astype(bool)
+        frame["signal_reason"] = signal_reasons
         return frame
 
     def spec(self) -> StrategySpec:
