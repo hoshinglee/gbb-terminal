@@ -1,4 +1,4 @@
-export type LabId = "strategy" | "options" | "market" | "intelligence"
+export type LabId = "strategy" | "options" | "market" | "intelligence" | "decision"
 export type LabHrefTarget = LabId | "stock"
 
 const supportedSymbol = /^[A-Z0-9.^=-]{1,12}$/
@@ -15,7 +15,7 @@ export function tickerFromSearch(search: string, fallback = "NVDA") {
 export function labFromSearch(search: string): LabId {
   const requested = new URLSearchParams(search).get("lab")
   if (requested === "stock") return "intelligence"
-  return requested === "options" || requested === "market" || requested === "intelligence" ? requested : "strategy"
+  return requested === "options" || requested === "market" || requested === "intelligence" || requested === "decision" ? requested : "strategy"
 }
 
 export function labHref(lab: LabHrefTarget, ticker?: string) {

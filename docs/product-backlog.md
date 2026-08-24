@@ -241,6 +241,38 @@ Implementation status: INT-18 public-document collection, INT-14/INT-16/INT-17 C
 - Keep the detailed builder, immutable simulations, and paper lifecycle backward compatible and optional after planning.
 - Show source-backed historical earnings movement and separately labelled selected-expiry ATM straddle context without treating the difference as mispricing.
 
+## Release 0.11 — Decision Risk Context
+
+### DRC-01 — Personal Risk Policy And Portfolio Context
+
+Implementation status: local capital, liquid cash, manual holdings, canonical company resolution, immutable risk-policy versions, policy snapshots, V2 APIs, compact global editing, and storage/API/domain tests are implemented. Attaching snapshots to specific research and option decisions remains a later Decision Center integration.
+
+- Keep portfolio sizing context separate from strategy logic, ticker selection, and instrument construction.
+- Persist manual holdings even when public quote providers are unavailable; retain unresolved normalized tickers until canonical identity is available.
+- Require explicit limits for normal target size, single-name exposure, assignment exposure, short-option collateral, unencumbered cash, and portfolio stress loss.
+- Append a new immutable policy version on every save and allow stable snapshots for future decision records.
+- Keep all existing labs useful when portfolio context is absent and never treat these user-defined limits as recommendations.
+
+### DRC-02 — Company Thesis Card
+
+Implementation status: company-scoped thesis versions, user-owned statuses, evidence/moat/risk/catalyst/invalidation fields, validated source-span references, exact-text/interpretation separation, and stable snapshots are implemented.
+
+### DRC-03 — Position Sizer And Instrument Fit
+
+Implementation status: target/maximum exposure before instrument choice, current holding context, shares and validated options fit, assignment/collateral/cash/concentration/stress policy gates, explicit arithmetic, and incomplete-context handling are implemented.
+
+### DRC-04 — Position Expression Comparator
+
+Implementation status: ownership, lower accumulation, income, and defined-risk objectives compare eligible direct shares and current Option Lab structures without optimality claims; provider failure retains direct-share planning and deep links.
+
+### DRC-05 — Entry Planner And Stress Gates
+
+Implementation status: versioned staged tranches, three execution modes, three escape choices, preferred/maximum prices, opportunity reserve, -20/-40/-60 stock scenarios, IV/time assumptions, server-side option pricing, portfolio impact, and policy gates are implemented.
+
+### DRC-06 — Decision Journal And Process Review
+
+Implementation status: all planned lifecycle states, frozen thesis/policy/intent/expression/entry snapshots, append-only revisions, company/state/type/date/review filters, reopening, separate process/outcome review, and optional Option Lab paper-position references are implemented.
+
 ## Cross-Release Usefulness Enhancements
 
 1. Compare saved stock and option research runs in one project workspace.

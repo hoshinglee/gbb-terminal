@@ -29,6 +29,10 @@ from ..intelligence.valuation_repository import ValuationRepository
 from ..llm.translator import StrategyTranslator
 from ..market_data.service import MarketData
 from ..market_data.providers.estimates import EmptyEstimateProvider, ManualEstimateProvider
+from ..portfolio.repository import PortfolioRepository
+from ..portfolio.service import PortfolioService
+from ..decision_center.repository import DecisionCenterRepository
+from ..decision_center.service import DecisionCenterService
 from ..settings import Settings, settings
 from ..storage.database import LocalMarketStore
 from ..strategy.catalogue import StrategyCatalogue, catalogue
@@ -56,6 +60,8 @@ class ApplicationServices:
     intelligence_refresh: IntelligenceRefreshService
     company_intelligence: CompanyIntelligenceService
     universe_research: UniverseResearchService
+    portfolio_context: PortfolioService
+    decision_center: DecisionCenterService
 
 
 def build_services(configuration: Settings = settings) -> ApplicationServices:
@@ -147,6 +153,16 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
         earnings_intelligence,
         market_data,
     )
+    portfolio_context = PortfolioService(
+        PortfolioRepository(store.connection),
+        company_identity,
+    )
+    decision_center = DecisionCenterService(
+        DecisionCenterRepository(store.connection),
+        company_identity,
+        evidence_repository,
+        portfolio_context,
+    )
     return ApplicationServices(
         store=store,
         market_data=market_data,
@@ -165,4 +181,6 @@ def build_services(configuration: Settings = settings) -> ApplicationServices:
         intelligence_refresh=intelligence_refresh,
         company_intelligence=company_intelligence,
         universe_research=universe_research,
+        portfolio_context=portfolio_context,
+        decision_center=decision_center,
     )

@@ -52,6 +52,327 @@ export interface CatalogueStrategy {
   updatedAt: string
 }
 
+export interface PortfolioContextInput {
+  investable_value: number
+  liquid_cash: number
+  base_currency: "USD"
+}
+
+export interface PortfolioContextRecord extends PortfolioContextInput {
+  context_id: string
+  created_at: string
+  updated_at: string
+}
+
+export interface PortfolioPositionInput {
+  ticker: string
+  shares: number
+  cost_basis_per_share: number
+  manual_market_value: number | null
+  notes: string
+}
+
+export interface PortfolioPosition extends PortfolioPositionInput {
+  position_id: string
+  context_id: string
+  company_id: string | null
+  company_name: string | null
+  identity_status: "resolved" | "unresolved"
+  created_at: string
+  updated_at: string
+}
+
+export interface RiskPolicyInput {
+  name: string
+  normal_target_position_percent: number
+  max_single_name_exposure_percent: number
+  max_assignment_exposure_percent: number
+  max_short_option_collateral_percent: number
+  min_unencumbered_cash_reserve_percent: number | null
+  min_unencumbered_cash_reserve_amount: number | null
+  portfolio_stress_loss_ceiling_percent: number
+}
+
+export interface RiskPolicy extends RiskPolicyInput {
+  policy_id: string
+  policy_key: string
+  version: number
+  supersedes_policy_id: string | null
+  created_at: string
+}
+
+export interface RiskPolicySnapshot {
+  snapshot_id: string
+  policy_id: string
+  policy_key: string
+  policy_version: number
+  policy: RiskPolicy
+  created_at: string
+}
+
+export interface PortfolioBundle {
+  context: PortfolioContextRecord | null
+  positions: PortfolioPosition[]
+  risk_policy: RiskPolicy | null
+}
+
+export type ThesisStatus = "watch" | "insufficient_evidence" | "ready_for_position_planning" | "invalidated"
+export type EvidenceStrength = "unknown" | "limited" | "moderate" | "strong"
+export type MoatAssessment = "unknown" | "none" | "limited" | "moderate" | "strong"
+
+export interface ThesisEvidenceLinkInput {
+  span_id: string
+  role: "support" | "context" | "contradiction"
+  interpretation: string
+}
+
+export interface ThesisEvidenceReference extends ThesisEvidenceLinkInput {
+  document_id: string
+  source: string
+  source_url: string
+  document_title: string | null
+  exact_text: string
+  known_at: string
+}
+
+export interface ThesisCardInput {
+  status: ThesisStatus
+  evidence_strength: EvidenceStrength
+  moat_assessment: MoatAssessment
+  major_risks: string[]
+  catalysts: string[]
+  invalidation_criteria: string[]
+  rationale: string
+  evidence_links: ThesisEvidenceLinkInput[]
+}
+
+export interface ThesisCard extends Omit<ThesisCardInput, "evidence_links"> {
+  thesis_id: string
+  thesis_key: string
+  company_id: string
+  ticker: string
+  company_name: string
+  version: number
+  evidence_references: ThesisEvidenceReference[]
+  supersedes_thesis_id: string | null
+  created_at: string
+}
+
+export interface PositionIntentInput {
+  target_amount: number | null
+  target_percent: number | null
+  maximum_amount: number | null
+  maximum_percent: number | null
+  current_price: number | null
+}
+
+export interface PositionIntent {
+  intent_id: string
+  intent_key: string
+  company_id: string
+  ticker: string
+  company_name: string
+  version: number
+  target_amount: number | null
+  target_percent: number | null
+  maximum_amount: number | null
+  maximum_percent: number | null
+  current_exposure_amount: number | null
+  current_exposure_percent: number | null
+  current_shares: number
+  investable_value: number | null
+  is_complete: boolean
+  warnings: string[]
+  supersedes_intent_id: string | null
+  created_at: string
+}
+
+export type DecisionObjective = "ownership_now" | "accumulate_lower" | "income" | "defined_risk_upside"
+
+export interface InstrumentExpression {
+  kind: "direct_shares" | "option"
+  name: string
+  share_quantity: number | null
+  share_price: number | null
+  option_position: OptionSimulationRequest | null
+  source_candidate_id: string | null
+}
+
+export interface PolicyCheck {
+  key: string
+  label: string
+  status: "pass" | "warn" | "fail" | "incomplete" | "not_applicable"
+  actual: number | null
+  limit: number | null
+  unit: "percent" | "usd" | "shares" | "none"
+  arithmetic: string
+  reason: string
+}
+
+export interface InstrumentFitResult {
+  candidate_id: string
+  expression: InstrumentExpression
+  overall_status: "pass" | "warn" | "fail" | "incomplete"
+  fit_label: string
+  objective_fit: string
+  current_exposure: number | null
+  target_exposure: number | null
+  maximum_exposure: number | null
+  capital_required: number | null
+  collateral_required: number | null
+  assignment_obligation: number
+  effective_acquisition_basis: number | null
+  existing_shares: number
+  shares_after_assignment: number | null
+  post_assignment_exposure: number | null
+  portfolio_footprint_percent: number | null
+  cash_remaining: number | null
+  maximum_loss: number | "Unlimited" | null
+  break_evens: number[]
+  sizing_flexibility: string
+  upside_character: string
+  downside_character: string
+  checks: PolicyCheck[]
+  arithmetic: string[]
+  warnings: string[]
+}
+
+export interface ExpressionComparison {
+  ticker: string
+  company_id: string
+  objective: DecisionObjective
+  generated_at: string
+  position_intent: PositionIntent
+  candidates: InstrumentFitResult[]
+  eligibility_notes: string[]
+  warnings: string[]
+  strategy_lab_url: string
+  option_lab_url: string
+}
+
+export interface EntryTrancheInput {
+  label: string
+  allocation_amount: number | null
+  allocation_percent: number | null
+  status: "planned" | "available" | "used" | "skipped" | "cancelled"
+  trigger: string
+  rationale: string
+  preferred_entry_price: number | null
+  maximum_acceptable_execution_price: number | null
+}
+
+export interface EntryTranche extends EntryTrancheInput {
+  tranche_id: string
+  resolved_allocation_amount: number
+  resolved_allocation_percent: number | null
+}
+
+export interface EntryPlanInput {
+  position_intent_id: string
+  expression: InstrumentExpression
+  execution_mode: "patient" | "establish_exposure" | "catalyst"
+  escape_plan: "abandon_wait" | "reassess_thesis" | "allow_starter_within_maximum"
+  tranches: EntryTrancheInput[]
+  notes: string
+}
+
+export interface EntryPlan extends Omit<EntryPlanInput, "tranches"> {
+  entry_plan_id: string
+  plan_key: string
+  company_id: string
+  ticker: string
+  company_name: string
+  version: number
+  target_allocation_amount: number
+  allocated_amount: number
+  unallocated_reserve: number
+  tranches: EntryTranche[]
+  supersedes_entry_plan_id: string | null
+  created_at: string
+}
+
+export interface StressScenarioInput {
+  underlying_change_percent: number
+  iv_change_percent?: number
+  days_forward?: number
+}
+
+export interface StressScenarioResult {
+  scenario: Required<StressScenarioInput>
+  stressed_underlying_price: number
+  position_pnl: number
+  portfolio_pnl_percent: number | null
+  post_stress_single_name_percent: number | null
+  cash_remaining: number | null
+  assignment_obligation: number
+  collateral_exposure: number
+  checks: PolicyCheck[]
+  assumptions: string[]
+  warnings: string[]
+}
+
+export interface StressTestResult {
+  ticker: string
+  expression: InstrumentExpression
+  generated_at: string
+  scenarios: StressScenarioResult[]
+  limitations: string[]
+}
+
+export interface ProcessReview {
+  thesis_evidence_sufficient: "yes" | "no" | "not_applicable" | "unreviewed"
+  position_inside_risk_budget: "yes" | "no" | "not_applicable" | "unreviewed"
+  instrument_fit_intended_exposure: "yes" | "no" | "not_applicable" | "unreviewed"
+  execution_followed_plan: "yes" | "no" | "not_applicable" | "unreviewed"
+  exit_followed_rule: "yes" | "no" | "not_applicable" | "unreviewed"
+  process_quality: "good" | "poor" | "mixed" | "unreviewed"
+  notes: string
+}
+
+export interface LaterOutcome {
+  as_of: string
+  outcome: "favorable" | "unfavorable" | "neutral" | "unavailable"
+  return_percent: number | null
+  description: string
+}
+
+export type DecisionState = "planned" | "entered" | "partially_entered" | "missed" | "cancelled" | "invalidated" | "closed" | "passed"
+export type DecisionType = "ownership" | "accumulation" | "income" | "defined_risk" | "risk_reduction" | "pass"
+
+export interface DecisionJournalRecord {
+  decision_id: string
+  revision: number
+  company_id: string
+  ticker: string
+  company_name: string
+  decision_type: DecisionType
+  state: DecisionState
+  thesis_snapshot: ThesisCard | null
+  risk_policy_snapshot: RiskPolicy | null
+  position_intent_snapshot: PositionIntent | null
+  expression_snapshot: InstrumentExpression | null
+  entry_plan_snapshot: EntryPlan | null
+  rationale: string
+  actual_execution: Record<string, unknown>
+  process_review: ProcessReview
+  later_outcome: LaterOutcome | null
+  process_outcome_classification: string | null
+  option_position_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DecisionCenterWorkspace {
+  company_id: string
+  ticker: string
+  company_name: string
+  thesis: ThesisCard | null
+  position_intent: PositionIntent | null
+  entry_plans: EntryPlan[]
+  decisions: DecisionJournalRecord[]
+  risk_policy: RiskPolicy | null
+}
+
 export interface ExecutionAssumptions {
   initial_capital: number
   commission_bps: number

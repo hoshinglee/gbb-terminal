@@ -49,6 +49,7 @@ def test_react_research_canvas_sources_are_present():
     lifecycle = Path("app/web/src/features/option-lab/lifecycle-workspace.tsx").read_text()
     market_pulse = Path("app/web/src/features/market-pulse/market-pulse.tsx").read_text()
     company_intelligence = Path("app/web/src/features/company-intelligence/company-intelligence.tsx").read_text()
+    decision_center = Path("app/web/src/features/decision-center/decision-center.tsx").read_text()
     earnings_chart = Path("app/web/src/features/company-intelligence/earnings-reaction-chart.tsx").read_text()
     financial_history = Path("app/web/src/features/company-intelligence/financial-history.tsx").read_text()
     valuation_chart = Path("app/web/src/features/company-intelligence/valuation-history-chart.tsx").read_text()
@@ -63,10 +64,12 @@ def test_react_research_canvas_sources_are_present():
     assert 'import("@/features/option-lab/option-lab")' in application
     assert 'import("@/features/market-pulse/market-pulse")' in application
     assert 'import("@/features/company-intelligence/company-intelligence")' in application
+    assert 'import("@/features/decision-center/decision-center")' in application
     assert "<StrategyLab />" in application
     assert "<OptionLab initialTicker={initialTicker} />" in application
     assert "<MarketPulse />" in application
     assert "<CompanyIntelligence initialTicker={initialTicker} />" in application
+    assert "<DecisionCenter initialTicker={initialTicker} />" in application
     assert "PositionBuilder" in option_lab
     assert "ScenarioWorkspace" in option_lab
     assert "LifecycleWorkspace" in option_lab
@@ -128,8 +131,13 @@ def test_react_research_canvas_sources_are_present():
     assert 'href: "/?lab=options"' in app_shell
     assert 'href: "/?lab=market"' in app_shell
     assert 'href: "/?lab=intelligence"' in app_shell
+    assert 'href: "/?lab=decision"' in app_shell
     assert "Stock Observatory" not in app_shell
-    assert "v0.10 personal research" in app_shell
+    assert "v0.11 decision context" in app_shell
+    assert "Investment Thesis" in decision_center
+    assert "Instrument Fit Comparator" in decision_center
+    assert "Staged Entry Planner" in decision_center
+    assert "Process Quality" in decision_center
     assert 'legacy?panel=stock' not in app_shell
     assert 'legacy?panel=market' not in app_shell
     assert 'aria-label="Mobile research laboratories"' in app_shell

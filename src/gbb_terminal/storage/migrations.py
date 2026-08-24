@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import duckdb
 
 
-CURRENT_SCHEMA_VERSION = 16
+CURRENT_SCHEMA_VERSION = 18
 
 
 def apply_company_identity_schema(connection: duckdb.DuckDBPyConnection) -> None:
@@ -601,6 +601,179 @@ def apply_universe_schema(connection: duckdb.DuckDBPyConnection) -> None:
     )
 
 
+def apply_portfolio_context_schema(connection: duckdb.DuckDBPyConnection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS portfolio_contexts (
+            context_id VARCHAR PRIMARY KEY,
+            owner_id VARCHAR,
+            investable_value DOUBLE NOT NULL CHECK (investable_value >= 0),
+            liquid_cash DOUBLE NOT NULL CHECK (liquid_cash >= 0 AND liquid_cash <= investable_value),
+            base_currency VARCHAR NOT NULL CHECK (base_currency = 'USD'),
+            created_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP NOT NULL
+        )
+    """)
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS portfolio_positions (
+            position_id VARCHAR PRIMARY KEY,
+            context_id VARCHAR NOT NULL REFERENCES portfolio_contexts(context_id),
+            company_id VARCHAR REFERENCES companies(company_id),
+            ticker VARCHAR NOT NULL,
+            shares DOUBLE NOT NULL CHECK (shares <> 0),
+            cost_basis_per_share DOUBLE NOT NULL CHECK (cost_basis_per_share >= 0),
+            manual_market_value DOUBLE,
+            notes VARCHAR NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP NOT NULL,
+            UNIQUE (context_id, ticker)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS portfolio_position_company_index ON portfolio_positions(company_id)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS risk_policies (
+            policy_id VARCHAR PRIMARY KEY,
+            policy_key VARCHAR NOT NULL,
+            version INTEGER NOT NULL CHECK (version >= 1),
+            name VARCHAR NOT NULL,
+            normal_target_position_percent DOUBLE NOT NULL CHECK (
+                normal_target_position_percent > 0 AND normal_target_position_percent <= 100
+            ),
+            max_single_name_exposure_percent DOUBLE NOT NULL CHECK (
+                max_single_name_exposure_percent > 0 AND max_single_name_exposure_percent <= 100
+            ),
+            max_assignment_exposure_percent DOUBLE NOT NULL CHECK (
+                max_assignment_exposure_percent > 0 AND max_assignment_exposure_percent <= 100
+            ),
+            max_short_option_collateral_percent DOUBLE NOT NULL CHECK (
+                max_short_option_collateral_percent > 0 AND max_short_option_collateral_percent <= 100
+            ),
+            min_unencumbered_cash_reserve_percent DOUBLE CHECK (
+                min_unencumbered_cash_reserve_percent >= 0 AND min_unencumbered_cash_reserve_percent <= 100
+            ),
+            min_unencumbered_cash_reserve_amount DOUBLE CHECK (
+                min_unencumbered_cash_reserve_amount >= 0
+            ),
+            portfolio_stress_loss_ceiling_percent DOUBLE NOT NULL CHECK (
+                portfolio_stress_loss_ceiling_percent > 0 AND portfolio_stress_loss_ceiling_percent <= 100
+            ),
+            supersedes_policy_id VARCHAR REFERENCES risk_policies(policy_id),
+            created_at TIMESTAMP NOT NULL,
+            CHECK (normal_target_position_percent <= max_single_name_exposure_percent),
+            CHECK (
+                min_unencumbered_cash_reserve_percent IS NOT NULL OR
+                min_unencumbered_cash_reserve_amount IS NOT NULL
+            ),
+            UNIQUE (policy_key, version)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS risk_policy_current_index ON risk_policies(policy_key, version)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS risk_policy_snapshots (
+            snapshot_id VARCHAR PRIMARY KEY,
+            policy_id VARCHAR NOT NULL REFERENCES risk_policies(policy_id),
+            policy_key VARCHAR NOT NULL,
+            policy_version INTEGER NOT NULL CHECK (policy_version >= 1),
+            policy JSON NOT NULL,
+            created_at TIMESTAMP NOT NULL
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS risk_policy_snapshot_policy_index ON risk_policy_snapshots(policy_id, created_at)"
+    )
+
+
+def apply_decision_center_schema(connection: duckdb.DuckDBPyConnection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS decision_theses (
+            thesis_id VARCHAR PRIMARY KEY,
+            thesis_key VARCHAR NOT NULL,
+            company_id VARCHAR NOT NULL REFERENCES companies(company_id),
+            ticker VARCHAR NOT NULL,
+            version INTEGER NOT NULL CHECK (version >= 1),
+            status VARCHAR NOT NULL,
+            payload JSON NOT NULL,
+            supersedes_thesis_id VARCHAR REFERENCES decision_theses(thesis_id),
+            created_at TIMESTAMP NOT NULL,
+            UNIQUE (thesis_key, version)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS decision_thesis_company_index ON decision_theses(company_id, version)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS decision_thesis_snapshots (
+            snapshot_id VARCHAR PRIMARY KEY,
+            thesis_id VARCHAR NOT NULL REFERENCES decision_theses(thesis_id),
+            company_id VARCHAR NOT NULL REFERENCES companies(company_id),
+            thesis_version INTEGER NOT NULL CHECK (thesis_version >= 1),
+            payload JSON NOT NULL,
+            created_at TIMESTAMP NOT NULL
+        )
+    """)
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS decision_position_intents (
+            intent_id VARCHAR PRIMARY KEY,
+            intent_key VARCHAR NOT NULL,
+            company_id VARCHAR NOT NULL REFERENCES companies(company_id),
+            ticker VARCHAR NOT NULL,
+            version INTEGER NOT NULL CHECK (version >= 1),
+            payload JSON NOT NULL,
+            supersedes_intent_id VARCHAR REFERENCES decision_position_intents(intent_id),
+            created_at TIMESTAMP NOT NULL,
+            UNIQUE (intent_key, version)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS decision_intent_company_index ON decision_position_intents(company_id, version)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS decision_entry_plans (
+            entry_plan_id VARCHAR PRIMARY KEY,
+            plan_key VARCHAR NOT NULL,
+            company_id VARCHAR NOT NULL REFERENCES companies(company_id),
+            ticker VARCHAR NOT NULL,
+            version INTEGER NOT NULL CHECK (version >= 1),
+            payload JSON NOT NULL,
+            supersedes_entry_plan_id VARCHAR REFERENCES decision_entry_plans(entry_plan_id),
+            created_at TIMESTAMP NOT NULL,
+            UNIQUE (plan_key, version)
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS decision_entry_plan_company_index ON decision_entry_plans(company_id, created_at)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS decision_journal (
+            decision_id VARCHAR PRIMARY KEY,
+            company_id VARCHAR NOT NULL REFERENCES companies(company_id),
+            ticker VARCHAR NOT NULL,
+            decision_type VARCHAR NOT NULL,
+            state VARCHAR NOT NULL,
+            review_status VARCHAR NOT NULL CHECK (review_status IN ('reviewed', 'unreviewed')),
+            payload JSON NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP NOT NULL
+        )
+    """)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS decision_journal_filter_index ON decision_journal(ticker, state, decision_type, updated_at)"
+    )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS decision_journal_revisions (
+            revision_id VARCHAR PRIMARY KEY,
+            decision_id VARCHAR NOT NULL,
+            revision INTEGER NOT NULL CHECK (revision >= 1),
+            payload JSON NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            UNIQUE (decision_id, revision)
+        )
+    """)
+
+
 def record_schema_version(connection: duckdb.DuckDBPyConnection) -> None:
     apply_company_identity_schema(connection)
     apply_financial_fact_schema(connection)
@@ -612,6 +785,8 @@ def record_schema_version(connection: duckdb.DuckDBPyConnection) -> None:
     apply_guidance_schema(connection)
     apply_intelligence_collection_schema(connection)
     apply_universe_schema(connection)
+    apply_portfolio_context_schema(connection)
+    apply_decision_center_schema(connection)
     connection.execute("""
         CREATE TABLE IF NOT EXISTS schema_migrations (
             version INTEGER PRIMARY KEY,

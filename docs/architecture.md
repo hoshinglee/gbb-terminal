@@ -2,17 +2,19 @@
 
 ## Business boundary
 
-GBB Terminal is an educational research workbench, not an execution system, broker, adviser, or source of guaranteed returns. Stock Strategy Lab and Option Lab are independent domain products that share market data, storage, settings, and observability.
+GBB Terminal is an educational research workbench, not an execution system, broker, adviser, or source of guaranteed returns. Stock Strategy Lab and Option Lab are independent domain products that share market data, storage, settings, and observability. Decision Center connects company evidence to user-owned portfolio decisions without moving company scope into reusable strategy definitions.
 
 ## Runtime layout
 
-- `app/web/`: Vite, React, TypeScript, shadcn/ui source for all four research canvases.
+- `app/web/`: Vite, React, TypeScript, shadcn/ui source for all five research canvases.
 - `app/static/react/`: ignored production build output served by FastAPI when present.
 - `app/index.html` and `app/static/*.js`: retained vanilla migration fallback; primary navigation no longer depends on it.
 - `src/gbb_terminal/api/`: FastAPI application, schemas, and route groups.
 - `src/gbb_terminal/strategy/`: strategy contracts, templates, safe factory, and indicators.
 - `src/gbb_terminal/backtesting/`: signal execution, costs, metrics, parameter search, and portfolio ranking. Option-specific scenario paths remain under `options/`.
 - `src/gbb_terminal/options/`: option contracts, deterministic planner selection, American pricing, scenario simulation, strategy templates, and lifecycle transitions.
+- `src/gbb_terminal/portfolio/`: local capital context, manual holdings, immutable risk-policy versions, and policy snapshots.
+- `src/gbb_terminal/decision_center/`: versioned theses and entry plans, position intent, instrument-fit/stress arithmetic, and decision journal snapshots.
 - `src/gbb_terminal/intelligence/`: canonical company identity, financial/earnings analysis, versioned evidence documents and spans, and source-backed business intelligence.
 - `src/gbb_terminal/market_data/`: provider-neutral service and public provider adapters.
 - `src/gbb_terminal/universe/`: current research-universe snapshots, resilient bulk preparation, and sector constituent reads.
@@ -25,6 +27,10 @@ GBB Terminal is an educational research workbench, not an execution system, brok
 
 The root route selects `app/static/react/index.html` only when a production frontend build exists. `/legacy` always serves `app/index.html`. Both paths share the same FastAPI contracts and DuckDB records, so React migration does not fork domain behavior or persistence.
 
+Personal portfolio context is an optional global domain, not a prerequisite for a laboratory. `PortfolioService` owns capital, manual holdings, company-identity resolution, policy versioning, and snapshots. The compact app-shell sheet reads and writes this domain without injecting portfolio assumptions into strategy definitions, research designs, or option lifecycle state. Manual holdings remain available during market-data outages because their quantities, basis, and optional market value are user-authored records rather than derived quote caches. See [Personal Portfolio Context And Risk Policy](portfolio-risk-policy.md).
+
+Decision Center is a company-scoped orchestration domain. `DecisionCenterService` resolves canonical company identity and joins user-owned thesis versions, portfolio context, risk-policy versions, validated Option Lab structures, entry plans, stress results, and journal snapshots. `DecisionCenterEngine` owns arithmetic and policy statuses; the route may fetch a current quote or option chain but does not calculate fit. Strategy rules, Option Lab paper accounting, and Company Intelligence evidence remain their own systems of record. See [Decision Center](decision-center.md).
+
 ## Request flow
 
 1. A route validates a Pydantic request.
@@ -33,6 +39,8 @@ The root route selects `app/static/react/index.html` only when a production fron
 4. A domain service calculates signals, research evidence, or an option state transition.
 5. Immutable research or ledger records are persisted.
 6. The API returns data plus assumptions and provenance for browser rendering.
+
+Decision journal creation is a specialized immutable flow: the service copies the selected current thesis, risk policy, position intent, expression, and entry plan into a stable record. Subsequent edits append journal revisions and never mutate the earlier component snapshots. Process quality and later outcome remain separate fields.
 
 The React Strategy Lab keeps one reducer-backed research workspace. Natural-language, template, and catalogue selections are mutually exclusive, preventing stale template parameters from surviving a selection change. Its Current Signal panel renders the final target/executed state, causal indicator values, and latest transition returned by the same Python signal and next-open execution frame as the historical run; there is no browser signal calculator. The React Option Lab keeps planner inputs/comparison/scenario, detailed position draft, chain snapshot, immutable simulation, and persisted ledger state separate. A candidate embeds the existing validated simulation request, and the server alone prices the primary future price/date scenario. Editing a draft cannot silently mutate an earlier comparison, simulation, or journal state. Market Pulse accepts partial rows so one public-symbol outage cannot erase every available sector or macro observation, and its separate universe job prepares current constituent research without converting membership into historical backtest evidence. Company Intelligence is the canonical individual-stock canvas and composes ticker-based quote/OHLCV evidence with company-based identity, annual/quarterly/TTM metrics, valuation, earnings, relationships, operations, guidance, and source health through separate typed states and `Promise.allSettled`. One unavailable dataset therefore does not erase successful evidence. Lightweight Charts owns event and valuation series; accessible SVG owns numeric option scenarios, constituent treemaps, and the one-hop network; shadcn/ui owns interaction components, progressive disclosure, and evidence navigation.
 

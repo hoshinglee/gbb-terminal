@@ -8,7 +8,9 @@ GBB Terminal is a free, open-source research and simulation workbench for hobbyi
 - **Option Lab:** outlook-led structure comparison, server-priced future price/date scenarios, current Yahoo chain snapshots, American-option pricing, Greeks, price/time P&L surfaces, core single- and multi-leg positions, and an optional auditable paper lifecycle ledger.
 - **Market Pulse:** sector performance, relative strength, macro market proxies, provider-health context, and selectable current S&P 500 constituent research with market-cap treemaps and daily movers.
 - **Company Intelligence:** the canonical stock-research experience with current quote context, a browser-local watchlist, complete annual/quarterly/TTM history, historical valuation regimes, event-focused candlesticks, source-backed earnings and business evidence, and cancellable SEC filing ingestion.
-- **Local persistence:** DuckDB caches requested public data, company identities, strategies, research runs, option snapshots, paper positions, and lifecycle events.
+- **Portfolio & Risk:** optional local investable capital, liquid cash, manual holdings, reusable explicit risk limits, immutable policy versions, and attachable snapshots without brokerage connectivity.
+- **Decision Center:** company thesis versions, source-linked evidence, desired exposure, shares/options fit comparison, staged entries, server-priced stress gates, immutable decision snapshots, and process review separated from later outcomes.
+- **Local persistence:** DuckDB caches requested public data, company identities, strategies, research runs, option snapshots, paper positions, lifecycle events, personal portfolio context, and decision history.
 
 ## Run locally
 
@@ -24,7 +26,7 @@ cd ../..
 uvicorn gbb_terminal.api.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000` for Strategy Lab, then use the shared navigation for Option Lab, Market Pulse, and Company Intelligence. Direct routes are `/?lab=options`, `/?lab=market`, and `/?lab=intelligence`; `ticker=NVDA` carries a symbol among company, strategy, and option workflows. Old `/?lab=stock&ticker=...` links preserve the ticker and canonicalize to Company Intelligence. FastAPI serves the built React research application when `app/static/react/index.html` exists and otherwise falls back to the vanilla application. The migration fallback remains available at `http://127.0.0.1:8000/legacy`. Python commands work from any directory after editable installation because frontend, database, and log paths resolve through `gbb_terminal.settings`.
+Open `http://127.0.0.1:8000` for Strategy Lab, then use the shared navigation for Option Lab, Market Pulse, Company Intelligence, and Decision Center. Direct routes are `/?lab=options`, `/?lab=market`, `/?lab=intelligence`, and `/?lab=decision`; `ticker=NVDA` carries a symbol among company, decision, strategy, and option workflows. Old `/?lab=stock&ticker=...` links preserve the ticker and canonicalize to Company Intelligence. FastAPI serves the built React research application when `app/static/react/index.html` exists and otherwise falls back to the vanilla application. The migration fallback remains available at `http://127.0.0.1:8000/legacy`. Python commands work from any directory after editable installation because frontend, database, and log paths resolve through `gbb_terminal.settings`.
 
 For frontend development, run `npm run dev` from `app/web`; Vite proxies `/api` requests to FastAPI on port 8000. Generated assets under `app/static/react/` are intentionally ignored and must be built in release or deployment workflows.
 
