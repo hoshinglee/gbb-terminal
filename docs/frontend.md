@@ -8,11 +8,11 @@ Fallback sources: `app/index.html`, `app/static/app.js`, `app/static/market-char
 
 GBB Terminal migrated one complete product slice at a time instead of rewriting every panel at once.
 
-- A production Vite build under `app/static/react/` serves Strategy Lab, Option Lab, Market Pulse, and Company Intelligence.
+- A production Vite build under `app/static/react/` serves Strategy Lab, Option Lab, Market Pulse, Company Intelligence, and Decision Center.
 - If that build is absent, FastAPI serves the vanilla application at `/`.
-- `/` opens Strategy Lab; `/?lab=options`, `/?lab=market`, and `/?lab=intelligence` open the other canvases without a second frontend bundle or client router.
+- `/` opens Strategy Lab; `/?lab=options`, `/?lab=market`, `/?lab=intelligence`, and `/?lab=decision` open the other canvases without a second frontend bundle or client router.
 - Every laboratory is lazy-loaded as a separate release chunk so opening one canvas does not download every domain workspace.
-- A validated `ticker` query parameter carries a symbol among Strategy Lab, Option Lab, and Company Intelligence without copying domain configuration. Legacy `lab=stock` URLs canonicalize to Company Intelligence with the ticker intact.
+- A validated `ticker` query parameter carries a symbol among Strategy Lab, Option Lab, Company Intelligence, and Decision Center without copying domain configuration. Legacy `lab=stock` URLs canonicalize to Company Intelligence with the ticker intact.
 - `/legacy` always serves the vanilla interface as an explicit migration fallback, but primary navigation no longer routes through it.
 - The legacy sidebar includes **Return To Research Canvas**, so users never need to edit the browser URL manually.
 - Both interfaces call the same FastAPI endpoints and use the same DuckDB database.
@@ -111,6 +111,20 @@ Release 0.8 adds the company-business canvas at `/?lab=intelligence`; Release 0.
 
 The event chart supports pointer inspection and Left/Right/Home/End keyboard navigation. Network nodes support focused company navigation, unresolved-node inspection, direction/type/confidence filters, and internally scrollable narrow layouts without causing page-level overflow. Before-open and after-close alignment comes from the backend's trading-session model rather than browser date arithmetic. The canvas repeatedly states that historical reactions are descriptive and do not predict the next event.
 
+## React Decision Center
+
+Release 0.11 adds a company-scoped decision canvas at `/?lab=decision&ticker=NVDA`:
+
+1. A persistent decision chain shows Thesis, Risk, Expression, Entry, and Journal completion without pretending every stage is mandatory.
+2. Thesis editing keeps sourced exact excerpts separate from user interpretation and never auto-promotes status.
+3. Desired target and maximum exposure are saved before instrument comparison. Optional amount overrides and manual price remain progressively disclosed.
+4. Instrument cards compare direct shares and eligible Option Lab structures against the same objective and risk policy. Policy statuses include inspectable arithmetic and never claim an optimum.
+5. Entry planning uses editable tranches, execution modes, escape behavior, preferred/maximum prices, and a visible unallocated reserve.
+6. Stress results use server-side share/option pricing and report position P&L, portfolio impact, concentration, cash, assignment, collateral, and policy gates.
+7. Journal creation freezes current decision context. Filtering, reopening, revision history, process review, and later outcome preserve a complete local audit trail.
+
+The canvas remains usable when portfolio context, policy, Company Intelligence modules, option chains, or later outcomes are absent. Missing context is shown as Incomplete rather than inferred. Company Intelligence provides a direct Decision Center link for the active canonical company.
+
 ## Financial Charts
 
 TradingView Lightweight Charts renders:
@@ -144,7 +158,7 @@ npm run test:run
 npm run build
 ```
 
-Component tests cover mutually exclusive strategy selection, the stale-parameter regression, trailing-stop configuration, Darvas/Fibonacci overlays, option recipe replacement, lifecycle rediscovery, local watchlists, sector breadth, Company Intelligence period independence, event selection, business-network navigation, unresolved counterparties, source dialogs, operating evidence, guidance history, and non-predictive language. Python browser-contract tests verify all four React canvases, legacy-stock canonicalization, evidence tabs, chart markers, lifecycle actions, V3 intelligence views, direct routes, return navigation, and fallback assets.
+Component tests cover mutually exclusive strategy selection, the stale-parameter regression, trailing-stop configuration, Darvas/Fibonacci overlays, option recipe replacement, lifecycle rediscovery, local watchlists, sector breadth, Company Intelligence period independence, event selection, business-network navigation, unresolved counterparties, source dialogs, operating evidence, guidance history, Decision Center incomplete-context behavior and thesis saves, and non-predictive language. Python browser-contract tests verify React canvases, legacy-stock canonicalization, evidence tabs, chart markers, lifecycle actions, V3 intelligence views, direct routes, return navigation, and fallback assets.
 
 The shell includes skip navigation, labelled desktop/mobile navigation, explicit research-control labels, table captions, visible chart focus rings, and reduced-motion CSS. Smooth evidence scrolling becomes immediate when the operating system requests reduced motion.
 

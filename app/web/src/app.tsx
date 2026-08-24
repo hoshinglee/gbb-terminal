@@ -10,6 +10,7 @@ const MarketPulse = lazy(() => import("@/features/market-pulse/market-pulse").th
 const OptionLab = lazy(() => import("@/features/option-lab/option-lab").then((module) => ({ default: module.OptionLab })))
 const StrategyLab = lazy(() => import("@/features/strategy-lab/strategy-lab").then((module) => ({ default: module.StrategyLab })))
 const CompanyIntelligence = lazy(() => import("@/features/company-intelligence/company-intelligence").then((module) => ({ default: module.CompanyIntelligence })))
+const DecisionCenter = lazy(() => import("@/features/decision-center/decision-center").then((module) => ({ default: module.DecisionCenter })))
 
 export function App() {
   const activeLab = labFromSearch(window.location.search)
@@ -20,6 +21,8 @@ export function App() {
   }, [])
   const canvas = activeLab === "intelligence"
     ? <CompanyIntelligence initialTicker={initialTicker} />
+    : activeLab === "decision"
+    ? <DecisionCenter initialTicker={initialTicker} />
     : activeLab === "options"
     ? <OptionLab initialTicker={initialTicker} />
     : activeLab === "market"

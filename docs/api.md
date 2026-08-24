@@ -67,6 +67,42 @@ V3 does not extend `/api/v2/stocks/{ticker}` with fundamentals. V2 remains the c
 
 `results.currentSignal` is calculated from the same close-observed target series and one-session-lag execution frame as the backtest. It includes `targetState`, `executedState`, `observationDate`, `pendingAtNextOpen`, rule values, execution timing, and `latestTransition`. React treats the field as read-only. Older persisted runs may omit it and remain backward compatible.
 
+## V2 portfolio and risk-policy endpoints
+
+| Endpoint | Definition |
+| --- | --- |
+| `GET /api/v2/portfolio-context` | Return the optional local capital context, all manual holdings, and the current reusable risk policy. An unconfigured installation returns nullable context/policy and an empty positions list. |
+| `PUT /api/v2/portfolio-context` | Create or update investable value and liquid cash for the local personal context. Liquid cash cannot exceed investable value. |
+| `POST /api/v2/portfolio-context/positions` | Create a manual holding and resolve its normalized ticker to a stable company identity when the local registry permits. |
+| `PUT /api/v2/portfolio-context/positions/{position_id}` | Update a manual holding without depending on a current market price. |
+| `DELETE /api/v2/portfolio-context/positions/{position_id}` | Delete one manual holding. |
+| `GET /api/v2/risk-policy` | Return the latest immutable version of the reusable personal risk policy, or `null` before configuration. |
+| `PUT /api/v2/risk-policy` | Validate explicit portfolio limits and append the next immutable policy version. |
+| `POST /api/v2/risk-policy/snapshots` | Freeze the current complete policy payload for attachment to a future research or decision record. |
+| `GET /api/v2/risk-policy/snapshots/{snapshot_id}` | Return one exact historical policy snapshot. |
+
+Portfolio position quantities and optional manual market values are signed so manually maintained long and short holdings remain representable. Price-provider availability never controls persistence of this user-authored context. Policy snapshots are stable even after later policy versions are saved. See [Personal Portfolio Context And Risk Policy](portfolio-risk-policy.md).
+
+## V2 Decision Center endpoints
+
+| Endpoint | Definition |
+| --- | --- |
+| `GET /api/v2/decision-center/companies/{ticker}` | Return the company workspace with current thesis, intent, entry plans, decisions, and risk policy. |
+| `GET/PUT /api/v2/decision-center/companies/{ticker}/thesis` | Read or append a user-owned, source-linked thesis version. |
+| `POST /api/v2/decision-center/companies/{ticker}/thesis/snapshots` | Freeze the current complete thesis payload. |
+| `GET /api/v2/decision-center/thesis-snapshots/{id}` | Read one exact historical thesis snapshot. |
+| `GET/PUT /api/v2/decision-center/companies/{ticker}/position-intent` | Read or append target/maximum company exposure before instrument choice. |
+| `POST /api/v2/decision-center/companies/{ticker}/fit-analysis` | Evaluate one validated expression against the current position intent and policy. |
+| `POST /api/v2/decision-center/companies/{ticker}/expressions` | Compare direct shares and eligible current Option Lab candidates for one objective. |
+| `GET/POST /api/v2/decision-center/companies/{ticker}/entry-plans` | List or append a staged entry-plan version. |
+| `PUT /api/v2/decision-center/companies/{ticker}/entry-plans/{id}` | Supersede one entry plan with another immutable version. |
+| `POST /api/v2/decision-center/companies/{ticker}/stress-tests?position_intent_id=...` | Server-price share or option stress scenarios and recalculate policy gates. |
+| `GET/POST /api/v2/decision-center/journal` | Filter journal records or create a frozen decision snapshot. |
+| `GET/PUT /api/v2/decision-center/journal/{id}` | Read or append a current decision revision. |
+| `GET /api/v2/decision-center/journal/{id}/revisions` | Return complete append-only revision history. |
+
+Expression comparison remains useful if current options are unavailable: direct shares are returned with a visible option-provider warning. Missing portfolio or policy context returns Incomplete checks, never implicit limits. Journal filters support ticker, state, decision type, date range, and reviewed/unreviewed status. See [Decision Center](decision-center.md).
+
 ## V2 observability endpoints
 
 | Endpoint | Definition |

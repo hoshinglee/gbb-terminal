@@ -2,6 +2,15 @@ import type {
   BacktestResult,
   CatalogueStrategy,
   DataStatus,
+  DecisionCenterWorkspace,
+  DecisionJournalRecord,
+  DecisionObjective,
+  DecisionState,
+  DecisionType,
+  EntryPlan,
+  EntryPlanInput,
+  ExpressionComparison,
+  InstrumentExpression,
   LegacyProposal,
   MarketOverviewResponse,
   OptionChainResponse,
@@ -20,12 +29,28 @@ import type {
   OptionScenarioResult,
   ParameterSearchResponse,
   ParameterValue,
+  LaterOutcome,
+  PortfolioBundle,
+  PortfolioContextInput,
+  PortfolioContextRecord,
+  PortfolioPosition,
+  PortfolioPositionInput,
+  PositionIntent,
+  PositionIntentInput,
   PricePoint,
+  ProcessReview,
   ResearchDesign,
   ResearchRunResponse,
+  RiskPolicy,
+  RiskPolicyInput,
+  RiskPolicySnapshot,
+  StressScenarioInput,
+  StressTestResult,
   StockOverviewResponse,
   StrategyInstance,
   StrategyTemplate,
+  ThesisCard,
+  ThesisCardInput,
   ValidationDesign,
   CompanyMetricsResponse,
   CompanyOverview,
@@ -79,6 +104,155 @@ export function loadStockOverview(ticker: string, period: string) {
 
 export function loadMarketOverview() {
   return request<MarketOverviewResponse>("/api/v2/market-overview")
+}
+
+export function loadPortfolioContext() {
+  return request<PortfolioBundle>("/api/v2/portfolio-context")
+}
+
+export function savePortfolioContext(context: PortfolioContextInput) {
+  return request<PortfolioContextRecord>("/api/v2/portfolio-context", {
+    method: "PUT",
+    body: JSON.stringify(context),
+  })
+}
+
+export function createPortfolioPosition(position: PortfolioPositionInput) {
+  return request<PortfolioPosition>("/api/v2/portfolio-context/positions", {
+    method: "POST",
+    body: JSON.stringify(position),
+  })
+}
+
+export function updatePortfolioPosition(positionId: string, position: PortfolioPositionInput) {
+  return request<PortfolioPosition>(`/api/v2/portfolio-context/positions/${encodeURIComponent(positionId)}`, {
+    method: "PUT",
+    body: JSON.stringify(position),
+  })
+}
+
+export function deletePortfolioPosition(positionId: string) {
+  return request<{ deleted: string }>(`/api/v2/portfolio-context/positions/${encodeURIComponent(positionId)}`, {
+    method: "DELETE",
+  })
+}
+
+export function saveRiskPolicy(policy: RiskPolicyInput) {
+  return request<RiskPolicy>("/api/v2/risk-policy", {
+    method: "PUT",
+    body: JSON.stringify(policy),
+  })
+}
+
+export function snapshotRiskPolicy() {
+  return request<RiskPolicySnapshot>("/api/v2/risk-policy/snapshots", { method: "POST" })
+}
+
+export function loadDecisionCenter(ticker: string) {
+  return request<DecisionCenterWorkspace>(
+    `/api/v2/decision-center/companies/${encodeURIComponent(ticker.trim().toUpperCase())}`,
+  )
+}
+
+export function saveThesisCard(ticker: string, thesis: ThesisCardInput) {
+  return request<ThesisCard>(
+    `/api/v2/decision-center/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/thesis`,
+    { method: "PUT", body: JSON.stringify(thesis) },
+  )
+}
+
+export function savePositionIntent(ticker: string, intent: PositionIntentInput) {
+  return request<PositionIntent>(
+    `/api/v2/decision-center/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/position-intent`,
+    { method: "PUT", body: JSON.stringify(intent) },
+  )
+}
+
+export function compareDecisionExpressions(
+  ticker: string,
+  input: {
+    position_intent_id: string
+    objective: DecisionObjective
+    target_date: string
+    target_price: number | null
+    share_price: number | null
+  },
+) {
+  return request<ExpressionComparison>(
+    `/api/v2/decision-center/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/expressions`,
+    { method: "POST", body: JSON.stringify(input) },
+  )
+}
+
+export function saveEntryPlan(ticker: string, plan: EntryPlanInput, entryPlanId?: string) {
+  const base = `/api/v2/decision-center/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/entry-plans`
+  return request<EntryPlan>(entryPlanId ? `${base}/${encodeURIComponent(entryPlanId)}` : base, {
+    method: entryPlanId ? "PUT" : "POST",
+    body: JSON.stringify(plan),
+  })
+}
+
+export function runDecisionStressTest(
+  ticker: string,
+  positionIntentId: string,
+  expression: InstrumentExpression,
+  scenarios: StressScenarioInput[],
+) {
+  const parameters = new URLSearchParams({ position_intent_id: positionIntentId })
+  return request<StressTestResult>(
+    `/api/v2/decision-center/companies/${encodeURIComponent(ticker.trim().toUpperCase())}/stress-tests?${parameters}`,
+    { method: "POST", body: JSON.stringify({ expression, scenarios }) },
+  )
+}
+
+export function createDecisionRecord(input: {
+  ticker: string
+  decision_type: DecisionType
+  state: DecisionState
+  thesis_id: string | null
+  position_intent_id: string | null
+  expression: InstrumentExpression | null
+  entry_plan_id: string | null
+  rationale: string
+  option_position_id: string | null
+  actual_execution: Record<string, unknown>
+}) {
+  return request<DecisionJournalRecord>("/api/v2/decision-center/journal", {
+    method: "POST",
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateDecisionRecord(
+  decisionId: string,
+  input: {
+    state: DecisionState
+    rationale: string
+    actual_execution: Record<string, unknown>
+    process_review: ProcessReview
+    later_outcome: LaterOutcome | null
+  },
+) {
+  return request<DecisionJournalRecord>(
+    `/api/v2/decision-center/journal/${encodeURIComponent(decisionId)}`,
+    { method: "PUT", body: JSON.stringify(input) },
+  )
+}
+
+export function loadDecisionRecords(filters: {
+  ticker?: string
+  state?: DecisionState
+  decision_type?: DecisionType
+  start_date?: string
+  end_date?: string
+  review_status?: "reviewed" | "unreviewed"
+} = {}) {
+  const parameters = new URLSearchParams()
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) parameters.set(key, value)
+  })
+  const query = parameters.toString()
+  return request<DecisionJournalRecord[]>(`/api/v2/decision-center/journal${query ? `?${query}` : ""}`)
 }
 
 export function saveStrategy(strategy: StrategyInstance, originalInstruction = "") {

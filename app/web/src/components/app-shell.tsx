@@ -1,7 +1,8 @@
 import type { ReactNode } from "react"
-import { BarChart3, Building2, FlaskConical, Gauge, Orbit } from "lucide-react"
+import { BarChart3, Building2, FlaskConical, Gauge, NotebookTabs, Orbit } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
+import { PortfolioRiskSheet } from "@/features/portfolio/portfolio-risk-sheet"
 import type { LabId } from "@/lib/navigation"
 import { cn } from "@/lib/utils"
 
@@ -10,6 +11,7 @@ const navigation = [
   { id: "options", label: "Option Lab", icon: Orbit, href: "/?lab=options" },
   { id: "market", label: "Market Pulse", icon: Gauge, href: "/?lab=market" },
   { id: "intelligence", label: "Company Intelligence", icon: Building2, href: "/?lab=intelligence" },
+  { id: "decision", label: "Decision Center", icon: NotebookTabs, href: "/?lab=decision" },
 ] as const
 
 const mainIds: Record<LabId, string> = {
@@ -17,6 +19,7 @@ const mainIds: Record<LabId, string> = {
   options: "option-main",
   market: "market-main",
   intelligence: "intelligence-main",
+  decision: "decision-main",
 }
 
 export function AppShell({ children, activeLab = "strategy" }: { children: ReactNode; activeLab?: LabId }) {
@@ -36,12 +39,13 @@ export function AppShell({ children, activeLab = "strategy" }: { children: React
         <div className="mt-auto space-y-3 rounded-lg border bg-card/70 p-3">
           <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]" /><span className="font-mono text-[9px] text-primary">LOCAL · READY</span></div>
           <p className="m-0 text-xs leading-5 text-muted-foreground">Educational US equity and options research. No brokerage execution.</p>
+          <PortfolioRiskSheet />
           <a href="/legacy" className="block text-[10px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Open Migration Fallback</a>
-          <Badge variant="outline" className="font-mono text-[9px]">v0.10 personal research</Badge>
+          <Badge variant="outline" className="font-mono text-[9px]">v0.11 decision context</Badge>
         </div>
       </aside>
       <header className="border-b bg-background/95 px-3 py-3 lg:hidden">
-        <div className="flex items-center justify-between px-1"><span className="font-semibold tracking-[0.15em]">GBB TERMINAL</span><Badge variant="outline">{labName}</Badge></div>
+        <div className="flex items-center justify-between gap-3 px-1"><span className="font-semibold tracking-[0.15em]">GBB TERMINAL</span><div className="flex items-center gap-2"><Badge variant="outline">{labName}</Badge><PortfolioRiskSheet compact /></div></div>
         <nav aria-label="Mobile research laboratories" className="mt-3 flex gap-1 overflow-x-auto pb-1">
           {navigation.map((item) => { const active = item.id === activeLab; return <a key={item.label} href={item.href} aria-current={active ? "page" : undefined} className={cn("shrink-0 rounded-md px-3 py-2 text-xs text-muted-foreground", active ? "bg-primary/10 text-primary" : "bg-muted/40 hover:text-foreground")}><item.icon aria-hidden="true" className="mr-1.5 inline size-3" />{item.label}</a> })}
         </nav>

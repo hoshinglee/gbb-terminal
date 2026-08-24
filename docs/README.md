@@ -26,11 +26,13 @@ GBB Terminal is a local-first US equity research and option lifecycle applicatio
 | Backtesting | Execution assumptions, metrics, benchmarks, search, and portfolios | [Backtesting](backtesting.md) |
 | Indicators | Approved price, trend, volatility, volume, breakout, and relative functions | [Indicators](indicators.md) |
 | Option Lab | Position construction, American pricing, scenarios, and lifecycle accounting | [Option Lab](option-lab.md) |
+| Portfolio and risk policy | Local capital, manual holdings, explicit limits, policy versions, and snapshots | [Portfolio And Risk Policy](portfolio-risk-policy.md) |
+| Decision Center | Company thesis, desired exposure, instrument fit, staged entry, stress gates, and process journal | [Decision Center](decision-center.md) |
 | Public providers | Yahoo, SEC, FINRA, FRED, OCC, timestamps, and fallback rules | [Providers](providers.md) |
 | Storage | DuckDB tables, migrations, caches, and ledgers | [Storage](storage.md) |
 | LLM translator | Natural language to validated strategy data | [LLM translator](llm-translator.md) |
 | Observability | Structured events and rotating local logs | [Logging](logging.md) |
-| Browser | Four React research canvases, canonical Company Intelligence stock research, shadcn/ui interactions, financial charts, direct ticker navigation, and vanilla migration fallback | [Frontend](frontend.md) |
+| Browser | Five React research canvases, canonical Company Intelligence stock research, shadcn/ui interactions, financial charts, direct ticker navigation, and vanilla migration fallback | [Frontend](frontend.md) |
 | Market replay | Candles, interval aggregation, overlays, volume, RSI, and MACD | [Market Replay](market-replay.md) |
 | Strategy Lab UX | Implemented research-canvas interaction model and remaining panel migration | [Strategy Lab UX](strategy-lab-ux.md) |
 | Release readiness | Completed research gates and deferred launch-stability checks | [Release Checklist](release-checklist.md) |

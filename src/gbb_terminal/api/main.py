@@ -21,6 +21,8 @@ from .routes.backtests import create_backtest_router
 from .routes.market import create_market_router
 from .routes.intelligence import create_intelligence_router
 from .routes.options import create_option_router
+from .routes.portfolio import create_portfolio_router
+from .routes.decision_center import create_decision_center_router
 from .routes.stocks import create_stock_router
 from .routes.strategies import create_strategy_router
 from .routes.universes import create_universe_router
@@ -86,6 +88,8 @@ app.include_router(create_stock_router(data))
 app.include_router(create_market_router(data))
 app.include_router(create_intelligence_router(services.company_intelligence, store))
 app.include_router(create_universe_router(services.universe_research, store))
+app.include_router(create_portfolio_router(services.portfolio_context))
+app.include_router(create_decision_center_router(services.decision_center, data))
 
 
 @app.middleware("http")

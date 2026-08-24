@@ -36,6 +36,16 @@ Price-history writes merge observations by `(symbol, price_date)` instead of del
 | `operating_metric_observations` | Point-in-time issuer operating values with fiscal period, unit, extraction method, and evidence. |
 | `guidance_statements` | Immutable exact guidance/commitment wording, normalized value semantics, applicable period, and revision links. |
 | `guidance_evaluations` | Append-only delivered/missed/withdrawn/superseded outcomes with method and source-fact lineage. |
+| `portfolio_contexts` | Local investable value, liquid cash, USD base currency, and future-compatible nullable owner identity. |
+| `portfolio_positions` | Manual signed holdings, cost basis, optional manual market value, notes, and optional stable company identity. |
+| `risk_policies` | Immutable versioned personal position, assignment, collateral, cash-reserve, and stress-loss limits. |
+| `risk_policy_snapshots` | Stable complete policy payloads attachable to future research and decision records. |
+| `decision_theses` | Immutable company-scoped thesis versions with user-owned status and resolved source evidence. |
+| `decision_thesis_snapshots` | Explicit stable thesis payloads that remain unchanged after later thesis edits. |
+| `decision_position_intents` | Versioned target/maximum company exposure plus derived current portfolio context. |
+| `decision_entry_plans` | Versioned instrument expression, execution mode, escape rule, staged tranches, and allocation reserve. |
+| `decision_journal` | Current complete decision record with frozen thesis, policy, intent, expression, and entry-plan snapshots. |
+| `decision_journal_revisions` | Append-only complete historical revisions saved before each journal update. |
 | `strategy_catalogue` | Canonical JSON/legacy YAML, family, template version, and hidden semantic key. |
 | `backtest_runs`, `backtest_trades` | Legacy run summaries and closed trade records. |
 | `research_runs` | Immutable Strategy V2, data snapshot, validation, tested settings, and results. |
@@ -68,6 +78,10 @@ Schema version 14 adds raw evidence content plus Company Intelligence refresh ru
 Schema version 15 adds versioned research-universe snapshots, snapshot membership, resilient bulk-run diagnostics, and the local company-research cache. Cache coverage is read against the active snapshot; removed constituents do not inflate current counts, while their existing company and research history remains intact. Current membership is never written into historical research-run universe identity.
 
 Schema version 16 removes relationship observations produced by the superseded `deterministic_relationship_rules_v2` list grammar, which could classify product categories as counterparties. It removes only those deterministic observations and orphaned edges; source documents, evidence spans, human overrides, and unrelated relationship versions remain intact. The stricter v3 extractor accepts an unambiguous registered company or a disclosed legal-entity name before creating a list-derived edge.
+
+Schema version 17 adds the personal portfolio context, manual positions, immutable risk-policy versions, and policy snapshots. The migration is append-safe and does not rewrite existing research or market data. Manual position persistence does not depend on price-provider availability. A resolved holding stores the stable Company Intelligence `company_id`; an unresolved holding retains its normalized ticker and can be reconciled later without losing user-entered quantities, basis, value, or notes.
+
+Schema version 18 adds Decision Center thesis versions/snapshots, position intents, entry plans, current journal records, and append-only journal revisions. Payloads are validated through typed domain models on write and read. Decision records copy historical component payloads rather than foreign-keying only to mutable current rows, so later thesis, policy, intent, or plan versions cannot rewrite an earlier decision. The option paper ledger remains separate and may be referenced only by its optional position ID.
 
 SEC financial facts are inserted and acceptance metadata is enriched through set-based DuckDB operations. This keeps large public Company Facts payloads append-safe without accumulating one transaction version per row.
 

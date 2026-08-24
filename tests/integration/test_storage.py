@@ -47,9 +47,19 @@ def test_existing_database_migrates_without_losing_prices(tmp_path):
             "universe_constituents",
             "universe_refresh_runs",
             "universe_refresh_items",
-            "universe_company_cache",
-        } <= tables
-    assert store.connection.execute("SELECT max(version) FROM schema_migrations").fetchone()[0] == 16
+                "universe_company_cache",
+                "portfolio_contexts",
+                "portfolio_positions",
+                "risk_policies",
+                "risk_policy_snapshots",
+                "decision_theses",
+                "decision_thesis_snapshots",
+                "decision_position_intents",
+                "decision_entry_plans",
+                "decision_journal",
+                "decision_journal_revisions",
+            } <= tables
+    assert store.connection.execute("SELECT max(version) FROM schema_migrations").fetchone()[0] == 18
     research_columns = {row[1] for row in store.connection.execute("PRAGMA table_info('research_runs')").fetchall()}
     assert {"strategy_key", "reproducibility_key"} <= research_columns
     assert "option_simulation_runs" in tables
